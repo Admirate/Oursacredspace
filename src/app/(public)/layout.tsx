@@ -8,7 +8,7 @@ export default function PublicLayout({
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden">
       <Header />
-      <main className="flex-1 overflow-x-hidden">{children}</main>
+      <main className="flex-1 overflow-x-hidden pt-[88px]">{children}</main>
       <Footer />
     </div>
   );
