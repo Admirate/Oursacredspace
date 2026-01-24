@@ -1,0 +1,264 @@
+// ============================================
+// OSS BOOKING SYSTEM - PRISMA SCHEMA
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ ENUMS ============
+
+enum BookingType {
+  CLASS
+  EVENT
+  SPACE
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  PAYMENT_FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  CREATED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum SpaceRequestStatus {
+  REQUESTED
+  APPROVED_CALL_SCHEDULED
+  RESCHEDULE_REQUESTED
+  DECLINED
+  CONFIRMED
+  NOT_PROCEEDING
+  FOLLOW_UP_REQUIRED
+}
+
+enum CheckInStatus {
+  NOT_CHECKED_IN
+  CHECKED_IN
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  EMAIL
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+  PENDING
+}
+
+// ============ TABLES ============
+
+model Booking {
+  id              String        @id @default(uuid())
+  type            BookingType
+  status          BookingStatus @default(PENDING_PAYMENT)
+  
+  // Customer snapshot (denormalized for audit)
+  name            String
+  phone           String        // E.164 format (+91...)
+  email           String
+  
+  // Financial
+  amountPaise     Int
+  currency        String        @default("INR")
+  
+  // Relations (nullable based on type)
+  classSessionId  String?
+  classSession    ClassSession? @relation(fields: [classSessionId], references: [id])
+  
+  eventId         String?
+  event           Event?        @relation(fields: [eventId], references: [id])
+  
+  spaceRequestId  String?       @unique
+  spaceRequest    SpaceRequest? @relation(fields: [spaceRequestId], references: [id])
+  
+  // Related records
+  payments        Payment[]
+  eventPass       EventPass?
+  notifications   NotificationLog[]
+  statusHistory   StatusHistory[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([email])
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  bookingId         String
+  booking           Booking       @relation(fields: [bookingId], references: [id])
+  
+  provider          String        @default("RAZORPAY")
+  razorpayOrderId   String        @unique
+  razorpayPaymentId String?       @unique
+  
+  status            PaymentStatus @default(CREATED)
+  amountPaise       Int
+  currency          String        @default("INR")
+  
+  // Idempotency
+  webhookEventId    String?       @unique
+  
+  // Audit
+  rawPayload        Json?
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([razorpayOrderId])
+  @@index([status])
+}
+
+model ClassSession {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  startsAt    DateTime
+  duration    Int       @default(60) // minutes
+  capacity    Int
+  spotsBooked Int       @default(0)
+  pricePaise  Int
+  active      Boolean   @default(true)
+  
+  bookings    Booking[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([startsAt])
+  @@index([active])
+}
+
+model Event {
+  id          String      @id @default(uuid())
+  title       String
+  description String?
+  startsAt    DateTime
+  venue       String
+  pricePaise  Int
+  capacity    Int?
+  active      Boolean     @default(true)
+  
+  bookings    Booking[]
+  eventPasses EventPass[]
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([startsAt])
+  @@index([active])
+}
+
+model EventPass {
+  id            String        @id @default(uuid())
+  bookingId     String        @unique
+  booking       Booking       @relation(fields: [bookingId], references: [id])
+  
+  eventId       String
+  event         Event         @relation(fields: [eventId], references: [id])
+  
+  passId        String        @unique // OSS-EV-xxxxxxxx
+  qrImageUrl    String
+  
+  checkInStatus CheckInStatus @default(NOT_CHECKED_IN)
+  checkInTime   DateTime?
+  checkedInBy   String?       // Admin email who checked in
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([passId])
+  @@index([eventId])
+  @@index([checkInStatus])
+}
+
+model SpaceRequest {
+  id              String             @id @default(uuid())
+  
+  // Customer info
+  name            String
+  phone           String
+  email           String
+  
+  // Request details
+  preferredSlots  Json               // Array of preferred datetime slots
+  scheduledSlot   DateTime?
+  notes           String?
+  purpose         String?
+  
+  status          SpaceRequestStatus @default(REQUESTED)
+  adminNotes      String?
+  
+  booking         Booking?
+  
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model NotificationLog {
+  id                String             @id @default(uuid())
+  
+  bookingId         String?
+  booking           Booking?           @relation(fields: [bookingId], references: [id])
+  
+  channel           NotificationChannel
+  templateName      String
+  to                String             // Phone or email
+  
+  status            NotificationStatus @default(PENDING)
+  providerMessageId String?
+  error             String?
+  retryCount        Int                @default(0)
+  
+  createdAt         DateTime           @default(now())
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model StatusHistory {
+  id          String   @id @default(uuid())
+  
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  
+  fromStatus  String
+  toStatus    String
+  changedBy   String   // "SYSTEM" | admin email
+  reason      String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([bookingId])
+}
+
+model AdminSession {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}

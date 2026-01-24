@@ -1,0 +1,105 @@
+﻿# ===========================================
+# DEPENDENCIES
+# ===========================================
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+pnpm-lock.yaml
+
+# ===========================================
+# BUILD OUTPUT
+# ===========================================
+/.next/
+/out/
+/build
+/dist
+
+# ===========================================
+# TESTING
+# ===========================================
+/coverage
+*.lcov
+
+# ===========================================
+# ENVIRONMENT VARIABLES
+# Never commit these to version control!
+# ===========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# ===========================================
+# PLATFORM SPECIFIC
+# ===========================================
+# Vercel
+.vercel
+
+# Netlify
+.netlify
+
+# ===========================================
+# TYPESCRIPT
+# ===========================================
+*.tsbuildinfo
+next-env.d.ts
+
+# ===========================================
+# PRISMA
+# ===========================================
+/prisma/migrations/**/migration_lock.toml
+
+# ===========================================
+# IDE & EDITORS
+# ===========================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# ===========================================
+# OS GENERATED FILES
+# ===========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ===========================================
+# LOGS & DEBUG
+# ===========================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# ===========================================
+# MISC
+# ===========================================
+*.pem
+*.key
+*.cert
+*.p12
+.cache
+*.pid
+*.seed
+*.pid.lock
+
+# Lock files (keep package-lock.json, ignore others)
+deno.lock
+bun.lockb
+
+# Cursor AI
+.cursorignore
+.cursor/
