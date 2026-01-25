@@ -217,6 +217,7 @@ export default function VisitPage() {
               alt=""
               aria-hidden="true"
               fill
+              sizes="(max-width: 768px) 300px, 400px"
               className="object-contain opacity-10"
             />
           </div>
@@ -410,6 +411,7 @@ export default function VisitPage() {
               alt=""
               aria-hidden="true"
               fill
+              sizes="(max-width: 768px) 200px, 300px"
               className="object-contain opacity-20 animate-spin-slow"
             />
           </div>

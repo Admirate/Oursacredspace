@@ -615,7 +615,9 @@ export default function ClassesPage() {
             <Image
               src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
               alt=""
+              aria-hidden="true"
               fill
+              sizes="(max-width: 768px) 500px, 600px"
               className="object-contain opacity-20"
               aria-hidden="true"
             />
@@ -758,6 +760,7 @@ export default function ClassesPage() {
               alt=""
               aria-hidden="true"
               fill
+              sizes="(max-width: 768px) 200px, 300px"
               className="object-contain opacity-20 animate-spin-slow"
             />
           </div>
@@ -769,16 +772,20 @@ export default function ClassesPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Book {selectedClass?.title}</DialogTitle>
-            <DialogDescription>
-              {selectedClass && (
-                <>
-                  {formatDate(selectedClass.startsAt)} at {formatTime(selectedClass.startsAt)}
-                  <br />
-                  <span className="font-semibold text-primary">
-                    {formatPrice(selectedClass.pricePaise)}
-                  </span>
-                </>
-              )}
+            <DialogDescription asChild>
+              <div>
+                {selectedClass ? (
+                  <>
+                    {formatDate(selectedClass.startsAt)} at {formatTime(selectedClass.startsAt)}
+                    <br />
+                    <span className="font-semibold text-primary">
+                      {formatPrice(selectedClass.pricePaise)}
+                    </span>
+                  </>
+                ) : (
+                  <span>Loading class details...</span>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
 

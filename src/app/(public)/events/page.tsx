@@ -625,6 +625,7 @@ export default function EventsPage() {
                   alt=""
                   aria-hidden="true"
                   fill
+                  sizes="(max-width: 1280px) 250px, 300px"
                   className="object-contain opacity-20"
                 />
               </div>
@@ -728,9 +729,10 @@ export default function EventsPage() {
             <Image
               src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
               alt=""
-              fill
-              className="object-contain opacity-10"
               aria-hidden="true"
+              fill
+              sizes="(max-width: 768px) 500px, 600px"
+              className="object-contain opacity-10"
             />
           </div>
         </div>
@@ -871,6 +873,7 @@ export default function EventsPage() {
               alt=""
               aria-hidden="true"
               fill
+              sizes="(max-width: 768px) 200px, 300px"
               className="object-contain opacity-20 animate-spin-slow"
             />
           </div>
@@ -882,18 +885,22 @@ export default function EventsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Get Pass for {selectedEvent?.title}</DialogTitle>
-            <DialogDescription>
-              {selectedEvent && (
-                <>
-                  {formatDate(selectedEvent.startsAt)} at {formatTime(selectedEvent.startsAt)}
-                  <br />
-                  <span className="text-muted-foreground">{selectedEvent.venue}</span>
-                  <br />
-                  <span className="font-semibold text-primary">
-                    {formatPrice(selectedEvent.pricePaise)}
-                  </span>
-                </>
-              )}
+            <DialogDescription asChild>
+              <div>
+                {selectedEvent ? (
+                  <>
+                    {formatDate(selectedEvent.startsAt)} at {formatTime(selectedEvent.startsAt)}
+                    <br />
+                    <span className="text-muted-foreground">{selectedEvent.venue}</span>
+                    <br />
+                    <span className="font-semibold text-primary">
+                      {formatPrice(selectedEvent.pricePaise)}
+                    </span>
+                  </>
+                ) : (
+                  <span>Loading event details...</span>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
 

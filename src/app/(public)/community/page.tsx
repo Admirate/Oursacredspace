@@ -292,6 +292,7 @@ export default function CommunityPage() {
                   alt=""
                   aria-hidden="true"
                   fill
+                  sizes="(max-width: 1280px) 250px, 300px"
                   className="object-contain opacity-20"
                 />
               </div>
@@ -384,6 +385,7 @@ export default function CommunityPage() {
               alt=""
               aria-hidden="true"
               fill
+              sizes="(max-width: 768px) 200px, 300px"
               className="object-contain opacity-20 animate-spin-slow"
             />
           </div>
