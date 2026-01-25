@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -13,6 +13,7 @@ import {
   X,
   LogOut,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -87,10 +88,57 @@ export default function AdminLayout({
   const router = useRouter();
   const { toast } = useToast();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      // Skip auth check on login page
+      if (pathname === "/admin/login") {
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      try {
+        // Try to fetch admin data to verify session
+        const response = await adminApi.listBookings({ limit: 1 });
+        if (response.success) {
+          setIsAuthenticated(true);
+        } else {
+          router.replace("/admin/login");
+        }
+      } catch (error) {
+        // If API call fails, redirect to login
+        router.replace("/admin/login");
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkAuth();
+  }, [pathname, router]);
 
   // Don't show admin layout on login page
   if (pathname === "/admin/login") {
     return <>{children}</>;
+  }
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Verifying authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, don't render anything (will redirect)
+  if (!isAuthenticated) {
+    return null;
   }
 
   const handleLogout = async () => {
