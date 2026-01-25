@@ -81,6 +81,7 @@ export interface Event {
   id: string;
   title: string;
   description?: string | null;
+  imageUrl?: string | null;
   startsAt: string;
   venue: string;
   pricePaise: number;
