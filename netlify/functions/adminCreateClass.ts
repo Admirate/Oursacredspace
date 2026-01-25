@@ -6,6 +6,7 @@ import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./hel
 const createClassSchema = z.object({
   title: z.string().min(2).max(100),
   description: z.string().max(500).optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
   startsAt: z.string(),
   duration: z.number().min(15).max(480).default(60),
   capacity: z.number().min(1).max(100),
@@ -42,6 +43,7 @@ export const handler: Handler = async (event) => {
       data: {
         title: data.title,
         description: data.description,
+        imageUrl: data.imageUrl,
         startsAt: new Date(data.startsAt),
         duration: data.duration,
         capacity: data.capacity,

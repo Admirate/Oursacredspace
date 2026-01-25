@@ -66,6 +66,7 @@ export interface ClassSession {
   id: string;
   title: string;
   description?: string | null;
+  imageUrl?: string | null;
   startsAt: string;
   duration: number;
   capacity: number;

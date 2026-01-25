@@ -32,6 +32,7 @@ export const API_ENDPOINTS = {
   ADMIN_CHECKIN_PASS: "/.netlify/functions/adminCheckinPass",
   ADMIN_LIST_SPACE_REQUESTS: "/.netlify/functions/adminListSpaceRequests",
   ADMIN_UPDATE_SPACE_REQUEST: "/.netlify/functions/adminUpdateSpaceRequest",
+  ADMIN_UPLOAD_IMAGE: "/.netlify/functions/adminUploadImage",
 } as const;
 
 // === Razorpay ===

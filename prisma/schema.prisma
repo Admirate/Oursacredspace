@@ -131,6 +131,7 @@ model ClassSession {
   id          String    @id @default(uuid())
   title       String
   description String?
+  imageUrl    String?   // URL to image in Supabase Storage
   startsAt    DateTime
   duration    Int       @default(60) // minutes
   capacity    Int

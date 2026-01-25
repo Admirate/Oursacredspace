@@ -222,4 +222,15 @@ export const adminApi = {
         credentials: "include",
       }
     ),
+
+  // Image Upload
+  uploadImage: (image: string, fileName: string, folder: string = "classes") =>
+    apiFetch<{ success: boolean; data: { url: string; path: string } }>(
+      API_ENDPOINTS.ADMIN_UPLOAD_IMAGE,
+      {
+        method: "POST",
+        body: JSON.stringify({ image, fileName, folder }),
+        credentials: "include",
+      }
+    ),
 };

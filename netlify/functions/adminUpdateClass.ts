@@ -7,6 +7,7 @@ const updateClassSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(3).max(100).optional(),
   description: z.string().max(500).optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
   startsAt: z.string().datetime().optional(),
   duration: z.number().min(15).max(480).optional(),
   capacity: z.number().min(1).max(100).optional(),

@@ -36,7 +36,7 @@
     # Restrict browser features
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(self)"
     # Content Security Policy
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://*.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' https://*.supabase.co blob:; connect-src 'self' https://*.supabase.co https://*.razorpay.com wss://*.supabase.co; frame-src https://api.razorpay.com https://checkout.razorpay.com; object-src 'none'; base-uri 'self';"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://*.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' https://*.supabase.co blob:; connect-src 'self' https://*.supabase.co https://*.razorpay.com wss://*.supabase.co; frame-src https://api.razorpay.com https://checkout.razorpay.com https://www.openstreetmap.org https://www.google.com https://maps.google.com; object-src 'none'; base-uri 'self';"
 
 # Cache static assets
 [[headers]]
