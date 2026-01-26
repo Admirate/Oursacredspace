@@ -2,7 +2,7 @@ import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import crypto from "crypto";
 import { prisma } from "./helpers/prisma";
-import { getClientIP, isRateLimited, logSecurityEvent, rateLimitResponse } from "./helpers/security";
+import { getClientIP, isRateLimited, logSecurityEvent, rateLimitResponse, RATE_LIMITS } from "./helpers/security";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -85,9 +85,9 @@ export const handler: Handler = async (event) => {
 
   // Handle login
   if (event.httpMethod === "POST") {
-    // SECURITY: Rate limit login attempts (5 attempts per minute per IP)
+    // SECURITY: Rate limit login attempts to prevent brute force
     const clientIP = getClientIP(event);
-    if (isRateLimited(`login:${clientIP}`, 5, 60000)) {
+    if (isRateLimited(`login:${clientIP}`, RATE_LIMITS.LOGIN.maxRequests, RATE_LIMITS.LOGIN.windowMs)) {
       logSecurityEvent("RATE_LIMIT", { ip: clientIP, endpoint: "adminAuth" });
       return rateLimitResponse();
     }

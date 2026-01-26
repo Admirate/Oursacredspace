@@ -1,13 +1,14 @@
 import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
+import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
 
-const headers = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Content-Type": "application/json",
-};
+// SECURITY: Validate pass ID format (OSS-EV-XXXXXXXX where X is alphanumeric)
+const PASS_ID_REGEX = /^OSS-EV-[A-Z0-9]{8}$/;
 
 export const handler: Handler = async (event) => {
+  // SECURITY: Use origin-validated CORS headers
+  const headers = getPublicHeaders(event, "GET, OPTIONS");
+
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }
@@ -20,6 +21,12 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  // SECURITY: Rate limit to prevent pass ID enumeration attacks
+  const clientIP = getClientIP(event);
+  if (isRateLimited(`verifyPass:${clientIP}`, RATE_LIMITS.PASS_VERIFY.maxRequests, RATE_LIMITS.PASS_VERIFY.windowMs)) {
+    return rateLimitResponse();
+  }
+
   try {
     const passId = event.queryStringParameters?.passId;
 
@@ -28,6 +35,15 @@ export const handler: Handler = async (event) => {
         statusCode: 400,
         headers,
         body: JSON.stringify({ success: false, error: "passId is required" }),
+      };
+    }
+
+    // SECURITY: Validate pass ID format to prevent injection
+    if (!PASS_ID_REGEX.test(passId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, error: "Invalid passId format" }),
       };
     }
 

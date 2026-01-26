@@ -2,7 +2,7 @@ import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { BookingType, BookingStatus } from "@prisma/client";
-import { getClientIP, isRateLimited, rateLimitResponse } from "./helpers/security";
+import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
 
 // Validation schema with strict limits
 const createBookingSchema = z.object({
@@ -31,13 +31,10 @@ const createBookingSchema = z.object({
   purpose: z.string().max(500).trim().optional(),
 });
 
-const headers = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Content-Type": "application/json",
-};
-
 export const handler: Handler = async (event) => {
+  // SECURITY: Use origin-validated CORS headers
+  const headers = getPublicHeaders(event, "POST, OPTIONS");
+
   // Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
@@ -51,9 +48,9 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  // SECURITY: Rate limit booking creation (10 per minute per IP)
+  // SECURITY: Rate limit booking creation
   const clientIP = getClientIP(event);
-  if (isRateLimited(`booking:${clientIP}`, 10, 60000)) {
+  if (isRateLimited(`booking:${clientIP}`, RATE_LIMITS.BOOKING_CREATE.maxRequests, RATE_LIMITS.BOOKING_CREATE.windowMs)) {
     return rateLimitResponse();
   }
 

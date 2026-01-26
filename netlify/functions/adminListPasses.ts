@@ -2,6 +2,9 @@ import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
 
+// SECURITY: UUID v4 format validation
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export const handler: Handler = async (event) => {
   const headers = getAdminHeaders(event);
   
@@ -25,6 +28,15 @@ export const handler: Handler = async (event) => {
 
   try {
     const eventId = event.queryStringParameters?.eventId;
+
+    // SECURITY: Validate eventId format if provided
+    if (eventId && !UUID_REGEX.test(eventId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, error: "Invalid eventId format" }),
+      };
+    }
 
     const where = eventId ? { eventId } : {};
 

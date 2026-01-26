@@ -1,13 +1,11 @@
 import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
-
-const headers = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Content-Type": "application/json",
-};
+import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
 
 export const handler: Handler = async (event) => {
+  // SECURITY: Use origin-validated CORS headers
+  const headers = getPublicHeaders(event, "GET, OPTIONS");
+
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }
@@ -18,6 +16,12 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({ success: false, error: "Method not allowed" }),
     };
+  }
+
+  // SECURITY: Rate limit public read endpoint
+  const clientIP = getClientIP(event);
+  if (isRateLimited(`getClasses:${clientIP}`, RATE_LIMITS.PUBLIC_READ.maxRequests, RATE_LIMITS.PUBLIC_READ.windowMs)) {
+    return rateLimitResponse();
   }
 
   try {

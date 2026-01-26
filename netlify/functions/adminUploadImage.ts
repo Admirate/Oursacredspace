@@ -12,6 +12,12 @@ const supabase = createClient(
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
+// SECURITY: Allowed folder names (whitelist)
+const ALLOWED_FOLDERS = ["classes", "events", "general", "profiles"];
+// SECURITY: Sanitize file names to prevent path traversal
+const FILENAME_SANITIZE_REGEX = /[^a-zA-Z0-9._-]/g;
+const MAX_FILENAME_LENGTH = 100;
+
 export const handler: Handler = async (event) => {
   const headers = getAdminHeaders(event);
 
@@ -49,6 +55,35 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    // SECURITY: Validate folder against whitelist to prevent path traversal
+    if (!ALLOWED_FOLDERS.includes(folder)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: `Invalid folder. Allowed: ${ALLOWED_FOLDERS.join(", ")}`,
+        }),
+      };
+    }
+
+    // SECURITY: Sanitize fileName to prevent path traversal
+    const sanitizedFileName = String(fileName)
+      .slice(0, MAX_FILENAME_LENGTH)
+      .replace(FILENAME_SANITIZE_REGEX, "_")
+      .replace(/\.{2,}/g, "."); // Remove double dots
+    
+    if (sanitizedFileName.length === 0) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: "Invalid fileName",
+        }),
+      };
+    }
+
     // Decode base64 image
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(base64Data, "base64");
@@ -80,9 +115,9 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Generate unique file name
+    // Generate unique file name using sanitized filename
     const extension = mimeType.split("/")[1];
-    const uniqueFileName = `${folder}/${Date.now()}-${fileName.replace(/\.[^/.]+$/, "")}.${extension}`;
+    const uniqueFileName = `${folder}/${Date.now()}-${sanitizedFileName.replace(/\.[^/.]+$/, "")}.${extension}`;
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage

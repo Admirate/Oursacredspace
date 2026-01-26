@@ -5,8 +5,39 @@
 
 import { HandlerEvent } from "@netlify/functions";
 
-// Rate limiting store (in-memory for serverless - consider Redis for production)
+/**
+ * Rate limiting store
+ * 
+ * IMPORTANT: In serverless environments, each function invocation may run in
+ * a different container, so in-memory rate limiting is not 100% reliable.
+ * 
+ * For production, consider using:
+ * - Upstash Redis (serverless-friendly): https://upstash.com/
+ * - Netlify's built-in rate limiting (if available)
+ * - A CDN-level rate limiter (Cloudflare, etc.)
+ * 
+ * The current implementation still provides protection against:
+ * - Bursts from a single container
+ * - Casual abuse attempts
+ * - Development/testing scenarios
+ */
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+// Clean up old entries periodically to prevent memory leaks
+const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+let lastCleanup = Date.now();
+
+const cleanupExpiredEntries = () => {
+  const now = Date.now();
+  if (now - lastCleanup < CLEANUP_INTERVAL) return;
+  
+  lastCleanup = now;
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (now > value.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+};
 
 /**
  * Get client IP from request
@@ -21,8 +52,31 @@ export const getClientIP = (event: HandlerEvent): string => {
 };
 
 /**
+ * Predefined rate limit configurations for different endpoint types
+ */
+export const RATE_LIMITS = {
+  // Critical - auth and payment
+  LOGIN: { maxRequests: 5, windowMs: 60000 },           // 5 per minute
+  PAYMENT: { maxRequests: 5, windowMs: 60000 },         // 5 per minute
+  
+  // Booking operations
+  BOOKING_CREATE: { maxRequests: 10, windowMs: 60000 }, // 10 per minute
+  BOOKING_READ: { maxRequests: 60, windowMs: 60000 },   // 60 per minute
+  
+  // Public read endpoints
+  PUBLIC_READ: { maxRequests: 100, windowMs: 60000 },   // 100 per minute
+  
+  // Pass verification (prevent enumeration)
+  PASS_VERIFY: { maxRequests: 30, windowMs: 60000 },    // 30 per minute
+  
+  // Admin operations (already protected by auth)
+  ADMIN_READ: { maxRequests: 200, windowMs: 60000 },    // 200 per minute
+  ADMIN_WRITE: { maxRequests: 50, windowMs: 60000 },    // 50 per minute
+} as const;
+
+/**
  * Simple rate limiter
- * @param identifier - IP or user ID
+ * @param identifier - IP or user ID (e.g., "booking:192.168.1.1")
  * @param maxRequests - Max requests per window
  * @param windowMs - Time window in milliseconds
  */
@@ -31,6 +85,9 @@ export const isRateLimited = (
   maxRequests: number = 100,
   windowMs: number = 60000 // 1 minute
 ): boolean => {
+  // Periodically clean up expired entries
+  cleanupExpiredEntries();
+  
   const now = Date.now();
   const record = rateLimitStore.get(identifier);
 
@@ -86,20 +143,52 @@ export const getSecureHeaders = (origin?: string) => ({
 });
 
 /**
- * Check if request is from allowed origin
+ * Get list of allowed origins from environment
  */
-export const isAllowedOrigin = (event: HandlerEvent): boolean => {
-  const origin = event.headers.origin || event.headers.Origin;
-  const allowedOrigins = [
+const getAllowedOrigins = (): string[] => {
+  return [
     "http://localhost:3000",
     "http://localhost:8888",
     process.env.APP_BASE_URL,
     process.env.NEXT_PUBLIC_APP_URL,
-  ].filter(Boolean);
-
-  if (!origin) return true; // Same-origin requests don't have origin header
-  return allowedOrigins.includes(origin);
+  ].filter((origin): origin is string => Boolean(origin));
 };
+
+/**
+ * Check if request is from allowed origin
+ */
+export const isAllowedOrigin = (event: HandlerEvent): boolean => {
+  const origin = event.headers.origin || event.headers.Origin;
+  if (!origin) return true; // Same-origin requests don't have origin header
+  return getAllowedOrigins().includes(origin);
+};
+
+/**
+ * Get validated origin for CORS header
+ * Returns the origin if allowed, otherwise returns the first allowed origin
+ */
+const getValidatedOrigin = (event: HandlerEvent): string => {
+  const origin = event.headers.origin || event.headers.Origin;
+  const allowedOrigins = getAllowedOrigins();
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    return origin;
+  }
+  // Return first allowed origin as fallback (for same-origin requests or blocked origins)
+  return allowedOrigins[0] || "http://localhost:3000";
+};
+
+/**
+ * Get CORS headers for public endpoints (restricted to allowed origins)
+ * Use this for endpoints that handle user data or sensitive operations
+ */
+export const getPublicHeaders = (event: HandlerEvent, methods: string = "GET, POST, OPTIONS") => ({
+  "Access-Control-Allow-Origin": getValidatedOrigin(event),
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": methods,
+  "Content-Type": "application/json",
+  "X-Content-Type-Options": "nosniff",
+});
 
 /**
  * Create rate limit exceeded response

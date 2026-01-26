@@ -2,7 +2,7 @@ import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { BookingStatus, PaymentStatus } from "@prisma/client";
-import { getClientIP, isRateLimited, rateLimitResponse } from "./helpers/security";
+import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
 
 // TODO: Uncomment when Razorpay credentials are available
 // import Razorpay from "razorpay";
@@ -15,13 +15,10 @@ const createOrderSchema = z.object({
   bookingId: z.string().uuid(),
 });
 
-const headers = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Content-Type": "application/json",
-};
-
 export const handler: Handler = async (event) => {
+  // SECURITY: Use origin-validated CORS headers
+  const headers = getPublicHeaders(event, "POST, OPTIONS");
+
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }
@@ -34,9 +31,9 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  // SECURITY: Rate limit order creation (5 per minute per IP)
+  // SECURITY: Rate limit payment order creation
   const clientIP = getClientIP(event);
-  if (isRateLimited(`order:${clientIP}`, 5, 60000)) {
+  if (isRateLimited(`order:${clientIP}`, RATE_LIMITS.PAYMENT.maxRequests, RATE_LIMITS.PAYMENT.windowMs)) {
     return rateLimitResponse();
   }
 

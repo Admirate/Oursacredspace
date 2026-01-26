@@ -3,6 +3,12 @@ import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
 import { BookingType, BookingStatus } from "@prisma/client";
 
+// SECURITY: Date format validation (ISO 8601)
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/;
+// SECURITY: Search string max length and sanitization
+const MAX_SEARCH_LENGTH = 100;
+const SEARCH_SANITIZE_REGEX = /[<>'"%;()&\\]/g;
+
 export const handler: Handler = async (event) => {
   const headers = getAdminHeaders(event);
   
@@ -26,8 +32,12 @@ export const handler: Handler = async (event) => {
 
   try {
     const params = event.queryStringParameters || {};
-    const page = parseInt(params.page || "1", 10);
-    const limit = Math.min(parseInt(params.limit || "20", 10), 100);
+    
+    // SECURITY: Validate and sanitize pagination params
+    const rawPage = parseInt(params.page || "1", 10);
+    const rawLimit = parseInt(params.limit || "20", 10);
+    const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
+    const limit = isNaN(rawLimit) || rawLimit < 1 ? 20 : Math.min(rawLimit, 100);
     const skip = (page - 1) * limit;
 
     // Build filter
@@ -41,20 +51,59 @@ export const handler: Handler = async (event) => {
       where.status = params.status;
     }
 
+    // SECURITY: Validate date format before parsing
     if (params.startDate) {
-      where.createdAt = { ...where.createdAt, gte: new Date(params.startDate) };
+      if (!ISO_DATE_REGEX.test(params.startDate)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, error: "Invalid startDate format" }),
+        };
+      }
+      const startDate = new Date(params.startDate);
+      if (isNaN(startDate.getTime())) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, error: "Invalid startDate" }),
+        };
+      }
+      where.createdAt = { ...where.createdAt, gte: startDate };
     }
 
     if (params.endDate) {
-      where.createdAt = { ...where.createdAt, lte: new Date(params.endDate) };
+      if (!ISO_DATE_REGEX.test(params.endDate)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, error: "Invalid endDate format" }),
+        };
+      }
+      const endDate = new Date(params.endDate);
+      if (isNaN(endDate.getTime())) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, error: "Invalid endDate" }),
+        };
+      }
+      where.createdAt = { ...where.createdAt, lte: endDate };
     }
 
+    // SECURITY: Sanitize search input
     if (params.search) {
-      where.OR = [
-        { name: { contains: params.search, mode: "insensitive" } },
-        { email: { contains: params.search, mode: "insensitive" } },
-        { id: { contains: params.search } },
-      ];
+      const sanitizedSearch = params.search
+        .slice(0, MAX_SEARCH_LENGTH)
+        .replace(SEARCH_SANITIZE_REGEX, "")
+        .trim();
+      
+      if (sanitizedSearch.length > 0) {
+        where.OR = [
+          { name: { contains: sanitizedSearch, mode: "insensitive" } },
+          { email: { contains: sanitizedSearch, mode: "insensitive" } },
+          { id: { contains: sanitizedSearch } },
+        ];
+      }
     }
 
     // Get bookings with count
