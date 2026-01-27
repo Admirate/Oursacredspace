@@ -128,10 +128,10 @@ export default function AdminSpacePage() {
     });
   };
 
-  const requests = data?.data || [];
-  const pendingRequests = requests.filter((r) => r.status === "REQUESTED");
-  const approvedRequests = requests.filter((r) => r.status === "APPROVED_CALL_SCHEDULED");
-  const otherRequests = requests.filter((r) => !["REQUESTED", "APPROVED_CALL_SCHEDULED"].includes(r.status));
+  const requests: any[] = data?.data || [];
+  const pendingRequests = requests.filter((r: any) => r.status === "REQUESTED");
+  const approvedRequests = requests.filter((r: any) => r.status === "APPROVED_CALL_SCHEDULED");
+  const otherRequests = requests.filter((r: any) => !["REQUESTED", "APPROVED_CALL_SCHEDULED"].includes(r.status));
 
   const RequestCard = ({ request }: { request: SpaceRequest }) => (
     <Card className="mb-4">

@@ -278,7 +278,7 @@ export default function AdminClassesPage() {
     form.reset();
   };
 
-  const classes = data?.data || [];
+  const classes: any[] = data?.data || [];
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (

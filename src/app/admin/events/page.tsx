@@ -193,9 +193,9 @@ export default function AdminEventsPage() {
     form.reset();
   };
 
-  const events = data?.data || [];
-  const passes = passesData?.data || [];
-  const filteredPasses = passes.filter((pass) =>
+  const events: any[] = data?.data || [];
+  const passes: any[] = passesData?.data || [];
+  const filteredPasses = passes.filter((pass: any) =>
     passSearch
       ? pass.passId.toLowerCase().includes(passSearch.toLowerCase()) ||
         pass.booking?.customerName?.toLowerCase().includes(passSearch.toLowerCase())

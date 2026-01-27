@@ -51,12 +51,13 @@ export default function AdminDashboardPage() {
   const isLoading = bookingsLoading || classesLoading || eventsLoading || spaceLoading;
 
   // Get bookings array from response
-  const bookings = Array.isArray(bookingsData?.data) 
-    ? bookingsData.data 
-    : bookingsData?.data?.bookings || [];
-  const classes = classesData?.data || [];
-  const events = eventsData?.data || [];
-  const spaceRequests = spaceData?.data || [];
+  const bookingsResponse = bookingsData?.data as any;
+  const bookings: any[] = Array.isArray(bookingsResponse) 
+    ? bookingsResponse 
+    : bookingsResponse?.bookings || [];
+  const classes: any[] = classesData?.data || [];
+  const events: any[] = eventsData?.data || [];
+  const spaceRequests: any[] = spaceData?.data || [];
 
   // Calculate stats
   const totalBookings = bookings.length;
