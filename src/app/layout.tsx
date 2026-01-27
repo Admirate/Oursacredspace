@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { QueryProvider } from "@/components/providers/QueryProvider";
@@ -51,6 +52,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Disable Netlify RUM to prevent console errors from ad blockers */}
+        <Script
+          id="disable-netlify-rum"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `window.__NETLIFY_DISABLE_RUM = true;`,
+          }}
+        />
+      </head>
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}
       >
