@@ -87,10 +87,9 @@ export const usePollBookingStatus = (
       return response.data;
     },
     enabled: !!bookingId && status === "polling",
-    refetchInterval: (data) => {
-      if (!data) return POLLING_INTERVAL;
-      
-      const booking = data as Booking;
+    refetchInterval: (query) => {
+      const booking = query.state.data as Booking | null | undefined;
+      if (!booking) return POLLING_INTERVAL;
       
       // Stop polling if confirmed
       if (booking.status === "CONFIRMED") {
