@@ -214,7 +214,7 @@ export default function AdminSpacePage() {
         )}
 
         {/* Action Buttons */}
-        {request.status === "REQUESTED" && (
+        {(request.status as string) === "REQUESTED" && (
           <div className="flex gap-2 pt-2">
             <Button
               variant="outline"
@@ -231,7 +231,7 @@ export default function AdminSpacePage() {
           </div>
         )}
 
-        {request.status === "APPROVED_CALL_SCHEDULED" && (
+        {(request.status as string) === "APPROVED_CALL_SCHEDULED" && (
           <div className="flex gap-2 pt-2">
             <Button
               variant="outline"
