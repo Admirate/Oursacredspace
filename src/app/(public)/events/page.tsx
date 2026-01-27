@@ -544,18 +544,6 @@ export default function EventsPage() {
                   delivered to your WhatsApp!
                 </p>
                 
-                {/* Animated scroll indicator */}
-                <div 
-                  className={`absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 transition-all duration-1000 ${
-                    heroLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-                  }`}
-                  style={{ transitionDelay: '1000ms' }}
-                >
-                  <span className="text-white/60 text-xs tracking-widest uppercase">Scroll</span>
-                  <div className="w-5 h-8 border-2 border-white/40 rounded-full flex justify-center">
-                    <div className="w-1 h-2 bg-white/60 rounded-full mt-1 animate-bounce-slow" />
-                  </div>
-                </div>
               </div>
             </div>
           </div>
