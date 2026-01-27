@@ -7,6 +7,7 @@ const updateEventSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(3).max(100).optional(),
   description: z.string().max(1000).optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
   startsAt: z.string().datetime().optional(),
   venue: z.string().min(3).max(200).optional(),
   pricePaise: z.number().min(0).optional(),

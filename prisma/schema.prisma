@@ -152,6 +152,7 @@ model Event {
   id          String      @id @default(uuid())
   title       String
   description String?
+  imageUrl    String?     // URL to image in Supabase Storage
   startsAt    DateTime
   venue       String
   pricePaise  Int

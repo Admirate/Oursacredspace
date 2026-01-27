@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,7 +19,10 @@ import {
   Ticket,
   QrCode,
   Search,
+  X,
+  Image as ImageIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +51,104 @@ const eventFormSchema = z.object({
 
 type EventFormData = z.infer<typeof eventFormSchema>;
 
+// Image upload component
+const ImageUpload = ({
+  value,
+  onChange,
+  onRemove,
+  isUploading,
+}: {
+  value?: string | null;
+  onChange: (url: string) => void;
+  onRemove: () => void;
+  isUploading: boolean;
+}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be less than 5MB");
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      try {
+        const response = await adminApi.uploadImage(base64, file.name, "events");
+        if (response.success && response.data?.url) {
+          onChange(response.data.url);
+        }
+      } catch (error) {
+        console.error("Upload error:", error);
+        alert("Failed to upload image. Please try again.");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-4">
+        {value ? (
+          <div className="relative w-32 h-32 rounded-lg overflow-hidden border">
+            <Image
+              src={value}
+              alt="Event image"
+              fill
+              className="object-cover"
+            />
+            <button
+              type="button"
+              onClick={onRemove}
+              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+              aria-label="Remove image"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-gray-50 transition-colors"
+          >
+            {isUploading ? (
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            ) : (
+              <>
+                <ImageIcon className="h-8 w-8 text-gray-400 mb-1" />
+                <span className="text-xs text-gray-500">Click to upload</span>
+              </>
+            )}
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+          disabled={isUploading}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Max 5MB. Recommended: 800x600px
+      </p>
+    </div>
+  );
+};
+
 const formatPrice = (paise: number): string => {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -72,6 +173,8 @@ export default function AdminEventsPage() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [selectedEventForPasses, setSelectedEventForPasses] = useState<Event | null>(null);
   const [passSearch, setPassSearch] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -158,6 +261,7 @@ export default function AdminEventsPage() {
     const eventData = {
       title: data.title,
       description: data.description || null,
+      imageUrl: imageUrl,
       startsAt: startsAt.toISOString(),
       venue: data.venue,
       capacity: data.capacity || null,
@@ -174,6 +278,7 @@ export default function AdminEventsPage() {
 
   const handleEdit = (event: Event) => {
     setEditingEvent(event);
+    setImageUrl(event.imageUrl || null);
     const startsAt = new Date(event.startsAt);
     form.reset({
       title: event.title,
@@ -190,6 +295,7 @@ export default function AdminEventsPage() {
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setEditingEvent(null);
+    setImageUrl(null);
     form.reset();
   };
 
@@ -215,7 +321,7 @@ export default function AdminEventsPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => !open && handleDialogClose()}>
           <DialogTrigger asChild>
-            <Button onClick={() => { setEditingEvent(null); form.reset(); setIsDialogOpen(true); }}>
+            <Button onClick={() => { setEditingEvent(null); setImageUrl(null); form.reset(); setIsDialogOpen(true); }}>
               <Plus className="mr-2 h-4 w-4" />
               Add Event
             </Button>
@@ -257,6 +363,22 @@ export default function AdminEventsPage() {
                     </FormItem>
                   )}
                 />
+
+                {/* Image Upload */}
+                <div>
+                  <FormLabel>Event Image</FormLabel>
+                  <div className="mt-2">
+                    <ImageUpload
+                      value={imageUrl}
+                      onChange={(url) => {
+                        setIsUploading(false);
+                        setImageUrl(url);
+                      }}
+                      onRemove={() => setImageUrl(null)}
+                      isUploading={isUploading}
+                    />
+                  </div>
+                </div>
 
                 <FormField
                   control={form.control}
@@ -415,13 +537,29 @@ export default function AdminEventsPage() {
                     {events.map((event) => (
                       <TableRow key={event.id}>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{event.title}</p>
-                            {event.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-1">
-                                {event.description}
-                              </p>
+                          <div className="flex items-center gap-3">
+                            {event.imageUrl ? (
+                              <div className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
+                                <Image
+                                  src={event.imageUrl}
+                                  alt={event.title}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                <ImageIcon className="h-5 w-5 text-gray-400" />
+                              </div>
                             )}
+                            <div>
+                              <p className="font-medium">{event.title}</p>
+                              {event.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-1">
+                                  {event.description}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-sm">

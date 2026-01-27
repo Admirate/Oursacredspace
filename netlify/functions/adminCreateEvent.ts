@@ -6,6 +6,7 @@ import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./hel
 const createEventSchema = z.object({
   title: z.string().min(2).max(100),
   description: z.string().max(1000).optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
   startsAt: z.string(),
   venue: z.string().min(2).max(200),
   pricePaise: z.number().min(0),
@@ -42,6 +43,7 @@ export const handler: Handler = async (event) => {
       data: {
         title: data.title,
         description: data.description,
+        imageUrl: data.imageUrl,
         startsAt: new Date(data.startsAt),
         venue: data.venue,
         pricePaise: data.pricePaise,
