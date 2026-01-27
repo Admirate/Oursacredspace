@@ -198,7 +198,7 @@ export default function AdminBookingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredBookings.map((booking) => (
+                  {filteredBookings.map((booking: any) => (
                     <TableRow key={booking.id}>
                       <TableCell className="font-mono text-sm">
                         {booking.id.slice(0, 8).toUpperCase()}
