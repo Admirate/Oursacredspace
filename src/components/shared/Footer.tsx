@@ -94,11 +94,11 @@ export const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/about"
+                  href="/community"
                   className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors inline-block"
                   tabIndex={0}
                 >
-                  About Us
+                  Community
                 </Link>
               </li>
             </ul>
@@ -112,15 +112,6 @@ export const Footer = () => {
             <ul className="space-y-3">
               <li>
                 <Link
-                  href="/faq"
-                  className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors inline-block"
-                  tabIndex={0}
-                >
-                  FAQ
-                </Link>
-              </li>
-              <li>
-                <Link
                   href="/contact"
                   className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors inline-block"
                   tabIndex={0}
@@ -130,20 +121,20 @@ export const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/privacy"
+                  href="/visit"
                   className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors inline-block"
                   tabIndex={0}
                 >
-                  Privacy Policy
+                  Visit Us
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/terms"
+                  href="/initiatives"
                   className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors inline-block"
                   tabIndex={0}
                 >
-                  Terms of Service
+                  Initiatives
                 </Link>
               </li>
             </ul>
