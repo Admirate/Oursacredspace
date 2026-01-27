@@ -619,7 +619,6 @@ export default function ClassesPage() {
               fill
               sizes="(max-width: 768px) 500px, 600px"
               className="object-contain opacity-20"
-              aria-hidden="true"
             />
           </div>
         </div>
