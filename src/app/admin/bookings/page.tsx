@@ -100,10 +100,11 @@ export default function AdminBookingsPage() {
   });
 
   // Handle both array and object response formats
-  const bookings = Array.isArray(data?.data) 
-    ? data.data 
-    : data?.data?.bookings || [];
-  const totalPages = data?.data?.totalPages || data?.pagination?.totalPages || 1;
+  const responseData = data?.data as any;
+  const bookings = Array.isArray(responseData) 
+    ? responseData 
+    : responseData?.bookings || [];
+  const totalPages = responseData?.totalPages || (data as any)?.pagination?.totalPages || 1;
 
   // Client-side search filter
   const filteredBookings = bookings.filter((booking: any) => {
