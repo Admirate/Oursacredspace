@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -39,7 +39,7 @@ const formatTime = (date: string): string => {
   });
 };
 
-export default function VerifyPage() {
+function VerifyPageContent() {
   const searchParams = useSearchParams();
   const initialPassId = searchParams.get("passId") || "";
   const [passId, setPassId] = useState(initialPassId);
@@ -250,5 +250,20 @@ export default function VerifyPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={
+      <div className="container py-12">
+        <div className="max-w-xl mx-auto text-center">
+          <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <VerifyPageContent />
+    </Suspense>
   );
 }

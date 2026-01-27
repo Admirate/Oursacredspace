@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -63,7 +63,7 @@ const getStatusBadge = (status: string) => {
   }
 };
 
-export default function SuccessPage() {
+function SuccessPageContent() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("bookingId");
   const [showPaymentSection, setShowPaymentSection] = useState(false);
@@ -443,5 +443,20 @@ export default function SuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="container py-12">
+        <div className="max-w-lg mx-auto text-center">
+          <Loader2 className="h-16 w-16 mx-auto text-primary animate-spin mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Loading...</h1>
+        </div>
+      </div>
+    }>
+      <SuccessPageContent />
+    </Suspense>
   );
 }
