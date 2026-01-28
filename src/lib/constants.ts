@@ -111,6 +111,7 @@ export const PUBLIC_NAV_ITEMS = [
   { label: "Classes", href: "/classes" },
   { label: "Workshops", href: "/workshops" },
   { label: "Spaces", href: "/book-space" },
+  { label: "Co-Working", href: "/co-working-space" },
   { label: "Community", href: "/community" },
   { label: "Initiatives", href: "/initiatives" },
   { label: "Visit", href: "/visit" },

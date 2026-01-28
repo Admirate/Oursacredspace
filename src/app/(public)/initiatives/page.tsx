@@ -94,16 +94,16 @@ export default function InitiativesPage() {
   };
 
   const getHeroClass = () => {
-    const base = 'mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out';
+    const base = 'mt-2 xs:mt-3 md:mt-4 text-xs xs:text-sm md:text-base lg:text-lg text-white/90 max-w-[260px] xs:max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out leading-relaxed';
     return base + ' ' + (heroLoaded ? 'opacity-100 translate-y-0 delay-500' : 'opacity-0 translate-y-8');
   };
 
   return (
     <div className="overflow-x-hidden">
-      <section className="relative bg-sacred-pink py-8 md:py-10">
-        <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-sacred-pink rounded-[24px] md:rounded-[40px]">
-            <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
+      <section className="relative bg-sacred-pink py-4 xs:py-6 sm:py-8 md:py-10">
+        <div className="container px-3 xs:px-4 flex justify-center">
+          <div className="relative w-full max-w-[1414px] p-3 xs:p-4 sm:p-5 md:p-[40px] bg-sacred-pink rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px]">
+            <div className="relative overflow-hidden shadow-xl sm:shadow-2xl w-full h-[480px] xs:h-[520px] sm:h-[450px] md:h-[418px] lg:h-[498px] xl:h-[550px] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px] group">
               <video
                 autoPlay
                 loop
@@ -116,12 +116,28 @@ export default function InitiativesPage() {
                 <source src={HERO_VIDEO_URL} type="video/mp4" />
               </video>
               
-              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent sm:from-black/50 sm:via-black/30" />
               
-              <div className="absolute inset-0 flex flex-col md:flex-row justify-between px-6 md:px-10 lg:px-16 py-8 md:py-12">
-                {/* Left Section */}
-                <div className="flex flex-col justify-center max-w-xs md:max-w-sm">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white italic tracking-wide mb-4">
+              {/* Floating particles - fewer on mobile */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`absolute w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white/20 rounded-full animate-float ${i > 3 ? 'hidden sm:block' : ''}`}
+                    style={{
+                      left: `${15 + i * 15}%`,
+                      top: `${20 + (i % 3) * 25}%`,
+                      animationDelay: `${i * 0.5}s`,
+                      animationDuration: `${3 + i * 0.5}s`,
+                    }}
+                  />
+                ))}
+              </div>
+              
+              <div className="absolute inset-0 flex flex-col sm:flex-row sm:justify-between px-4 xs:px-5 sm:px-6 md:px-10 lg:px-16 py-4 xs:py-5 sm:py-8 md:py-12">
+                {/* Left Section - Title and Description */}
+                <div className="flex flex-col justify-center max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md">
+                  <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-light text-white italic tracking-wide">
                     <AnimatedText text="Initiatives" isVisible={heroLoaded} className="block" />
                   </h1>
                   <p 
@@ -133,7 +149,7 @@ export default function InitiativesPage() {
                 </div>
                 
                 {/* Right Section - Three Info Cards */}
-                <div className="flex flex-col justify-center gap-4 md:gap-6 mt-6 md:mt-0 max-w-xs md:max-w-md">
+                <div className="flex flex-col justify-center gap-3 xs:gap-4 sm:gap-5 md:gap-6 mt-4 xs:mt-5 sm:mt-0 max-w-[280px] xs:max-w-xs sm:max-w-[220px] md:max-w-xs lg:max-w-sm">
                   {/* The Treedom Movement */}
                   <div 
                     className="transition-all duration-700"
@@ -143,8 +159,8 @@ export default function InitiativesPage() {
                       transitionDelay: '400ms',
                     }}
                   >
-                    <h3 className="text-white text-base md:text-lg font-medium mb-1">The Treedom Movement</h3>
-                    <p className="text-white/80 text-xs md:text-sm font-light leading-relaxed">
+                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-0.5 xs:mb-1">The Treedom Movement</h3>
+                    <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
                       An ongoing effort focused on planting trees and nurturing green spaces. It encourages awareness responsibility and long term thinking.
                     </p>
                   </div>
@@ -158,8 +174,8 @@ export default function InitiativesPage() {
                       transitionDelay: '600ms',
                     }}
                   >
-                    <h3 className="text-white text-base md:text-lg font-medium mb-1">What We Do</h3>
-                    <p className="text-white/80 text-xs md:text-sm font-light leading-relaxed">
+                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-0.5 xs:mb-1">What We Do</h3>
+                    <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
                       Tree planting drives environmental conversations and community led action. Each activity is rooted in care for the land and future generations.
                     </p>
                   </div>
@@ -173,8 +189,8 @@ export default function InitiativesPage() {
                       transitionDelay: '800ms',
                     }}
                   >
-                    <h3 className="text-white text-base md:text-lg font-medium mb-1">Community Involvement</h3>
-                    <p className="text-white/80 text-xs md:text-sm font-light leading-relaxed">
+                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-0.5 xs:mb-1">Community Involvement</h3>
+                    <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
                       Everyone is welcome to participate contribute and support the movement. The initiative grows through shared effort and sustained commitment.
                     </p>
                   </div>
