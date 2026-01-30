@@ -2,6 +2,7 @@ import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
 import { BookingType, BookingStatus } from "@prisma/client";
+import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS } from "./helpers/security";
 
 // SECURITY: Date format validation (ISO 8601)
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/;
@@ -22,6 +23,12 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({ success: false, error: "Method not allowed" }),
     };
+  }
+
+  // SECURITY: Rate limit admin endpoints
+  const clientIP = getClientIP(event);
+  if (isRateLimited(`admin:listBookings:${clientIP}`, RATE_LIMITS.ADMIN_READ.maxRequests, RATE_LIMITS.ADMIN_READ.windowMs)) {
+    return rateLimitResponse();
   }
 
   // Verify admin session

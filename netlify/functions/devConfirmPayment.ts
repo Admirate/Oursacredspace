@@ -1,7 +1,11 @@
 /**
  * DEVELOPMENT ONLY: Simulate payment confirmation
  * This endpoint allows testing the payment flow without actual Razorpay
- * SECURITY: Requires DEV_SECRET header and NODE_ENV !== production
+ * 
+ * SECURITY: 
+ * - Requires ALLOW_DEV_ENDPOINTS=true (explicit opt-in, defaults to disabled)
+ * - Requires DEV_SECRET header for authentication
+ * - Never deploy with ALLOW_DEV_ENDPOINTS=true in production!
  */
 
 import { Handler } from "@netlify/functions";
@@ -9,6 +13,7 @@ import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { BookingStatus, PaymentStatus, BookingType } from "@prisma/client";
 import { generateQRBuffer } from "./helpers/generateQR";
+import { generateSecureId, logSecurityEvent, timingSafeCompare } from "./helpers/security";
 
 const confirmSchema = z.object({
   bookingId: z.string().uuid(),
@@ -18,19 +23,21 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-// Generate unique pass ID
+/**
+ * SECURITY: Generate unique pass ID using cryptographically secure random bytes
+ */
 const generatePassId = (): string => {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let result = "OSS-EV-";
-  for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  return `OSS-EV-${generateSecureId(8, "ABCDEFGHJKLMNPQRSTUVWXYZ23456789")}`;
 };
 
 export const handler: Handler = async (event) => {
-  // SECURITY: Only allow in development mode
-  if (process.env.NODE_ENV === "production") {
+  /**
+   * SECURITY: Use explicit opt-in for dev endpoints
+   * - Defaults to DISABLED (secure by default)
+   * - Must explicitly set ALLOW_DEV_ENDPOINTS=true to enable
+   * - This is more secure than relying on NODE_ENV which may not be set correctly
+   */
+  if (process.env.ALLOW_DEV_ENDPOINTS !== "true") {
     return {
       statusCode: 404,
       headers,
@@ -41,7 +48,13 @@ export const handler: Handler = async (event) => {
   // SECURITY: Require dev secret to prevent unauthorized use
   const devSecret = process.env.DEV_SECRET;
   const providedSecret = event.headers["x-dev-secret"];
-  if (!devSecret || providedSecret !== devSecret) {
+  
+  // Validate both secrets exist and match using timing-safe comparison
+  if (!devSecret || !providedSecret || !timingSafeCompare(providedSecret, devSecret)) {
+    logSecurityEvent("AUTH_FAILURE", { 
+      endpoint: "devConfirmPayment",
+      reason: "invalid_dev_secret" 
+    });
     return {
       statusCode: 404,
       headers,
@@ -198,12 +211,15 @@ export const handler: Handler = async (event) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Dev confirm error:", errorMessage);
+    
+    // SECURITY: Don't expose internal error messages even in dev mode
+    // Log the full error but return a generic message
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
         success: false,
-        error: errorMessage || "Failed to confirm payment",
+        error: "Failed to confirm payment. Check server logs for details.",
       }),
     };
   }

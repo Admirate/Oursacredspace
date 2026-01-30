@@ -2,24 +2,27 @@ import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import crypto from "crypto";
 import { prisma } from "./helpers/prisma";
-import { getClientIP, isRateLimited, logSecurityEvent, rateLimitResponse, RATE_LIMITS } from "./helpers/security";
+import { 
+  getClientIP, 
+  isRateLimited, 
+  logSecurityEvent, 
+  rateLimitResponse, 
+  RATE_LIMITS,
+  getSecureAdminHeaders,
+  timingSafeCompare
+} from "./helpers/security";
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1).max(128), // Prevent DoS via long passwords
 });
 
+// SECURITY: Use validated CORS headers to prevent CSRF attacks
 const getHeaders = (event: { headers: Record<string, string | undefined> }) => {
-  const origin = event.headers.origin || event.headers.Origin || "http://localhost:8888";
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "Content-Type, Cookie",
-    "Access-Control-Allow-Credentials": "true",
-    "Content-Type": "application/json",
-  };
+  return getSecureAdminHeaders(event as Parameters<typeof getSecureAdminHeaders>[0]);
 };
 
-// Generate session token
+// Generate session token with high entropy
 const generateToken = (): string => {
   return crypto.randomBytes(32).toString("hex");
 };
@@ -35,20 +38,25 @@ const isAllowedAdmin = (email: string): boolean => {
   return emailList.includes(email.toLowerCase());
 };
 
-// Verify password (in production, use proper hashing like bcrypt)
+/**
+ * SECURITY: Verify password using timing-safe comparison
+ * 
+ * For production with multiple admins, consider using bcrypt:
+ * 1. Store hashed password in env: ADMIN_PASSWORD_HASH
+ * 2. Use: await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH)
+ * 
+ * Current implementation uses timing-safe comparison to prevent timing attacks.
+ */
 const verifyPassword = (password: string): boolean => {
   const adminPassword = process.env.ADMIN_PASSWORD;
   if (!adminPassword) {
     console.error("SECURITY: ADMIN_PASSWORD env var is not set!");
     return false;
   }
-  // Use timing-safe comparison to prevent timing attacks
-  if (password.length !== adminPassword.length) return false;
-  let result = 0;
-  for (let i = 0; i < password.length; i++) {
-    result |= password.charCodeAt(i) ^ adminPassword.charCodeAt(i);
-  }
-  return result === 0;
+  
+  // SECURITY: Use timing-safe comparison to prevent timing attacks
+  // This takes constant time regardless of where strings differ
+  return timingSafeCompare(password, adminPassword);
 };
 
 export const handler: Handler = async (event) => {
@@ -69,9 +77,9 @@ export const handler: Handler = async (event) => {
       await prisma.adminSession.deleteMany({ where: { token } });
     }
 
-    // SECURITY: Clear cookie with same flags
+    // SECURITY: Clear cookie with same flags (SameSite=Strict for CSRF protection)
     const isProduction = process.env.NODE_ENV === "production";
-    const cookieFlags = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isProduction ? "; Secure" : ""}`;
+    const cookieFlags = `Path=/; HttpOnly; SameSite=Strict; Max-Age=0${isProduction ? "; Secure" : ""}`;
     
     return {
       statusCode: 200,
@@ -126,16 +134,18 @@ export const handler: Handler = async (event) => {
       const token = generateToken();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-      // Delete existing session and create new
-      await prisma.adminSession.upsert({
-        where: { email },
-        update: { token, expiresAt },
-        create: { email, token, expiresAt },
+      // SECURITY: Delete ALL existing sessions for this email before creating new one
+      // This prevents session accumulation and ensures clean token rotation
+      await prisma.adminSession.deleteMany({ where: { email } });
+      
+      // Create new session
+      await prisma.adminSession.create({
+        data: { email, token, expiresAt },
       });
 
-      // SECURITY: Set Secure flag in production for HTTPS-only cookies
+      // SECURITY: Set Secure flag in production, SameSite=Strict for CSRF protection
       const isProduction = process.env.NODE_ENV === "production";
-      const cookieFlags = `Path=/; HttpOnly; SameSite=Lax; Max-Age=86400${isProduction ? "; Secure" : ""}`;
+      const cookieFlags = `Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${isProduction ? "; Secure" : ""}`;
       
       return {
         statusCode: 200,

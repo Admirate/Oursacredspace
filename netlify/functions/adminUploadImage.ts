@@ -1,6 +1,7 @@
 import { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
+import { validateImageMagicBytes } from "./helpers/security";
 
 // Initialize Supabase client with service role key for storage operations
 const supabase = createClient(
@@ -100,9 +101,22 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Detect mime type from base64 header
-    const mimeMatch = image.match(/^data:(image\/\w+);base64,/);
-    const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    // SECURITY: Validate file content using magic bytes (not just header)
+    // This prevents MIME type spoofing attacks
+    const magicBytesValidation = validateImageMagicBytes(buffer);
+    if (!magicBytesValidation.valid || !magicBytesValidation.mimeType) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: "Invalid image file. Only JPEG, PNG, WebP, and GIF are allowed.",
+        }),
+      };
+    }
+
+    // Use the MIME type detected from magic bytes (more reliable than header)
+    const mimeType = magicBytesValidation.mimeType;
 
     if (!ALLOWED_TYPES.includes(mimeType)) {
       return {
@@ -128,13 +142,14 @@ export const handler: Handler = async (event) => {
       });
 
     if (error) {
+      // SECURITY: Log full error but don't expose to client
       console.error("Supabase upload error:", error);
       return {
         statusCode: 500,
         headers,
         body: JSON.stringify({
           success: false,
-          error: "Failed to upload image: " + error.message,
+          error: "Failed to upload image. Please try again.",
         }),
       };
     }

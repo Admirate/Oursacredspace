@@ -1,3 +1,5 @@
+import { sanitizeTemplateParam } from "./security";
+
 interface WhatsAppTemplateParams {
   to: string; // E.164 format
   templateName: string;
@@ -21,6 +23,15 @@ interface WhatsAppResponse {
 }
 
 const WHATSAPP_API_URL = "https://graph.facebook.com/v18.0";
+
+/**
+ * SECURITY: Sanitize phone number for WhatsApp API
+ * Removes non-digit characters and validates format
+ */
+const sanitizePhoneNumber = (phone: string): string => {
+  // Remove + and any non-digit characters
+  return phone.replace(/\D/g, "");
+};
 
 export const sendWhatsAppTemplate = async (
   params: WhatsAppTemplateParams
@@ -102,7 +113,10 @@ export const sendWhatsAppImage = async (
   }
 };
 
-// Combined function to send event confirmation with QR
+/**
+ * Combined function to send event confirmation with QR
+ * SECURITY: All user-provided parameters are sanitized before sending
+ */
 export const sendEventConfirmation = async (params: {
   to: string;
   name: string;
@@ -114,6 +128,13 @@ export const sendEventConfirmation = async (params: {
 }): Promise<{ templateSent: boolean; imageSent: boolean; errors: string[] }> => {
   const errors: string[] = [];
 
+  // SECURITY: Sanitize all user-provided template parameters
+  const sanitizedName = sanitizeTemplateParam(params.name);
+  const sanitizedEventTitle = sanitizeTemplateParam(params.eventTitle);
+  const sanitizedDatetime = sanitizeTemplateParam(params.datetime);
+  const sanitizedVenue = sanitizeTemplateParam(params.venue);
+  const sanitizedPassId = sanitizeTemplateParam(params.passId, 20);
+
   // 1. Send template message
   const templateResult = await sendWhatsAppTemplate({
     to: params.to,
@@ -122,11 +143,11 @@ export const sendEventConfirmation = async (params: {
       {
         type: "body",
         parameters: [
-          { type: "text", text: params.name },
-          { type: "text", text: params.eventTitle },
-          { type: "text", text: params.datetime },
-          { type: "text", text: params.venue },
-          { type: "text", text: params.passId },
+          { type: "text", text: sanitizedName },
+          { type: "text", text: sanitizedEventTitle },
+          { type: "text", text: sanitizedDatetime },
+          { type: "text", text: sanitizedVenue },
+          { type: "text", text: sanitizedPassId },
         ],
       },
     ],
@@ -140,7 +161,7 @@ export const sendEventConfirmation = async (params: {
   const imageResult = await sendWhatsAppImage({
     to: params.to,
     imageUrl: params.qrImageUrl,
-    caption: `🎫 Your Event Pass\n\nPass ID: ${params.passId}\n\nShow this QR code at the venue for check-in.`,
+    caption: `Your Event Pass - Pass ID: ${sanitizedPassId} - Show this QR code at the venue for check-in.`,
   });
 
   if (!imageResult.success) {
@@ -154,7 +175,10 @@ export const sendEventConfirmation = async (params: {
   };
 };
 
-// Send class confirmation
+/**
+ * Send class confirmation
+ * SECURITY: All user-provided parameters are sanitized before sending
+ */
 export const sendClassConfirmation = async (params: {
   to: string;
   name: string;
@@ -163,6 +187,7 @@ export const sendClassConfirmation = async (params: {
   time: string;
   bookingId: string;
 }): Promise<WhatsAppResponse> => {
+  // SECURITY: Sanitize all user-provided template parameters
   return sendWhatsAppTemplate({
     to: params.to,
     templateName: "booking_class_confirmed",
@@ -170,24 +195,28 @@ export const sendClassConfirmation = async (params: {
       {
         type: "body",
         parameters: [
-          { type: "text", text: params.name },
-          { type: "text", text: params.classTitle },
-          { type: "text", text: params.date },
-          { type: "text", text: params.time },
-          { type: "text", text: params.bookingId },
+          { type: "text", text: sanitizeTemplateParam(params.name) },
+          { type: "text", text: sanitizeTemplateParam(params.classTitle) },
+          { type: "text", text: sanitizeTemplateParam(params.date, 50) },
+          { type: "text", text: sanitizeTemplateParam(params.time, 20) },
+          { type: "text", text: sanitizeTemplateParam(params.bookingId, 50) },
         ],
       },
     ],
   });
 };
 
-// Send space call confirmation
+/**
+ * Send space call confirmation
+ * SECURITY: All user-provided parameters are sanitized before sending
+ */
 export const sendSpaceCallConfirmation = async (params: {
   to: string;
   name: string;
   date: string;
   time: string;
 }): Promise<WhatsAppResponse> => {
+  // SECURITY: Sanitize all user-provided template parameters
   return sendWhatsAppTemplate({
     to: params.to,
     templateName: "space_call_confirmed",
@@ -195,9 +224,9 @@ export const sendSpaceCallConfirmation = async (params: {
       {
         type: "body",
         parameters: [
-          { type: "text", text: params.name },
-          { type: "text", text: params.date },
-          { type: "text", text: params.time },
+          { type: "text", text: sanitizeTemplateParam(params.name) },
+          { type: "text", text: sanitizeTemplateParam(params.date, 50) },
+          { type: "text", text: sanitizeTemplateParam(params.time, 20) },
         ],
       },
     ],

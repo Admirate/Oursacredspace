@@ -4,6 +4,7 @@
  */
 
 import { HandlerEvent } from "@netlify/functions";
+import crypto from "crypto";
 
 /**
  * Rate limiting store
@@ -37,6 +38,87 @@ const cleanupExpiredEntries = () => {
       rateLimitStore.delete(key);
     }
   }
+};
+
+/**
+ * SECURITY: Timing-safe string comparison to prevent timing attacks
+ * Always takes the same amount of time regardless of where strings differ
+ */
+export const timingSafeCompare = (a: string, b: string): boolean => {
+  // Pad both strings to same length to prevent length-based timing attacks
+  const maxLength = Math.max(a.length, b.length);
+  const paddedA = a.padEnd(maxLength, '\0');
+  const paddedB = b.padEnd(maxLength, '\0');
+  
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(paddedA, 'utf8'),
+      Buffer.from(paddedB, 'utf8')
+    );
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * SECURITY: Generate cryptographically secure random string
+ * Use this instead of Math.random() for security-sensitive operations
+ */
+export const generateSecureId = (
+  length: number = 8,
+  charset: string = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+): string => {
+  const randomBytes = crypto.randomBytes(length);
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += charset.charAt(randomBytes[i] % charset.length);
+  }
+  return result;
+};
+
+/**
+ * SECURITY: Sanitize string for use in WhatsApp/notification templates
+ * Removes potential injection characters
+ */
+export const sanitizeTemplateParam = (value: string, maxLength: number = 100): string => {
+  return value
+    .replace(/[\n\r\t]/g, ' ')      // Replace newlines/tabs with spaces
+    .replace(/[<>{}[\]\\]/g, '')    // Remove potential injection chars
+    .replace(/\s+/g, ' ')           // Collapse multiple spaces
+    .trim()
+    .slice(0, maxLength);
+};
+
+/**
+ * SECURITY: Validate file magic bytes to prevent MIME type spoofing
+ */
+export const validateImageMagicBytes = (buffer: Buffer): { valid: boolean; mimeType: string | null } => {
+  if (buffer.length < 4) {
+    return { valid: false, mimeType: null };
+  }
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+    return { valid: true, mimeType: 'image/jpeg' };
+  }
+  
+  // PNG: 89 50 4E 47
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+    return { valid: true, mimeType: 'image/png' };
+  }
+  
+  // GIF: 47 49 46 38
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) {
+    return { valid: true, mimeType: 'image/gif' };
+  }
+  
+  // WebP: 52 49 46 46 ... 57 45 42 50
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+      buffer.length > 11 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+    return { valid: true, mimeType: 'image/webp' };
+  }
+
+  return { valid: false, mimeType: null };
 };
 
 /**
@@ -166,8 +248,9 @@ export const isAllowedOrigin = (event: HandlerEvent): boolean => {
 /**
  * Get validated origin for CORS header
  * Returns the origin if allowed, otherwise returns the first allowed origin
+ * SECURITY: This prevents CORS bypass attacks by validating against allowlist
  */
-const getValidatedOrigin = (event: HandlerEvent): string => {
+export const getValidatedOrigin = (event: HandlerEvent): string => {
   const origin = event.headers.origin || event.headers.Origin;
   const allowedOrigins = getAllowedOrigins();
   
@@ -177,6 +260,20 @@ const getValidatedOrigin = (event: HandlerEvent): string => {
   // Return first allowed origin as fallback (for same-origin requests or blocked origins)
   return allowedOrigins[0] || "http://localhost:3000";
 };
+
+/**
+ * SECURITY: Get CORS headers for admin endpoints (with strict origin validation)
+ * Use this for all admin endpoints to prevent CSRF attacks
+ */
+export const getSecureAdminHeaders = (event: HandlerEvent) => ({
+  "Access-Control-Allow-Origin": getValidatedOrigin(event),
+  "Access-Control-Allow-Headers": "Content-Type, Cookie",
+  "Access-Control-Allow-Credentials": "true",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Content-Type": "application/json",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+});
 
 /**
  * Get CORS headers for public endpoints (restricted to allowed origins)

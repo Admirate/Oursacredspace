@@ -1,5 +1,6 @@
 import { HandlerEvent } from "@netlify/functions";
 import { prisma } from "./prisma";
+import { getSecureAdminHeaders } from "./security";
 
 export interface AdminVerifyResult {
   isValid: boolean;
@@ -7,14 +8,34 @@ export interface AdminVerifyResult {
   error?: string;
 }
 
+/**
+ * SECURITY: Parse admin token from cookie safely
+ * Validates token format to prevent injection attacks
+ */
+const parseAdminToken = (cookieHeader: string | undefined): string | null => {
+  if (!cookieHeader) return null;
+  
+  const tokenMatch = cookieHeader
+    .split(";")
+    .find((c) => c.trim().startsWith("admin_token="));
+  
+  if (!tokenMatch) return null;
+  
+  const token = tokenMatch.split("=")[1]?.trim();
+  
+  // SECURITY: Validate token format (should be 64 hex characters)
+  if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
+    return null;
+  }
+  
+  return token;
+};
+
 export const verifyAdminSession = async (
   event: HandlerEvent
 ): Promise<AdminVerifyResult> => {
   try {
-    const token = event.headers.cookie
-      ?.split(";")
-      .find((c) => c.trim().startsWith("admin_token="))
-      ?.split("=")[1];
+    const token = parseAdminToken(event.headers.cookie);
 
     if (!token) {
       return { isValid: false, error: "Not authenticated" };
@@ -30,7 +51,9 @@ export const verifyAdminSession = async (
 
     if (session.expiresAt < new Date()) {
       // Clean up expired session
-      await prisma.adminSession.delete({ where: { token } });
+      await prisma.adminSession.delete({ where: { token } }).catch(() => {
+        // Ignore errors during cleanup
+      });
       return { isValid: false, error: "Session expired" };
     }
 
@@ -42,15 +65,12 @@ export const verifyAdminSession = async (
   }
 };
 
-// Helper to get CORS headers with dynamic origin
+/**
+ * SECURITY: Get CORS headers with validated origin
+ * This prevents CSRF attacks by only allowing whitelisted origins
+ */
 export const getAdminHeaders = (event: HandlerEvent) => {
-  const origin = event.headers.origin || event.headers.Origin || "http://localhost:8888";
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "Content-Type, Cookie",
-    "Access-Control-Allow-Credentials": "true",
-    "Content-Type": "application/json",
-  };
+  return getSecureAdminHeaders(event);
 };
 
 // Helper to create unauthorized response

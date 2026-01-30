@@ -247,12 +247,13 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    // SECURITY: Don't expose internal error messages to clients
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
         success: false,
-        error: errorMessage || "Failed to create booking. Please try again.",
+        error: "Failed to create booking. Please try again.",
       }),
     };
   }
