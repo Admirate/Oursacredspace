@@ -136,27 +136,18 @@ export default function VisitPage() {
   return (
     <div className="overflow-x-hidden">
       {/* Hero Section */}
-      <section className="relative bg-sacred-pink py-8 md:py-10">
+      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
         <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-sacred-pink rounded-[24px] md:rounded-[40px]">
+          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 h-full w-full object-cover scale-105 transition-transform duration-2000 group-hover:scale-110"
-                style={{
-                  transform: `scale(1.05) translate(${mousePosition.x * 0.5}px, ${mousePosition.y * 0.5}px)`,
-                }}
-                aria-label="Visit us video background"
-              >
-                <source src={HERO_VIDEO_URL} type="video/mp4" />
-              </video>
-              
-              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />
-              
-              {/* Floating particles */}
+              <img
+                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visitHero.jpg"
+                alt="Classes background"
+                className="absolute inset-0 h-full w-full object-cover scale-105 "
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+
+              {/* Floating particles
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 {[...Array(6)].map((_, i) => (
                   <div
@@ -170,22 +161,28 @@ export default function VisitPage() {
                     }}
                   />
                 ))}
-              </div>
-              
+              </div> */}
+
               <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white italic tracking-wide">
-                  <AnimatedText text="Visit Us" isVisible={heroLoaded} className="block" />
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide">
+                  <AnimatedText
+                    text="Visit Us"
+                    isVisible={heroLoaded}
+                    className="block"
+                  />
                 </h1>
-                <p 
+                <p
                   className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded ? "opacity-100 translate-y-0 delay-500" : "opacity-0 translate-y-8"
+                    heroLoaded
+                      ? "opacity-100 translate-y-0 delay-500"
+                      : "opacity-0 translate-y-8"
                   }`}
-                  style={{ transitionDelay: '600ms' }}
+                  style={{ transitionDelay: "600ms" }}
                 >
-                  Come experience the space in person. Walk through the campus explore the surroundings 
-                  and discover what makes this place meaningful.
+                  Come experience the space in person. Walk through the campus
+                  explore the surroundings and discover what makes this place
+                  meaningful.
                 </p>
-                
               </div>
             </div>
           </div>
@@ -193,72 +190,71 @@ export default function VisitPage() {
       </section>
 
       {/* Info Section */}
-      <section 
+      <section
         ref={infoSection.ref as React.RefObject<HTMLElement>}
-        className="relative bg-white rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10"
+        className="relative bg-[#F6F6F6] rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10 overflow-visible"
       >
-        {/* Decorative Mandala Background */}
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none">
-          <div className="relative w-[300px] h-[300px] md:w-[400px] md:h-[400px] -ml-32 md:-ml-48">
-            <Image
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-              alt=""
-              aria-hidden="true"
-              fill
-              sizes="(max-width: 768px) 300px, 400px"
-              className="object-contain opacity-10"
-            />
-          </div>
-        </div>
-
         <div className="container px-4 sm:px-6 py-12 md:py-16 lg:py-20">
           <div className="flex flex-col lg:flex-row justify-between items-start gap-8 lg:gap-16">
             {/* Left Side - Info Blocks with Dividers */}
             <div className="flex-1 max-w-xl">
               {/* Location */}
-              <div 
+              <div
                 className="pb-6 md:pb-8 border-b border-gray-200 transition-all duration-700"
                 style={{
                   opacity: infoSection.isInView ? 1 : 0,
-                  transform: infoSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                  transitionDelay: '200ms',
+                  transform: infoSection.isInView
+                    ? "translateY(0)"
+                    : "translateY(20px)",
+                  transitionDelay: "200ms",
                 }}
               >
-                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">Location</h3>
+                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">
+                  Location
+                </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
                   Our Sacred Space
                   <br />
                   Secunderabad Hyderabad
                 </p>
               </div>
-              
+
               {/* When to Visit */}
-              <div 
+              <div
                 className="py-6 md:py-8 border-b border-gray-200 transition-all duration-700"
                 style={{
                   opacity: infoSection.isInView ? 1 : 0,
-                  transform: infoSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                  transitionDelay: '400ms',
+                  transform: infoSection.isInView
+                    ? "translateY(0)"
+                    : "translateY(20px)",
+                  transitionDelay: "400ms",
                 }}
               >
-                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">When to Visit</h3>
+                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">
+                  When to Visit
+                </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
-                  The campus is active through the week with classes workshops and events.
+                  The campus is active through the week with classes workshops
+                  and events.
                   <br />
                   Timings may vary based on activities.
                 </p>
               </div>
-              
+
               {/* Getting Here */}
-              <div 
+              <div
                 className="pt-6 md:pt-8 border-b border-gray-200 pb-6 md:pb-8 transition-all duration-700"
                 style={{
                   opacity: infoSection.isInView ? 1 : 0,
-                  transform: infoSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                  transitionDelay: '600ms',
+                  transform: infoSection.isInView
+                    ? "translateY(0)"
+                    : "translateY(20px)",
+                  transitionDelay: "600ms",
                 }}
               >
-                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">Getting Here</h3>
+                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">
+                  Getting Here
+                </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
                   The space is easily accessible by road and public transport.
                   <br />
@@ -266,35 +262,34 @@ export default function VisitPage() {
                 </p>
               </div>
             </div>
-            
+
             {/* Right Side - Reach Out Card */}
-            <div 
+            <div
               className="w-full lg:w-auto lg:flex-shrink-0 transition-all duration-700"
               style={{
                 opacity: infoSection.isInView ? 1 : 0,
-                transform: infoSection.isInView ? 'translateX(0)' : 'translateX(20px)',
-                transitionDelay: '400ms',
+                transform: infoSection.isInView
+                  ? "translateX(0)"
+                  : "translateX(20px)",
+                transitionDelay: "400ms",
               }}
             >
-              <div className="relative w-full lg:w-[320px] xl:w-[380px] h-[280px] md:h-[320px] rounded-2xl overflow-hidden">
+              <div className="relative w-full lg:w-[415px] xl:w-[380px] h-[315px] md:h-[415px] rounded-3xl overflow-hidden">
                 {/* Background Video */}
-                <video
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="absolute inset-0 h-full w-full object-cover"
-                  aria-label="Reach out video background"
-                >
-                  <source src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/456703_Fist_Bump_Fist_Pump_1920x1080.mp4" type="video/mp4" />
-                </video>
-                
+                <img
+                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visitImg.png"
+                  alt="Reach out background"
+                  className="absolute inset-0 h-full w-full object-cover object-center scale-150"
+                />
+
                 {/* Dark Overlay */}
-                <div className="absolute inset-0 bg-black/50" />
-                
+                <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+
                 {/* Content */}
                 <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8">
-                  <h3 className="text-white text-xl md:text-2xl font-medium mb-2">Reach Out</h3>
+                  <h3 className="text-white text-xl md:text-2xl font-medium mb-2">
+                    Reach Out
+                  </h3>
                   <p className="text-white/80 text-xs md:text-sm font-light leading-relaxed mb-4">
                     For enquiries bookings or general
                     <br />
@@ -315,95 +310,109 @@ export default function VisitPage() {
         </div>
       </section>
 
-      {/* Community and Culture Section */}
-      <section 
-        ref={communitySection.ref as React.RefObject<HTMLElement>}
-        className="bg-white py-10 sm:py-12 md:py-16 lg:py-20"
+      {/* Community + Contact Combined Section */}
+      <section
+        ref={contactSection.ref as React.RefObject<HTMLElement>}
+        className="relative bg-[#F6F6F6] py-10 sm:py-12 md:py-16 lg:py-20 overflow-hidden"
       >
         <div className="container px-4 sm:px-6">
-          <div 
+          {/* Community Content */}
+          <div
             className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
             style={{
-              opacity: communitySection.isInView ? 1 : 0,
-              transform: communitySection.isInView ? 'translateY(0)' : 'translateY(30px)',
+              opacity: contactSection.isInView ? 1 : 0,
+              transform: contactSection.isInView
+                ? "translateY(0)"
+                : "translateY(30px)",
             }}
           >
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">
               Community and Culture
             </h2>
-            <p 
+
+            <p
               className="text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
               style={{
-                opacity: communitySection.isInView ? 1 : 0,
-                transform: communitySection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                transitionDelay: '200ms',
+                opacity: contactSection.isInView ? 1 : 0,
+                transform: contactSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transitionDelay: "150ms",
               }}
             >
-              We support local makers, organic markets, children-focused spaces and environmental initiatives. 
-              Everything we do is built around people&apos;s craft and care for nature.
+              We support local makers, organic markets, children-focused spaces
+              and environmental initiatives. Everything we do is built around
+              people's craft and care for nature.
             </p>
           </div>
-        </div>
-      </section>
 
-      {/* Contact Section */}
-      <section 
-        ref={contactSection.ref as React.RefObject<HTMLElement>}
-        className="bg-white pb-12 sm:pb-16 md:pb-20 lg:pb-24"
-      >
-        <div className="container px-4 sm:px-6">
-          <div 
+          {/* spacing */}
+          <div className="h-16 sm:h-24 md:h-32"></div>
+
+          {/* Contact Content */}
+          <div
             className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
             style={{
               opacity: contactSection.isInView ? 1 : 0,
-              transform: contactSection.isInView ? 'translateY(0)' : 'translateY(30px)',
+              transform: contactSection.isInView
+                ? "translateY(0)"
+                : "translateY(30px)",
+              transitionDelay: "200ms",
             }}
           >
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 sm:mb-3">
-              Plan Your Visit <span className="text-sacred-burgundy animate-pulse">♀</span>
+              Visit Us{" "}
+              <span className="inline-block mb-2 mx-1">
+                <img
+                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
+                  alt="visit"
+                  className="lg:w-5 lg:h-8 md:w-4 md:h-7 w-3 h-5 mb-1 inline-block"
+                />
+              </span>{" "}
+              Also
             </h2>
-            <p 
+
+            <p
               className="text-xs sm:text-sm md:text-base text-gray-600 font-light mb-5 sm:mb-6 transition-all duration-700"
               style={{
                 opacity: contactSection.isInView ? 1 : 0,
-                transform: contactSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                transitionDelay: '150ms',
+                transform: contactSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transitionDelay: "300ms",
               }}
             >
               Reach out to schedule a visit or learn more about the space.
             </p>
+
             <div
               style={{
                 opacity: contactSection.isInView ? 1 : 0,
-                transform: contactSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                transition: 'all 0.7s ease-out',
-                transitionDelay: '300ms',
+                transform: contactSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transition: "all 0.7s ease-out",
+                transitionDelay: "450ms",
               }}
             >
               <MagneticButton
-                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-gray-800 hover:bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 hover:shadow-xl hover:shadow-gray-800/30 flex items-center justify-center gap-2 group"
-                onClick={() => window.location.href = '/contact'}
+                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-[#c44536] hover:bg-[#a33a2d] text-white text-xs sm:text-sm font-medium rounded-3xl transition-all duration-200 hover:shadow-xl hover:shadow-gray-800/30 flex items-center justify-center gap-2 group"
+                onClick={() => (window.location.href = "/contact")}
               >
                 Contact Us
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
               </MagneticButton>
             </div>
           </div>
         </div>
-        
-        {/* Decorative Spinning Mandala */}
-        <div className="mt-12 md:mt-16 flex justify-center">
-          <div className="relative w-[200px] h-[200px] md:w-[300px] md:h-[300px]">
-            <Image
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-              alt=""
-              aria-hidden="true"
-              fill
-              sizes="(max-width: 768px) 200px, 300px"
-              className="object-contain opacity-20 animate-spin-slow"
-            />
-          </div>
-        </div>
+
+        {/* Tree image inside section */}
+        <img
+          src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree.png"
+          alt="tree"
+          className="absolute lg:-bottom-60 md:-bottom-56 bottom-[-260px] lg:right-32 md:-right-12 -right-20 
+               w-[675px] xl:w-[520px] h-auto object-contain opacity-20 pointer-events-none select-none"
+          aria-hidden="true"
+        />
       </section>
     </div>
   );

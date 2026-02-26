@@ -5,25 +5,25 @@ export const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="relative bg-sacred-pink">
+    <footer className="relative bg-[#FFE5EC]">
       <div className="container py-12 md:py-16 lg:py-20">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
           {/* Brand Section */}
           <div className="lg:col-span-1">
-            <Link 
-              href="/" 
+            <Link
+              href="/"
               className="inline-block mb-5"
               aria-label="Our Sacred Space Home"
             >
-              <h2 className="text-2xl md:text-3xl font-light text-sacred-burgundy italic">
+              <h2 className="text-2xl md:text-3xl font-light text-sacred-burgundy ">
                 Our Sacred Space
               </h2>
             </Link>
             <p className="text-sm text-sacred-burgundy/80 leading-relaxed mb-6 max-w-xs">
-              A cultural and community centre in Secunderabad, bringing together art, 
-              wellness, learning, and environmental awareness since 2012.
+              A cultural and community centre in Secunderabad, bringing together
+              art, wellness, learning, and environmental awareness since 2012.
             </p>
-            
+
             {/* Social Links */}
             <div className="flex items-center gap-4">
               <a
@@ -147,15 +147,23 @@ export const Footer = () => {
             </h3>
             <ul className="space-y-4">
               <li className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-sacred-green shrink-0 mt-0.5" aria-hidden="true" />
+                <MapPin
+                  className="h-5 w-5 text-sacred-green shrink-0 mt-0.5"
+                  aria-hidden="true"
+                />
                 <span className="text-sm text-sacred-burgundy/80 leading-relaxed">
-                  1-8-702/A, Padma Colony,<br />
-                  Nallakunta, Secunderabad,<br />
+                  1-8-702/A, Padma Colony,
+                  <br />
+                  Nallakunta, Secunderabad,
+                  <br />
                   Telangana 500044
                 </span>
               </li>
               <li className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-sacred-green shrink-0" aria-hidden="true" />
+                <Phone
+                  className="h-5 w-5 text-sacred-green shrink-0"
+                  aria-hidden="true"
+                />
                 <a
                   href="tel:+914027617444"
                   className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors"
@@ -165,7 +173,10 @@ export const Footer = () => {
                 </a>
               </li>
               <li className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-sacred-green shrink-0" aria-hidden="true" />
+                <Mail
+                  className="h-5 w-5 text-sacred-green shrink-0"
+                  aria-hidden="true"
+                />
                 <a
                   href="mailto:info@oursacredspace.in"
                   className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors"
@@ -185,7 +196,8 @@ export const Footer = () => {
               © {currentYear} Our Sacred Space. All rights reserved.
             </p>
             <p className="text-sm text-sacred-burgundy/70 flex items-center gap-1">
-              Made with <span className="text-sacred-pink-dark">♡</span> in Secunderabad
+              Made with <span className="text-sacred-pink-dark">♡</span> in
+              Secunderabad
             </p>
           </div>
         </div>

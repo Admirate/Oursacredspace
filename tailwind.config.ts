@@ -18,12 +18,12 @@ const config = {
       },
     },
     screens: {
-      'xs': '480px',
-      'sm': '640px',
-      'md': '768px',
-      'lg': '1024px',
-      'xl': '1280px',
-      '2xl': '1536px',
+      xs: "480px",
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1536px",
     },
     extend: {
       colors: {
@@ -77,7 +77,7 @@ const config = {
           // Pink (lotus flower accents, hero background)
           pink: {
             DEFAULT: "#e8a0b0",
-            light: "#f0c0d0",
+            light: "##FFE5EC",
             dark: "#d4627a",
             vivid: "#d4627a",
           },
@@ -137,8 +137,7 @@ const config = {
         "spin-slow": "spin-slow 20s linear infinite",
       },
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "monospace"],
+        sans: ["var(--font-jakarta)", "system-ui", "sans-serif"],
       },
       transitionDuration: {
         "2000": "2000ms",

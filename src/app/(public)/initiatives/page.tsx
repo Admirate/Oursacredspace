@@ -63,6 +63,53 @@ const AnimatedText = ({
     </span>
   );
 };
+const RippleButton = ({ 
+  children, 
+  className, 
+  href 
+}: { 
+  children: React.ReactNode; 
+  className?: string; 
+  href: string;
+}) => {
+  const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const id = Date.now();
+    
+    setRipples(prev => [...prev, { x, y, id }]);
+    setTimeout(() => {
+      setRipples(prev => prev.filter(r => r.id !== id));
+    }, 600);
+  };
+
+  return (
+    <Link 
+      href={href} 
+      className={`${className} relative overflow-hidden`} 
+      onClick={handleClick}
+    >
+      {ripples.map(ripple => (
+        <span
+          key={ripple.id}
+          className="absolute bg-white/30 rounded-full pointer-events-none"
+          style={{
+            left: ripple.x,
+            top: ripple.y,
+            transform: 'translate(-50%, -50%)',
+            width: '200px',
+            height: '200px',
+            animation: 'ripple 0.6s ease-out forwards',
+          }}
+        />
+      ))}
+      {children}
+    </Link>
+  );
+};
 
 export default function InitiativesPage() {
   const [heroLoaded, setHeroLoaded] = useState(false);
@@ -100,98 +147,101 @@ export default function InitiativesPage() {
 
   return (
     <div className="overflow-x-hidden">
-      <section className="relative bg-sacred-pink py-4 xs:py-6 sm:py-8 md:py-10">
+      <section className="relative bg-[#FFE5EC] py-4 xs:py-6 sm:py-8 md:py-10">
         <div className="container px-3 xs:px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-3 xs:p-4 sm:p-5 md:p-[40px] bg-sacred-pink rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px]">
+          <div className="relative w-full max-w-[1414px] p-3 xs:p-4 sm:p-5 md:p-[40px] bg-[#FFE5EC] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-xl sm:shadow-2xl w-full h-[480px] xs:h-[520px] sm:h-[450px] md:h-[418px] lg:h-[498px] xl:h-[550px] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px] group">
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 h-full w-full object-cover scale-105 transition-transform duration-2000 group-hover:scale-110"
-                style={{ transform: getTransform() }}
-                aria-label="Initiatives video background"
-              >
-                <source src={HERO_VIDEO_URL} type="video/mp4" />
-              </video>
-              
-              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent sm:from-black/50 sm:via-black/30" />
-              
-              {/* Floating particles - fewer on mobile */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`absolute w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white/20 rounded-full animate-float ${i > 3 ? 'hidden sm:block' : ''}`}
-                    style={{
-                      left: `${15 + i * 15}%`,
-                      top: `${20 + (i % 3) * 25}%`,
-                      animationDelay: `${i * 0.5}s`,
-                      animationDuration: `${3 + i * 0.5}s`,
-                    }}
-                  />
-                ))}
-              </div>
-              
+              <img
+                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/initiativeHero.jpg"
+                alt="Classes background"
+                className="absolute inset-0 h-full w-full object-cover object-top scale-105 "
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+
               <div className="absolute inset-0 flex flex-col sm:flex-row sm:justify-between px-4 xs:px-5 sm:px-6 md:px-10 lg:px-16 py-4 xs:py-5 sm:py-8 md:py-12">
                 {/* Left Section - Title and Description */}
                 <div className="flex flex-col justify-center max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md">
-                  <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-light text-white italic tracking-wide">
-                    <AnimatedText text="Initiatives" isVisible={heroLoaded} className="block" />
+                  <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide">
+                    <AnimatedText
+                      text="Initiatives"
+                      isVisible={heroLoaded}
+                      className="block"
+                    />
                   </h1>
-                  <p 
+                  <p
                     className={getHeroClass()}
-                    style={{ transitionDelay: '600ms' }}
+                    style={{ transitionDelay: "600ms" }}
                   >
-                    We believe care for culture and care for the environment go together. Our initiatives reflect this responsibility and grow through collective participation.
+                    We believe care for culture and care for the environment go
+                    together. Our initiatives reflect this responsibility and
+                    grow through collective participation.
                   </p>
                 </div>
-                
+
                 {/* Right Section - Three Info Cards */}
-                <div className="flex flex-col justify-center gap-3 xs:gap-4 sm:gap-5 md:gap-6 mt-4 xs:mt-5 sm:mt-0 max-w-[280px] xs:max-w-xs sm:max-w-[220px] md:max-w-xs lg:max-w-sm">
-                  {/* The Treedom Movement */}
-                  <div 
-                    className="transition-all duration-700"
+
+                <div className="flex flex-col justify-center gap-4 xs:gap-5 sm:gap-6 mt-4 xs:mt-5 sm:mt-0 max-w-[280px] xs:max-w-xs sm:max-w-[220px] md:max-w-xs lg:max-w-sm">
+                  <div className="block sm:hidden w-full border-t-2 border-white/40 mb-4"></div>
+                  {/* Item */}
+                  <div
+                    className="transition-all duration-700 border-b-2 border-white/40 pb-4 xs:pb-5 sm:pb-6"
                     style={{
                       opacity: heroLoaded ? 1 : 0,
-                      transform: heroLoaded ? 'translateX(0)' : 'translateX(20px)',
-                      transitionDelay: '400ms',
+                      transform: heroLoaded
+                        ? "translateX(0)"
+                        : "translateX(20px)",
+                      transitionDelay: "400ms",
                     }}
                   >
-                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-0.5 xs:mb-1">The Treedom Movement</h3>
+                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-1">
+                      The Treedom Movement
+                    </h3>
                     <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
-                      An ongoing effort focused on planting trees and nurturing green spaces. It encourages awareness responsibility and long term thinking.
+                      An ongoing effort focused on planting trees and nurturing
+                      green spaces. It encourages awareness responsibility and
+                      long term thinking.
                     </p>
                   </div>
-                  
-                  {/* What We Do */}
-                  <div 
-                    className="transition-all duration-700"
+
+                  {/* Item */}
+                  <div
+                    className="transition-all duration-700 border-b-2 border-white/40 pb-4 xs:pb-5 sm:pb-6"
                     style={{
                       opacity: heroLoaded ? 1 : 0,
-                      transform: heroLoaded ? 'translateX(0)' : 'translateX(20px)',
-                      transitionDelay: '600ms',
+                      transform: heroLoaded
+                        ? "translateX(0)"
+                        : "translateX(20px)",
+                      transitionDelay: "600ms",
                     }}
                   >
-                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-0.5 xs:mb-1">What We Do</h3>
+                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-1">
+                      What We Do
+                    </h3>
                     <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
-                      Tree planting drives environmental conversations and community led action. Each activity is rooted in care for the land and future generations.
+                      Tree planting drives environmental conversations and
+                      community led action. Each activity is rooted in care for
+                      the land and future generations.
                     </p>
                   </div>
-                  
-                  {/* Community Involvement */}
-                  <div 
-                    className="transition-all duration-700"
+
+                  {/* Item */}
+                  <div
+                    className="transition-all duration-700 border-b-2 border-white/40 pb-4 xs:pb-5 sm:pb-6"
                     style={{
                       opacity: heroLoaded ? 1 : 0,
-                      transform: heroLoaded ? 'translateX(0)' : 'translateX(20px)',
-                      transitionDelay: '800ms',
+                      transform: heroLoaded
+                        ? "translateX(0)"
+                        : "translateX(20px)",
+                      transitionDelay: "800ms",
                     }}
                   >
-                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-0.5 xs:mb-1">Community Involvement</h3>
+                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-1">
+                      Community Involvement
+                    </h3>
                     <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
-                      Everyone is welcome to participate contribute and support the movement. The initiative grows through shared effort and sustained commitment.
+                      Everyone is welcome to participate contribute and support
+                      the movement. The initiative grows through shared effort
+                      and sustained commitment.
                     </p>
                   </div>
                 </div>
@@ -204,92 +254,102 @@ export default function InitiativesPage() {
       {/* White Content Section with Rounded Top Corners */}
       <section className="relative bg-white rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10">
         {/* Community and Culture Section */}
-        <section 
-          ref={communitySection.ref as React.RefObject<HTMLElement>}
-          className="py-10 sm:py-12 md:py-16 lg:py-20"
-        >
-          <div className="container px-4 sm:px-6">
-            <div 
+        <section className="relative bg-white py-10 sm:py-12 md:py-16 lg:py-20">
+          <div className="container px-4 sm:px-6 relative ">
+            <img
+              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree.png"
+              alt="tree"
+              className=" absolute lg:-bottom-80 md:-bottom-56 bottom-[-260px] lg:right-32 md:-right-12 -right-20 w-[420px]
+            xl:w-[520px] h-auto object-contain opacity-20 pointer-events-none select-none "
+              aria-hidden="true"
+            />
+            {/* Community and Culture */}
+            <div
+              ref={communitySection.ref as React.RefObject<HTMLDivElement>}
               className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
               style={{
                 opacity: communitySection.isInView ? 1 : 0,
-                transform: communitySection.isInView ? 'translateY(0)' : 'translateY(30px)',
+                transform: communitySection.isInView
+                  ? "translateY(0)"
+                  : "translateY(30px)",
               }}
             >
               <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">
                 Community and Culture
               </h2>
-              <p 
+
+              <p
                 className="text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
                 style={{
                   opacity: communitySection.isInView ? 1 : 0,
-                  transform: communitySection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                  transitionDelay: '200ms',
+                  transform: communitySection.isInView
+                    ? "translateY(0)"
+                    : "translateY(20px)",
+                  transitionDelay: "200ms",
                 }}
               >
-                We support local makers organic markets children-focused spaces and environmental initiatives. 
-                Everything we do is built around people&apos;s craft and care for nature.
+                We support local makers, organic markets, children-focused
+                spaces and environmental initiatives. Everything we do is built
+                around people&apos;s craft and care for nature.
               </p>
             </div>
-          </div>
-        </section>
 
-        {/* Visit Us Section */}
-        <section 
-          ref={visitSection.ref as React.RefObject<HTMLElement>}
-          className="pb-12 sm:pb-16 md:pb-20 lg:pb-24"
-        >
-          <div className="container px-4 sm:px-6">
-            <div 
+            {/* spacing between two blocks */}
+            <div className="h-10 md:h-14 lg:h-16" />
+
+            {/* Visit Us */}
+            <div
+              ref={visitSection.ref as React.RefObject<HTMLDivElement>}
               className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
               style={{
                 opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView ? 'translateY(0)' : 'translateY(30px)',
+                transform: visitSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(30px)",
               }}
             >
               <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 sm:mb-3">
-                Visit Us <span className="text-sacred-burgundy">♀</span> Also
+                Visit Us{" "}
+                <span className="inline-block mb-2 mx-1">
+                  <img
+                    src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
+                    alt="visit"
+                    className="lg:w-5 lg:h-8 md:w-4 md:h-7 w-3 h-5 mb-1 inline-block"
+                  />
+                </span>{" "}
+                Also
               </h2>
-              <p 
+
+              <p
                 className="text-xs sm:text-sm md:text-base text-gray-600 font-light mb-5 sm:mb-6 transition-all duration-700"
                 style={{
                   opacity: visitSection.isInView ? 1 : 0,
-                  transform: visitSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                  transitionDelay: '150ms',
+                  transform: visitSection.isInView
+                    ? "translateY(0)"
+                    : "translateY(20px)",
+                  transitionDelay: "150ms",
                 }}
               >
-                Come for a class host an event or spend time in the space.
+                Come for a class, host an event or spend time in the space.
               </p>
+
               <div
                 style={{
                   opacity: visitSection.isInView ? 1 : 0,
-                  transform: visitSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                  transition: 'all 0.7s ease-out',
-                  transitionDelay: '300ms',
+                  transform: visitSection.isInView
+                    ? "translateY(0)"
+                    : "translateY(20px)",
+                  transition: "all 0.7s ease-out",
+                  transitionDelay: "300ms",
                 }}
               >
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 sm:py-3 bg-[#C23536] hover:bg-[#a82d2e] text-white text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 hover:shadow-lg"
-                  tabIndex={0}
-                  aria-label="Contact Us"
+                <RippleButton
+                  href="contact"
+                  className="inline-flex items-center justify-center w-full sm:w-auto px-5 sm:px-6 py-3 sm:py-3 bg-[#c44536] hover:bg-[#a33a2d] text-white text-xs sm:text-sm font-medium rounded-3xl transition-all duration-200 hover:shadow-lg hover:scale-105"
                 >
                   Contact Us
-                </Link>
+                </RippleButton>
               </div>
-            </div>
-          </div>
-          
-          {/* Decorative Spinning Mandala */}
-          <div className="mt-12 md:mt-16 flex justify-center">
-            <div className="relative w-[200px] h-[200px] md:w-[300px] md:h-[300px]">
-              <Image
-                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-                alt=""
-                aria-hidden="true"
-                fill
-                className="object-contain opacity-20 animate-spin-slow"
-              />
             </div>
           </div>
         </section>

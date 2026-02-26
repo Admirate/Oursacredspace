@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { LenisProvider } from "@/components/providers/LenisProvider";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-jakarta",
+});
+
 
 export const metadata: Metadata = {
   title: {
@@ -62,9 +69,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body
-        className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}
-      >
+      <body className={`${jakarta.variable} font-sans antialiased`}>
         <QueryProvider>
           <LenisProvider>
             {children}

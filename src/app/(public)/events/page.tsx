@@ -494,56 +494,36 @@ export default function EventsPage() {
   return (
     <div className="overflow-x-hidden">
       {/* Hero Section */}
-      <section className="relative bg-sacred-pink py-8 md:py-10">
+      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
         <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-sacred-pink rounded-[24px] md:rounded-[40px]">
+          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 h-full w-full object-cover scale-105 transition-transform duration-2000 group-hover:scale-110"
-                style={{
-                  transform: `scale(1.05) translate(${mousePosition.x * 0.5}px, ${mousePosition.y * 0.5}px)`,
-                }}
-                aria-label="Events video background"
-              >
-                <source src={HERO_VIDEO_URL} type="video/mp4" />
-              </video>
-              
-              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />
-              
-              {/* Floating particles */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-2 h-2 bg-white/20 rounded-full animate-float"
-                    style={{
-                      left: `${15 + i * 15}%`,
-                      top: `${20 + (i % 3) * 25}%`,
-                      animationDelay: `${i * 0.5}s`,
-                      animationDuration: `${3 + i * 0.5}s`,
-                    }}
-                  />
-                ))}
-              </div>
-              
+              <img
+                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventHero.png"
+                alt="Classes background"
+                className="absolute inset-0 h-full w-full object-cover scale-105 "
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+
               <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white italic tracking-wide">
-                  <AnimatedText text="Upcoming Events" isVisible={heroLoaded} className="block" />
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide">
+                  <AnimatedText
+                    text="Upcoming Events"
+                    isVisible={heroLoaded}
+                    className="block"
+                  />
                 </h1>
-                <p 
+                <p
                   className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded ? "opacity-100 translate-y-0 delay-500" : "opacity-0 translate-y-8"
+                    heroLoaded
+                      ? "opacity-100 translate-y-0 delay-500"
+                      : "opacity-0 translate-y-8"
                   }`}
-                  style={{ transitionDelay: '600ms' }}
+                  style={{ transitionDelay: "600ms" }}
                 >
-                  Join our exciting community events. Get your pass instantly with QR code 
-                  delivered to your WhatsApp!
+                  Join our exciting community events. Get your pass instantly
+                  with QR code delivered to your WhatsApp!
                 </p>
-                
               </div>
             </div>
           </div>
@@ -551,135 +531,110 @@ export default function EventsPage() {
       </section>
 
       {/* About Events Section */}
-      <section className="relative bg-white rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10">
-        <div className="container px-4 sm:px-6 py-12 md:py-16 lg:py-20">
-          <div className="flex flex-col lg:flex-row justify-between items-start gap-8 lg:gap-16">
+      <section className="relative bg-[#E2F0CB] rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10 overflow-hidden">
+        <div className="container relative px-8 sm:px-6 md:px-12 py-12 md:py-16 lg:py-20">
+          {/* TREE  */}
+          <img
+            src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree-1.png"
+            alt="tree"
+            className="hidden md:block absolute right-0 top-10 w-[380px] lg:w-[450px] xl:w-[520px] opacity-20 pointer-events-none select-none"
+            aria-hidden="true"
+          />
+
+          <div className="flex flex-col lg:flex-row justify-between items-start gap-8 lg:gap-16 relative z-10">
             {/* Left Side - Info Blocks */}
             <div className="flex-1 max-w-2xl space-y-8 md:space-y-10">
               {/* About the Events */}
-              <div 
-                className="transition-all duration-700"
-                style={{
-                  opacity: heroLoaded ? 1 : 0,
-                  transform: heroLoaded ? 'translateY(0)' : 'translateY(20px)',
-                  transitionDelay: '200ms',
-                }}
-              >
-                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">About the Events</h3>
+              <div>
+                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">
+                  About the Events
+                </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
-                  We host events that bring people together through art movement conversation and culture. 
-                  Some are planned in advance. Some grow organically.
+                  We host events that bring people together through art movement
+                  conversation and culture. Some are planned in advance. Some
+                  grow organically.
                 </p>
               </div>
-              
+
               {/* What You Will Find */}
-              <div 
-                className="transition-all duration-700"
-                style={{
-                  opacity: heroLoaded ? 1 : 0,
-                  transform: heroLoaded ? 'translateY(0)' : 'translateY(20px)',
-                  transitionDelay: '400ms',
-                }}
-              >
-                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">What You Will Find</h3>
+              <div>
+                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">
+                  What You Will Find
+                </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
-                  Performances talks screenings exhibitions markets and community led gatherings. 
-                  Events are designed to be participatory and welcoming.
+                  Performances talks screenings exhibitions markets and
+                  community led gatherings. Events are designed to be
+                  participatory and welcoming.
                 </p>
               </div>
-              
+
               {/* Ongoing Gatherings */}
-              <div 
-                className="transition-all duration-700"
-                style={{
-                  opacity: heroLoaded ? 1 : 0,
-                  transform: heroLoaded ? 'translateY(0)' : 'translateY(20px)',
-                  transitionDelay: '600ms',
-                }}
-              >
-                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">Ongoing Gatherings</h3>
+              <div>
+                <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-2">
+                  Ongoing Gatherings
+                </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
-                  Recurring events that return through the year. 
-                  These include cultural evenings open sessions and seasonal celebrations.
+                  Recurring events that return through the year. These include
+                  cultural evenings open sessions and seasonal celebrations.
                 </p>
-              </div>
-            </div>
-            
-            {/* Right Side - Decorative Mandala */}
-            <div className="hidden lg:flex items-center justify-center flex-shrink-0">
-              <div className="relative w-[250px] h-[250px] xl:w-[300px] xl:h-[300px]">
-                <Image
-                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-                  alt=""
-                  aria-hidden="true"
-                  fill
-                  sizes="(max-width: 1280px) 250px, 300px"
-                  className="object-contain opacity-20"
-                />
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Host an Event Section - 712px height on desktop */}
+      {/* Host an Event Section */}
       <section className="relative w-full h-[400px] sm:h-[500px] md:h-[600px] lg:h-[712px] overflow-hidden rounded-t-[24px] md:rounded-t-[40px]">
-        {/* Background Video */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover"
-          aria-label="Host an Event video background"
-        >
-          <source src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/group.mp4" type="video/mp4" />
-        </video>
-        
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/40" />
-        
+        {/* Background Image */}
+        <img
+          src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventImg-1.png"
+          alt="Classes background"
+          className="absolute inset-0 h-full w-full object-cover scale-105 "
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+
         {/* Content */}
         <div className="absolute inset-0 flex flex-col items-center justify-between px-4 py-16 md:py-24 lg:py-32">
           {/* Empty spacer for top */}
           <div />
-          
+
           {/* Center Content */}
           <div className="text-center">
-            <h2 
+            <h2
               className="text-2xl sm:text-3xl md:text-4xl lg:text-[40px] font-medium text-white mb-4 md:mb-6"
               style={{
                 opacity: heroLoaded ? 1 : 0,
-                transform: heroLoaded ? 'translateY(0)' : 'translateY(20px)',
-                transition: 'all 0.7s ease-out',
-                transitionDelay: '100ms',
+                transform: heroLoaded ? "translateY(0)" : "translateY(20px)",
+                transition: "all 0.7s ease-out",
+                transitionDelay: "100ms",
               }}
             >
               Host an Event
             </h2>
-            <p 
+            <p
               className="text-white/90 text-sm md:text-base max-w-xl mx-auto font-light leading-relaxed"
               style={{
                 opacity: heroLoaded ? 1 : 0,
-                transform: heroLoaded ? 'translateY(0)' : 'translateY(20px)',
-                transition: 'all 0.7s ease-out',
-                transitionDelay: '200ms',
+                transform: heroLoaded ? "translateY(0)" : "translateY(20px)",
+                transition: "all 0.7s ease-out",
+                transitionDelay: "200ms",
               }}
             >
-              We welcome artists collectives and organisations to host events in the space.
+              We welcome artists collectives and organisations to host events in
+              the space.
               <br />
               Events are curated to align with the spirit of the campus.
             </p>
           </div>
-          
+
           {/* CTA Buttons at Bottom */}
-          <div 
+          <div
             className="w-full max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-8 px-4 sm:px-8 md:px-16"
             style={{
               opacity: heroLoaded ? 1 : 0,
-              transform: heroLoaded ? 'translateY(0)' : 'translateY(20px)',
-              transition: 'all 0.7s ease-out',
-              transitionDelay: '300ms',
+              transform: heroLoaded ? "translateY(0)" : "translateY(20px)",
+              transition: "all 0.7s ease-out",
+              transitionDelay: "300ms",
             }}
           >
             <a
@@ -705,131 +660,239 @@ export default function EventsPage() {
       </section>
 
       {/* Events Content Section */}
-      <section 
+      <section
         ref={eventsSection.ref as React.RefObject<HTMLElement>}
-        className={`relative bg-white z-10 transition-all duration-1000 ease-out ${
-          eventsSection.isInView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
+        className={`relative bg-[#FFE5EC] z-10 transition-all duration-1000 ease-out -mt-8 py-14 md:py-14 rounded-[32px] md:rounded-[48px] ${
+          eventsSection.isInView
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-12"
         }`}
       >
-        {/* Decorative Rotating Mandala Background */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          <div className="relative w-[500px] h-[500px] md:w-[600px] md:h-[600px] animate-spin-slow">
-            <Image
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-              alt=""
-              aria-hidden="true"
-              fill
-              sizes="(max-width: 768px) 500px, 600px"
-              className="object-contain opacity-10"
-            />
+        {/* center wrapper */}
+        <div className="w-full flex justify-center px-4">
+          {/* main rounded container */}
+          <div className="w-full max-w-[1400px] rounded-[32px] md:rounded-[48px] px-6 sm:px-10 md:px-20 lg:px-28 py-12 md:py-16">
+            {/* Title */}
+            <h2 className="text-2xl md:text-3xl font-semibold  mb-10 text-center md:text-left">
+              Upcoming Events
+            </h2>
+
+            {/* Events Grid */}
+            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-y-8 md:gap-x-20">
+              {/* LEFT COLUMN */}
+              <div className="space-y-6 text-center md:text-left">
+                <div>
+                  <h3 className="font-semibold">
+                    Anyone can write a Children's Picture Book
+                  </h3>
+                  <p className="text-sm text-black/70 mt-1">
+                    February 22nd - 4pm to 6pm
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold">Pot luck lunch</h3>
+                  <p className="text-sm text-black/70 mt-1">
+                    February 28th - 12pm to 3pm
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold">Educational Society</h3>
+                  <p className="text-sm text-black/70 mt-1">
+                    February 28th - 3pm to 8pm
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold">Play by Bhoomika Theater</h3>
+                  <p className="text-sm text-black/70 mt-1">March 1st</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold">Fluid art workshop</h3>
+                  <p className="text-sm text-black/70 mt-1">
+                    March 7th - 3pm to 5:30pm
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold">Good Samaritan</h3>
+                  <p className="text-sm text-black/70 mt-1">
+                    March 8th - 10am to 1:30pm
+                  </p>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN */}
+              <div className="space-y-6 text-center md:text-left">
+                <div>
+                  <h3 className="font-semibold">Vegan Bazaar</h3>
+                  <p className="text-sm text-black/70 mt-1">
+                    March 14th - 12pm to 8pm
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold">Retreat</h3>
+                  <p className="text-sm text-black/70 mt-1">
+                    March 15th - 10am to 5pm
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold">Anna Rao's program</h3>
+                  <p className="text-sm text-black/70 mt-1">
+                    March 22nd - 6:30 onwards
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold">Annual exhibition</h3>
+                  <p className="text-sm text-black/70 mt-1">
+                    March 28th and 29th - 11am to 7pm
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold">Bharatanatyam recital</h3>
+                  <p className="text-sm text-black/70 mt-1">May 9th</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      </section>
 
-        <div className="container relative py-12 md:py-16 lg:py-20">
-          {/* Error State */}
-          {error && (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <AlertCircle className="h-16 w-16 text-destructive mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Failed to load events</h3>
-              <p className="text-muted-foreground mb-4">
-                Please try again later or contact support.
-              </p>
-              <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["events"] })}>
-                Try Again
-              </Button>
-            </div>
-          )}
+      {/* Collaborators Section */}
+      <section className="relative bg-[#C7D4A6] -mt-8 flex justify-center py-14 md:py-20">
+        {/* centered container */}
+        <div className="w-full max-w-[1400px] px-4">
+          <div className=" rounded-[32px] md:rounded-[48px] px-6 sm:px-10 md:px-20 lg:px-28 py-12 md:py-20">
+            <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 md:gap-20 items-center">
+              {/* LEFT CONTENT */}
+              <div className="text-center md:text-left max-w-md mx-auto md:mx-0">
+                <h2 className="text-2xl md:text-3xl font-semibold mb-8">
+                  Collaborators
+                </h2>
 
-          {/* Loading State */}
-          {isLoading && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              {[...Array(4)].map((_, i) => (
-                <EventCardSkeleton key={i} />
-              ))}
-            </div>
-          )}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold text-lg">Theatre Workshop</h3>
+                    <p className="text-black/70 text-sm">By Bhoomika</p>
+                  </div>
 
-          {/* Events Grid */}
-          {!isLoading && !error && events.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              {events.map((event, index) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  onBook={handleBook}
-                  index={index}
-                  isVisible={eventsSection.isInView}
-                />
-              ))}
-            </div>
-          )}
+                  <div>
+                    <h3 className="font-semibold text-lg">Weavers Market</h3>
+                    <p className="text-black/70 text-sm">With local artisans</p>
+                  </div>
 
-          {/* Empty State */}
-          {!isLoading && !error && events.length === 0 && (
-            <div className="text-center py-16">
-              <Ticket className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No events scheduled</h3>
-              <p className="text-muted-foreground">
-                Check back soon for upcoming events and experiences.
-              </p>
+                  <div>
+                    <h3 className="font-semibold text-lg">Adivaram Angadi</h3>
+                    <p className="text-black/70 text-sm">With various brands</p>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-lg">Moving Screening</h3>
+                    <p className="text-black/70 text-sm">With Moving Images</p>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-lg">Vegan Market</h3>
+                    <p className="text-black/70 text-sm">
+                      With Plantarium Vegan Space
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT IMAGE */}
+              <div className="relative flex justify-center md:justify-end">
+                <div className="relative w-full max-w-[520px] h-[300px] md:h-[380px] rounded-[28px] md:rounded-[36px] overflow-hidden">
+                  <img
+                    src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventImg-2.png"
+                    alt="collaborators"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+                </div>
+
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </section>
 
       {/* Community and Culture Section */}
-      <section 
+      <section
         ref={communitySection.ref as React.RefObject<HTMLElement>}
         className="bg-white py-10 sm:py-12 md:py-16 lg:py-20"
       >
-        <div className="container px-4 sm:px-6">
-          <div 
+        <div className="container md:px-32 px-4 sm:px-6">
+          <div
             className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
             style={{
               opacity: communitySection.isInView ? 1 : 0,
-              transform: communitySection.isInView ? 'translateY(0)' : 'translateY(30px)',
+              transform: communitySection.isInView
+                ? "translateY(0)"
+                : "translateY(30px)",
             }}
           >
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">
               Community and Culture
             </h2>
-            <p 
+            <p
               className="text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
               style={{
                 opacity: communitySection.isInView ? 1 : 0,
-                transform: communitySection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                transitionDelay: '200ms',
+                transform: communitySection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transitionDelay: "200ms",
               }}
             >
-              We support local makers, organic markets, children-focused spaces and environmental initiatives. 
-              Everything we do is built around people&apos;s craft and care for nature.
+              We support local makers, organic markets, children-focused spaces
+              and environmental initiatives. Everything we do is built around
+              people&apos;s craft and care for nature.
             </p>
           </div>
         </div>
       </section>
 
       {/* Visit Us Section */}
-      <section 
+      <section
         ref={visitSection.ref as React.RefObject<HTMLElement>}
         className="bg-white pb-12 sm:pb-16 md:pb-20 lg:pb-24"
       >
-        <div className="container px-4 sm:px-6">
-          <div 
+        <div className="container md:px-32 px-4 sm:px-6">
+          <div
             className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
             style={{
               opacity: visitSection.isInView ? 1 : 0,
-              transform: visitSection.isInView ? 'translateY(0)' : 'translateY(30px)',
+              transform: visitSection.isInView
+                ? "translateY(0)"
+                : "translateY(30px)",
             }}
           >
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 sm:mb-3">
-              Visit Us <span className="text-sacred-burgundy animate-pulse">♀</span> Also
+              Visit Us{" "}
+              <span className="inline-block mb-2 mx-1">
+                <img
+                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
+                  alt="visit"
+                  className="lg:w-5 lg:h-8 md:w-4 md:h-7 w-3 h-5 mb-1 inline-block"
+                />
+              </span>{" "}
+              Also
             </h2>
-            <p 
-              className="text-xs sm:text-sm md:text-base text-gray-600 font-light mb-5 sm:mb-6 transition-all duration-700"
+            <p
+              className="text-xs sm:text-sm md:text-base text-gray-600 font-light md:mb-8 mb-5 sm:mb-6 transition-all duration-700"
               style={{
                 opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                transitionDelay: '150ms',
+                transform: visitSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transitionDelay: "150ms",
               }}
             >
               Come for a class, host an event or spend time in the space.
@@ -837,33 +900,20 @@ export default function EventsPage() {
             <div
               style={{
                 opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                transition: 'all 0.7s ease-out',
-                transitionDelay: '300ms',
+                transform: visitSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transition: "all 0.7s ease-out",
+                transitionDelay: "300ms",
               }}
             >
               <MagneticButton
-                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-gray-800 hover:bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 hover:shadow-xl hover:shadow-gray-800/30 flex items-center justify-center gap-2 group"
-                onClick={() => window.location.href = '/contact'}
+                className="w-full sm:w-auto px-5 sm:px-6 py-3.5 sm:py-3 bg-[#C23536] hover:bg-[#a33a2d] text-white text-xs sm:text-sm font-medium rounded-3xl transition-all duration-200 hover:shadow-xl hover:shadow-gray-800/30 flex items-center justify-center gap-2 group"
+                onClick={() => (window.location.href = "/contact")}
               >
                 Contact Us
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
               </MagneticButton>
             </div>
-          </div>
-        </div>
-        
-        {/* Decorative Spinning Mandala */}
-        <div className="mt-12 md:mt-16 flex justify-center">
-          <div className="relative w-[200px] h-[200px] md:w-[300px] md:h-[300px]">
-            <Image
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-              alt=""
-              aria-hidden="true"
-              fill
-              sizes="(max-width: 768px) 200px, 300px"
-              className="object-contain opacity-20 animate-spin-slow"
-            />
           </div>
         </div>
       </section>
@@ -877,9 +927,12 @@ export default function EventsPage() {
               <div>
                 {selectedEvent ? (
                   <>
-                    {formatDate(selectedEvent.startsAt)} at {formatTime(selectedEvent.startsAt)}
+                    {formatDate(selectedEvent.startsAt)} at{" "}
+                    {formatTime(selectedEvent.startsAt)}
                     <br />
-                    <span className="text-muted-foreground">{selectedEvent.venue}</span>
+                    <span className="text-muted-foreground">
+                      {selectedEvent.venue}
+                    </span>
                     <br />
                     <span className="font-semibold text-primary">
                       {formatPrice(selectedEvent.pricePaise)}
@@ -893,7 +946,10 @@ export default function EventsPage() {
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <form
+              onSubmit={form.handleSubmit(handleSubmit)}
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="customerName"
@@ -915,7 +971,11 @@ export default function EventsPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="you@example.com" {...field} />
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import Link from "next/link";
 import Image from "next/image";
 import { 
   MapPin, 
@@ -28,6 +29,7 @@ const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/obje
 // Custom hook for intersection observer animations
 const useInView = (threshold = 0.1) => {
   const ref = useRef<HTMLElement>(null);
+
   const [isInView, setIsInView] = useState(false);
 
   useEffect(() => {
@@ -50,6 +52,55 @@ const useInView = (threshold = 0.1) => {
 
   return { ref, isInView };
 };
+// Ripple Button Component
+const RippleButton = ({ 
+  children, 
+  className, 
+  href 
+}: { 
+  children: React.ReactNode; 
+  className?: string; 
+  href: string;
+}) => {
+  const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const id = Date.now();
+    
+    setRipples(prev => [...prev, { x, y, id }]);
+    setTimeout(() => {
+      setRipples(prev => prev.filter(r => r.id !== id));
+    }, 600);
+  };
+
+  return (
+    <Link 
+      href={href} 
+      className={`${className} relative overflow-hidden`} 
+      onClick={handleClick}
+    >
+      {ripples.map(ripple => (
+        <span
+          key={ripple.id}
+          className="absolute bg-white/30 rounded-full pointer-events-none"
+          style={{
+            left: ripple.x,
+            top: ripple.y,
+            transform: 'translate(-50%, -50%)',
+            width: '200px',
+            height: '200px',
+            animation: 'ripple 0.6s ease-out forwards',
+          }}
+        />
+      ))}
+      {children}
+    </Link>
+  );
+};
+
 
 // Animated Text Component with letter-by-letter reveal
 const AnimatedText = ({ text, className, delay = 0, isVisible }: { text: string; className?: string; delay?: number; isVisible: boolean }) => {
@@ -176,6 +227,8 @@ export default function ContactPage() {
   const contentSection = useInView(0.1);
   const formSection = useInView(0.1);
   const mapSection = useInView(0.1);
+  const communitySection = useInView(0.2);
+  const visitSection = useInView(0.2);
 
   // Trigger hero animations on mount
   useEffect(() => {
@@ -222,381 +275,256 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="overflow-x-visible">
       {/* Hero Section */}
-      <section className="relative bg-sacred-pink py-8 md:py-10">
+      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
         <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-sacred-pink rounded-[24px] md:rounded-[40px]">
+          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 h-full w-full object-cover scale-105 transition-transform duration-2000 group-hover:scale-110"
-                style={{
-                  transform: `scale(1.05) translate(${mousePosition.x * 0.5}px, ${mousePosition.y * 0.5}px)`,
-                }}
-                aria-label="Contact page video background"
-              >
-                <source src={HERO_VIDEO_URL} type="video/mp4" />
-              </video>
-              
-              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />
-              
+              <img
+                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/contactHero.png"
+                alt="Classes background"
+                className="absolute inset-0 h-full w-full object-cover object-top scale-105 "
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+
               <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white italic tracking-wide">
-                  <AnimatedText text="Contact" isVisible={heroLoaded} className="block" />
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide">
+                  <AnimatedText
+                    text="Contact"
+                    isVisible={heroLoaded}
+                    className="block"
+                  />
                 </h1>
-                <p 
+                <p
                   className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded ? "opacity-100 translate-y-0 delay-500" : "opacity-0 translate-y-8"
+                    heroLoaded
+                      ? "opacity-100 translate-y-0 delay-500"
+                      : "opacity-0 translate-y-8"
                   }`}
-                  style={{ transitionDelay: '600ms' }}
+                  style={{ transitionDelay: "600ms" }}
                 >
-                  We are happy to help with classes, bookings, events or general enquiries.
+                  We are happy to help with classes, bookings, events or general
+                  enquiries.
                 </p>
-                
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Contact Content Section */}
-      <section 
-        ref={contentSection.ref as React.RefObject<HTMLElement>}
-        className="relative bg-white rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10"
-      >
-        {/* Decorative Rotating Mandala Background */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          <div className="relative w-[500px] h-[500px] md:w-[600px] md:h-[600px] animate-spin-slow opacity-10">
-            <Image
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-              alt=""
-              fill
-              className="object-contain"
-              aria-hidden="true"
-            />
-          </div>
-        </div>
-
-        <div className="container relative py-12 md:py-16 lg:py-20">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 max-w-6xl mx-auto">
-            
-            {/* Contact Info */}
-            <div 
-              className="space-y-8"
-              style={{
-                opacity: contentSection.isInView ? 1 : 0,
-                transform: contentSection.isInView ? 'translateX(0)' : 'translateX(-30px)',
-                transition: 'all 0.7s ease-out',
-              }}
-            >
+      {/* Contact Info + Form Section */}
+      <section className="bg-white w-full relative z-20">
+        {/* rounded main box */}
+        <div className="w-full rounded-[30px] -mt-6 relative z-10 overflow-hidden shadow-md">
+          {/* main rounded box */}
+          <div className="bg-[#E2F0CB] rounded-[30px] md:rounded-[40px] px-6 md:px-12 lg:px-16 py-16 md:py-24">
+            {/* top info */}
+            <div className="space-y-6 md:space-y-8 max-w-xl">
               <div>
-                <h2 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-4">
-                  Let&apos;s Connect
-                </h2>
-                <p className="text-gray-600 leading-relaxed">
-                  Whether you want to book a class, rent our space for an event, or simply say hello, 
-                  we&apos;re here for you. Drop us a message or visit us at our center.
+                <h3 className="text-black font-semibold text-lg">Call</h3>
+                <p className="text-sm mt-1">
+                  +91 9030613344 &nbsp;&nbsp; / &nbsp; +91 6309822344
                 </p>
               </div>
 
-              {/* Contact Cards */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                {CONTACT_INFO.map((info, index) => (
-                  <div
-                    key={info.title}
-                    className="group p-5 bg-sacred-cream/50 rounded-2xl hover:bg-sacred-cream transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
-                    style={{
-                      opacity: contentSection.isInView ? 1 : 0,
-                      transform: contentSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                      transition: 'all 0.5s ease-out',
-                      transitionDelay: `${index * 100}ms`,
-                    }}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="p-2.5 bg-white rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
-                        <info.icon className="h-5 w-5 text-sacred-burgundy" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900 mb-1">{info.title}</h3>
-                        {info.link ? (
-                          <a 
-                            href={info.link}
-                            className="text-sm text-gray-600 hover:text-sacred-burgundy transition-colors"
-                            target={info.link.startsWith('http') ? '_blank' : undefined}
-                            rel={info.link.startsWith('http') ? 'noopener noreferrer' : undefined}
-                          >
-                            {info.content}
-                          </a>
-                        ) : (
-                          <p className="text-sm text-gray-600">{info.content}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div>
+                <h3 className="text-black font-semibold text-lg">Write</h3>
+                <p className="text-sm mt-1 text-black/80">
+                  Use the enquiry form for detailed questions or requests.
+                </p>
               </div>
 
-              {/* Social Links */}
-              <div
-                style={{
-                  opacity: contentSection.isInView ? 1 : 0,
-                  transform: contentSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                  transition: 'all 0.5s ease-out',
-                  transitionDelay: '400ms',
-                }}
-              >
-                <h3 className="font-medium text-gray-900 mb-3">Follow Us</h3>
-                <div className="flex gap-3">
-                  {SOCIAL_LINKS.map((social) => (
-                    <a
-                      key={social.label}
-                      href={social.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-3 bg-gray-100 rounded-xl hover:bg-sacred-burgundy hover:text-white transition-all duration-300 hover:scale-110 hover:shadow-lg"
-                      aria-label={social.label}
-                    >
-                      <social.icon className="h-5 w-5" />
-                    </a>
-                  ))}
+              <div>
+                <h3 className="text-black font-semibold text-lg">Visit</h3>
+                <p className="text-sm mt-1 text-black/80">
+                  You can also speak to us when you are at the space.
+                </p>
+              </div>
+            </div>
+
+            {/* address grid */}
+            <div className="grid md:grid-cols-3 gap-8 md:gap-12 mt-10 md:mt-14 text-sm text-black/90">
+              {/* address 1 */}
+              <div>
+                <h4 className="font-semibold mb-2">Our Sacred Space</h4>
+                <p className="leading-relaxed">
+                  Shop Marredpally, Before Himalaya Book World,
+                  <br />
+                  9-1-84, Sardar Patel Rd, beside Orchids Flower,
+                  <br />
+                  Regimental Bazaar, East Marredpally,
+                  <br />
+                  Secunderabad, Telangana 500026
+                </p>
+                <p className="mt-3">Open 9 AM - 7 PM</p>
+              </div>
+
+              {/* address 2 */}
+              <div>
+                <h4 className="font-semibold mb-2">Chaurah Auditorium</h4>
+                <p className="leading-relaxed">
+                  Sarojini Devi Rd, before Sangeet Cross Roads,
+                  <br />
+                  Regimental Bazaar, Shivaji Nagar,
+                  <br />
+                  Secunderabad, Telangana 500003
+                </p>
+                <p className="mt-3">Open 6:30 AM - 7 PM</p>
+              </div>
+
+              {/* address 3 */}
+              <div>
+                <h4 className="font-semibold mb-2">Hamsaveni Co-Working</h4>
+                <p className="leading-relaxed">
+                  I-84, 9, W Marredpally Rd, Regimental Bazaar,
+                  <br />
+                  East Marredpally, Secunderabad, Telangana 500003
+                </p>
+                <p className="mt-3">Open 9 AM - 7 PM</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ================= BOTTOM FORM ================= */}
+          <div className="bg-[#FFE5EC] rounded-b-[40px] py-12 md:py-16">
+            <div className="max-w-5xl mx-auto px-6 md:px-12">
+              {/* title */}
+              <h2 className="text-center text-lg md:text-xl font-medium mb-10">
+                Send an Enquiry
+              </h2>
+
+              <div className="grid md:grid-cols-[320px_1fr] gap-10 md:gap-12 items-center">
+                {/* LEFT INPUTS */}
+                <div className="space-y-5 flex flex-col items-center md:items-start">
+                  <input
+                    placeholder="Enter Name"
+                    className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
+                  />
+
+                  <input
+                    placeholder="Email"
+                    className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
+                  />
+
+                  <input
+                    placeholder="Phone Number"
+                    className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
+                  />
+                </div>
+
+                {/* RIGHT MESSAGE */}
+                <div className="flex justify-center md:block">
+                  <textarea
+                    placeholder="Message"
+                    rows={7}
+                    className="w-full md:w-full max-w-md md:max-w-none rounded-[28px] border border-black/80 bg-transparent px-6 py-5 text-sm outline-none resize-none"
+                  ></textarea>
                 </div>
               </div>
             </div>
-
-            {/* Contact Form */}
-            <div 
-              ref={formSection.ref as React.RefObject<HTMLDivElement>}
-              className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-gray-100"
-              style={{
-                opacity: formSection.isInView ? 1 : 0,
-                transform: formSection.isInView ? 'translateX(0)' : 'translateX(30px)',
-                transition: 'all 0.7s ease-out',
-                transitionDelay: '200ms',
-              }}
-            >
-              <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-6">
-                Send us a Message
-              </h2>
-
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Name</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Your name" 
-                              className="rounded-xl border-gray-200 focus:border-sacred-burgundy focus:ring-sacred-burgundy/20"
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="email" 
-                              placeholder="you@example.com" 
-                              className="rounded-xl border-gray-200 focus:border-sacred-burgundy focus:ring-sacred-burgundy/20"
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone (Optional)</FormLabel>
-                          <FormControl>
-                            <div className="flex">
-                              <span className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-gray-200 bg-gray-50 text-gray-500 text-sm">
-                                +91
-                              </span>
-                              <Input
-                                className="rounded-l-none rounded-r-xl border-gray-200 focus:border-sacred-burgundy focus:ring-sacred-burgundy/20"
-                                placeholder="9876543210"
-                                maxLength={10}
-                                {...field}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="subject"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Subject</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="What's this about?" 
-                              className="rounded-xl border-gray-200 focus:border-sacred-burgundy focus:ring-sacred-burgundy/20"
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="message"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Message</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Tell us more about your inquiry..."
-                            className="min-h-[120px] rounded-xl border-gray-200 focus:border-sacred-burgundy focus:ring-sacred-burgundy/20 resize-none"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <MagneticButton
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-3 bg-sacred-burgundy hover:bg-sacred-burgundy/90 text-white font-medium rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-sacred-burgundy/30 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        Send Message
-                        <Send className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                      </>
-                    )}
-                  </MagneticButton>
-                </form>
-              </Form>
-            </div>
           </div>
         </div>
       </section>
-
-      {/* Map Section */}
-      <section 
-        ref={mapSection.ref as React.RefObject<HTMLElement>}
-        className="bg-sacred-cream py-12 md:py-16"
-      >
-        <div className="container px-4">
-          <div 
-            className="max-w-6xl mx-auto"
+      {/* Community and Culture Section */}
+      <section className="relative bg-white py-10 sm:py-12 md:py-16 lg:py-20">
+        <div className="container px-4 sm:px-6 relative ">
+          <img
+            src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree-1.png"
+            alt="tree"
+            className="hidden md:block absolute right-0 top-10 w-[380px] lg:w-[450px] xl:w-[520px] opacity-20 pointer-events-none select-none"
+            aria-hidden="true"
+          />
+          {/* Community and Culture */}
+          <div
+            ref={communitySection.ref as React.RefObject<HTMLDivElement>}
+            className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
             style={{
-              opacity: mapSection.isInView ? 1 : 0,
-              transform: mapSection.isInView ? 'translateY(0)' : 'translateY(30px)',
-              transition: 'all 0.7s ease-out',
+              opacity: communitySection.isInView ? 1 : 0,
+              transform: communitySection.isInView
+                ? "translateY(0)"
+                : "translateY(30px)",
             }}
           >
-            <h2 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-6 text-center">
-              Find Us Here
+            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">
+              Community and Culture
             </h2>
-            <div className="rounded-3xl overflow-hidden shadow-xl h-[300px] md:h-[400px] bg-gray-200">
-              {/* OpenStreetMap embed - East Marredpally, Secunderabad */}
-              <iframe
-                src="https://www.openstreetmap.org/export/embed.html?bbox=78.4900%2C17.4350%2C78.5200%2C17.4600&layer=mapnik&marker=17.4480%2C78.5060"
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                title="Sacred Space Location - East Marredpally, Secunderabad"
-              />
-            </div>
-            {/* Link to full map */}
-            <div className="mt-4 text-center">
-              <a 
-                href="https://www.google.com/maps/search/?api=1&query=9-1-84+Sardar+Patel+Rd+East+Marredpally+Secunderabad+500026"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sacred-burgundy hover:text-sacred-burgundy/80 font-medium transition-colors"
-              >
-                <MapPin className="h-4 w-4" />
-                Open in Google Maps
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Bottom CTA */}
-      <section className="bg-white py-12 md:py-16">
-        <div className="container px-4">
-          <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-4">
-              Ready to Experience Our Space?
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Book a class, rent our venue, or simply drop by to explore what we offer.
+            <p
+              className="text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
+              style={{
+                opacity: communitySection.isInView ? 1 : 0,
+                transform: communitySection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transitionDelay: "200ms",
+              }}
+            >
+              We support local makers, organic markets, children-focused spaces
+              and environmental initiatives. Everything we do is built around
+              people&apos;s craft and care for nature.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                className="bg-sacred-burgundy hover:bg-sacred-burgundy/90 text-white rounded-xl px-6 py-3 flex items-center justify-center gap-2 group"
-                onClick={() => window.location.href = '/classes'}
+          </div>
+
+          {/* spacing between two blocks */}
+          <div className="h-10 md:h-14 lg:h-16" />
+
+          {/* Visit Us */}
+          <div
+            ref={visitSection.ref as React.RefObject<HTMLDivElement>}
+            className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
+            style={{
+              opacity: visitSection.isInView ? 1 : 0,
+              transform: visitSection.isInView
+                ? "translateY(0)"
+                : "translateY(30px)",
+            }}
+          >
+            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 sm:mb-3">
+              Visit Us{" "}
+              <span className="inline-block mb-2 mx-1">
+                <img
+                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
+                  alt="visit"
+                  className="lg:w-5 lg:h-8 md:w-4 md:h-7 w-3 h-5 mb-1 inline-block"
+                />
+              </span>{" "}
+              Also
+            </h2>
+
+            <p
+              className="text-xs sm:text-sm md:text-base text-gray-600 font-light mb-5 sm:mb-6 transition-all duration-700"
+              style={{
+                opacity: visitSection.isInView ? 1 : 0,
+                transform: visitSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transitionDelay: "150ms",
+              }}
+            >
+              Come for a class, host an event or spend time in the space.
+            </p>
+
+            <div
+              style={{
+                opacity: visitSection.isInView ? 1 : 0,
+                transform: visitSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transition: "all 0.7s ease-out",
+                transitionDelay: "300ms",
+              }}
+            >
+              <RippleButton
+                href="/contact"
+                className="inline-flex items-center justify-center w-full sm:w-auto px-5 sm:px-6 py-3 sm:py-3 bg-[#c44536] hover:bg-[#a33a2d] text-white text-xs sm:text-sm font-medium rounded-3xl transition-all duration-200 hover:shadow-lg hover:scale-105"
               >
-                Browse Classes
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </Button>
-              <Button
-                variant="outline"
-                className="border-gray-300 hover:border-sacred-burgundy hover:text-sacred-burgundy rounded-xl px-6 py-3 flex items-center justify-center gap-2 group"
-                onClick={() => window.location.href = '/book-space'}
-              >
-                Book Our Space
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </Button>
+                Contact Us
+              </RippleButton>
             </div>
           </div>
         </div>
       </section>
-
-      {/* Decorative Spinning Mandala at Bottom */}
-      <div className="bg-white pb-12 md:pb-16 flex justify-center">
-        <div className="relative w-[150px] h-[150px] md:w-[200px] md:h-[200px]">
-          <Image
-            src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-            alt=""
-            aria-hidden="true"
-            fill
-            className="object-contain opacity-15 animate-spin-slow"
-          />
-        </div>
-      </div>
     </div>
   );
 }

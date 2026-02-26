@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Image from "next/image";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -16,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 import type { ClassSession } from "@/types";
+import Link from "next/link";
+
 
 // Video URL from Supabase Storage
 const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/classes.mp4";
@@ -456,6 +457,10 @@ export default function ClassesPage() {
     queryKey: ["classes"],
     queryFn: api.getClasses,
   });
+  console.log("classes api:", data);
+  console.log("classes array:", data?.data);
+  console.log("error:", error);
+
 
   // Trigger hero animations on mount
   useEffect(() => {
@@ -534,56 +539,37 @@ export default function ClassesPage() {
   return (
     <div className="overflow-x-hidden">
       {/* Hero Section */}
-      <section className="relative bg-sacred-pink py-8 md:py-10">
+      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
         <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-sacred-pink rounded-[24px] md:rounded-[40px]">
+          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 h-full w-full object-cover scale-105 transition-transform duration-2000 group-hover:scale-110"
-                style={{
-                  transform: `scale(1.05) translate(${mousePosition.x * 0.5}px, ${mousePosition.y * 0.5}px)`,
-                }}
-                aria-label="Classes video background"
-              >
-                <source src={HERO_VIDEO_URL} type="video/mp4" />
-              </video>
-              
-              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />
-              
-              {/* Floating particles */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-2 h-2 bg-white/20 rounded-full animate-float"
-                    style={{
-                      left: `${15 + i * 15}%`,
-                      top: `${20 + (i % 3) * 25}%`,
-                      animationDelay: `${i * 0.5}s`,
-                      animationDuration: `${3 + i * 0.5}s`,
-                    }}
-                  />
-                ))}
-              </div>
-              
+              <img
+                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/classesHero.png"
+                alt="Classes background"
+                className="absolute inset-0 h-full w-full object-cover scale-105 "
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+
               <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white italic tracking-wide">
-                  <AnimatedText text="Our Classes" isVisible={heroLoaded} className="block" />
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white  tracking-wide">
+                  <AnimatedText
+                    text="Classes"
+                    isVisible={heroLoaded}
+                    className="block"
+                  />
                 </h1>
-                <p 
+                <p
                   className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded ? "opacity-100 translate-y-0 delay-500" : "opacity-0 translate-y-8"
+                    heroLoaded
+                      ? "opacity-100 translate-y-0 delay-500"
+                      : "opacity-0 translate-y-8"
                   }`}
-                  style={{ transitionDelay: '600ms' }}
+                  style={{ transitionDelay: "600ms" }}
                 >
-                  Join our expert-led classes across dance, yoga, martial arts, and creative practices. 
-                  Small batch sizes ensure personalized attention.
+                  Join our expert-led classes across dance, yoga, martial arts,
+                  and creative practices. Small batch sizes ensure personalized
+                  attention.
                 </p>
-                
               </div>
             </div>
           </div>
@@ -591,10 +577,12 @@ export default function ClassesPage() {
       </section>
 
       {/* Classes Content Section */}
-      <section 
+      <section
         ref={classesSection.ref as React.RefObject<HTMLElement>}
         className={`relative bg-white rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10 transition-all duration-1000 ease-out ${
-          classesSection.isInView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
+          classesSection.isInView
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-12"
         }`}
       >
         {/* Decorative Rotating Mandala Background */}
@@ -616,11 +604,17 @@ export default function ClassesPage() {
           {error && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <AlertCircle className="h-16 w-16 text-destructive mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Failed to load classes</h3>
+              <h3 className="text-xl font-semibold mb-2">
+                Failed to load classes
+              </h3>
               <p className="text-muted-foreground mb-4">
                 Please try again later or contact support.
               </p>
-              <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["classes"] })}>
+              <Button
+                onClick={() =>
+                  queryClient.invalidateQueries({ queryKey: ["classes"] })
+                }
+              >
                 Try Again
               </Button>
             </div>
@@ -654,7 +648,9 @@ export default function ClassesPage() {
           {!isLoading && !error && classes.length === 0 && (
             <div className="text-center py-16">
               <Calendar className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No classes available</h3>
+              <h3 className="text-xl font-semibold mb-2">
+                No classes available
+              </h3>
               <p className="text-muted-foreground">
                 Check back soon for upcoming classes and workshops.
               </p>
@@ -664,58 +660,75 @@ export default function ClassesPage() {
       </section>
 
       {/* Community and Culture Section */}
-      <section 
+      <section
         ref={communitySection.ref as React.RefObject<HTMLElement>}
         className="bg-white py-10 sm:py-12 md:py-16 lg:py-20"
       >
         <div className="container px-4 sm:px-6">
-          <div 
+          <div
             className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
             style={{
               opacity: communitySection.isInView ? 1 : 0,
-              transform: communitySection.isInView ? 'translateY(0)' : 'translateY(30px)',
+              transform: communitySection.isInView
+                ? "translateY(0)"
+                : "translateY(30px)",
             }}
           >
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">
               Community and Culture
             </h2>
-            <p 
+            <p
               className="text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
               style={{
                 opacity: communitySection.isInView ? 1 : 0,
-                transform: communitySection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                transitionDelay: '200ms',
+                transform: communitySection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transitionDelay: "200ms",
               }}
             >
-              We support local makers, organic markets, children-focused spaces and environmental initiatives. 
-              Everything we do is built around people&apos;s craft and care for nature.
+              We support local makers, organic markets, children-focused spaces
+              and environmental initiatives. Everything we do is built around
+              people&apos;s craft and care for nature.
             </p>
           </div>
         </div>
       </section>
 
       {/* Visit Us Section */}
-      <section 
+      <section
         ref={visitSection.ref as React.RefObject<HTMLElement>}
         className="bg-white pb-12 sm:pb-16 md:pb-20 lg:pb-24"
       >
         <div className="container px-4 sm:px-6">
-          <div 
+          <div
             className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
             style={{
               opacity: visitSection.isInView ? 1 : 0,
-              transform: visitSection.isInView ? 'translateY(0)' : 'translateY(30px)',
+              transform: visitSection.isInView
+                ? "translateY(0)"
+                : "translateY(30px)",
             }}
           >
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 sm:mb-3">
-              Visit Us <span className="text-sacred-burgundy animate-pulse">♀</span> Also
+              Visit Us{" "}
+              <span className=" inline-block mb-2 mx-1">
+                <img
+                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
+                  alt="visit"
+                  className="md:w-6 md:h-8 w-3 h-5 mb-1 inline-block"
+                />
+              </span>{" "}
+              Also
             </h2>
-            <p 
+            <p
               className="text-xs sm:text-sm md:text-base text-gray-600 font-light mb-5 sm:mb-6 transition-all duration-700"
               style={{
                 opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                transitionDelay: '150ms',
+                transform: visitSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transitionDelay: "150ms",
               }}
             >
               Come for a class, host an event or spend time in the space.
@@ -723,33 +736,19 @@ export default function ClassesPage() {
             <div
               style={{
                 opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView ? 'translateY(0)' : 'translateY(20px)',
-                transition: 'all 0.7s ease-out',
-                transitionDelay: '300ms',
+                transform: visitSection.isInView
+                  ? "translateY(0)"
+                  : "translateY(20px)",
+                transition: "all 0.7s ease-out",
+                transitionDelay: "300ms",
               }}
             >
-              <MagneticButton
-                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-gray-800 hover:bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 hover:shadow-xl hover:shadow-gray-800/30 flex items-center justify-center gap-2 group"
-                onClick={() => window.location.href = '/contact'}
-              >
-                Contact Us
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </MagneticButton>
+              <Link href="/contact">
+                <Button className="group bg-[#c44536] hover:bg-[#a33a2d] text-white rounded-full px-6 md:px-8 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-[#c44536]/25 active:scale-95 relative overflow-hidden">
+                  Contact Us
+                </Button>
+              </Link>
             </div>
-          </div>
-        </div>
-        
-        {/* Decorative Spinning Mandala */}
-        <div className="mt-12 md:mt-16 flex justify-center">
-          <div className="relative w-[200px] h-[200px] md:w-[300px] md:h-[300px]">
-            <Image
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-              alt=""
-              aria-hidden="true"
-              fill
-              sizes="(max-width: 768px) 200px, 300px"
-              className="object-contain opacity-20 animate-spin-slow"
-            />
           </div>
         </div>
       </section>
@@ -763,7 +762,8 @@ export default function ClassesPage() {
               <div>
                 {selectedClass ? (
                   <>
-                    {formatDate(selectedClass.startsAt)} at {formatTime(selectedClass.startsAt)}
+                    {formatDate(selectedClass.startsAt)} at{" "}
+                    {formatTime(selectedClass.startsAt)}
                     <br />
                     <span className="font-semibold text-primary">
                       {formatPrice(selectedClass.pricePaise)}
@@ -777,7 +777,10 @@ export default function ClassesPage() {
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <form
+              onSubmit={form.handleSubmit(handleSubmit)}
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="customerName"
@@ -799,7 +802,11 @@ export default function ClassesPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="you@example.com" {...field} />
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
