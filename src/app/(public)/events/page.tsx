@@ -532,7 +532,7 @@ export default function EventsPage() {
 
       {/* About Events Section */}
       <section className="relative bg-[#E2F0CB] rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10 overflow-hidden">
-        <div className="container relative px-8 sm:px-6 md:px-12 py-12 md:py-16 lg:py-20">
+        <div className="container relative px-8 sm:px-6 md:px-12 py-12 md:py-16 lg:py-24">
           {/* TREE  */}
           <img
             src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree-1.png"
@@ -584,7 +584,8 @@ export default function EventsPage() {
       </section>
 
       {/* Host an Event Section */}
-      <section className="relative w-full h-[400px] sm:h-[500px] md:h-[600px] lg:h-[712px] overflow-hidden rounded-t-[24px] md:rounded-t-[40px]">
+      <section className=" relative w-full h-[400px] sm:h-[500px] md:h-[600px] lg:h-[712px]  rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10 overflow-hidden">
+        {" "}
         {/* Background Image */}
         <img
           src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventImg-1.png"
@@ -592,7 +593,6 @@ export default function EventsPage() {
           className="absolute inset-0 h-full w-full object-cover scale-105 "
         />
         <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
-
         {/* Content */}
         <div className="absolute inset-0 flex flex-col items-center justify-between px-4 py-16 md:py-24 lg:py-32">
           {/* Empty spacer for top */}
@@ -662,113 +662,57 @@ export default function EventsPage() {
       {/* Events Content Section */}
       <section
         ref={eventsSection.ref as React.RefObject<HTMLElement>}
-        className={`relative bg-[#FFE5EC] z-10 transition-all duration-1000 ease-out -mt-8 py-14 md:py-14 rounded-[32px] md:rounded-[48px] ${
+        className={`relative bg-[#FFE5EC] z-10 transition-all duration-1000 ease-out -mt-8 py-14 rounded-t-[32px] ${
           eventsSection.isInView
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-12"
         }`}
       >
-        {/* center wrapper */}
-        <div className="w-full flex justify-center px-4">
-          {/* main rounded container */}
-          <div className="w-full max-w-[1400px] rounded-[32px] md:rounded-[48px] px-6 sm:px-10 md:px-20 lg:px-28 py-12 md:py-16">
-            {/* Title */}
-            <h2 className="text-2xl md:text-3xl font-semibold  mb-10 text-center md:text-left">
-              Upcoming Events
-            </h2>
-
-            {/* Events Grid */}
-            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-y-8 md:gap-x-20">
-              {/* LEFT COLUMN */}
-              <div className="space-y-6 text-center md:text-left">
-                <div>
-                  <h3 className="font-semibold">
-                    Anyone can write a Children's Picture Book
-                  </h3>
-                  <p className="text-sm text-black/70 mt-1">
-                    February 22nd - 4pm to 6pm
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold">Pot luck lunch</h3>
-                  <p className="text-sm text-black/70 mt-1">
-                    February 28th - 12pm to 3pm
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold">Educational Society</h3>
-                  <p className="text-sm text-black/70 mt-1">
-                    February 28th - 3pm to 8pm
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold">Play by Bhoomika Theater</h3>
-                  <p className="text-sm text-black/70 mt-1">March 1st</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold">Fluid art workshop</h3>
-                  <p className="text-sm text-black/70 mt-1">
-                    March 7th - 3pm to 5:30pm
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold">Good Samaritan</h3>
-                  <p className="text-sm text-black/70 mt-1">
-                    March 8th - 10am to 1:30pm
-                  </p>
-                </div>
-              </div>
-
-              {/* RIGHT COLUMN */}
-              <div className="space-y-6 text-center md:text-left">
-                <div>
-                  <h3 className="font-semibold">Vegan Bazaar</h3>
-                  <p className="text-sm text-black/70 mt-1">
-                    March 14th - 12pm to 8pm
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold">Retreat</h3>
-                  <p className="text-sm text-black/70 mt-1">
-                    March 15th - 10am to 5pm
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold">Anna Rao's program</h3>
-                  <p className="text-sm text-black/70 mt-1">
-                    March 22nd - 6:30 onwards
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold">Annual exhibition</h3>
-                  <p className="text-sm text-black/70 mt-1">
-                    March 28th and 29th - 11am to 7pm
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold">Bharatanatyam recital</h3>
-                  <p className="text-sm text-black/70 mt-1">May 9th</p>
-                </div>
-              </div>
+        <div className="container py-12 md:py-16">
+          {/* Error */}
+          {error && (
+            <div className="text-center py-20">
+              <AlertCircle className="mx-auto mb-4" size={40} />
+              Failed to load events
             </div>
-          </div>
+          )}
+
+          {/* Loading */}
+          {isLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+              {[...Array(4)].map((_, i) => (
+                <EventCardSkeleton key={i} />
+              ))}
+            </div>
+          )}
+
+          {/* Dynamic events */}
+          {!isLoading && events.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+              {events.map((event, index) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  onBook={handleBook}
+                  index={index}
+                  isVisible={eventsSection.isInView}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Empty */}
+          {!isLoading && events.length === 0 && (
+            <div className="text-center py-20">No upcoming events</div>
+          )}
         </div>
       </section>
 
       {/* Collaborators Section */}
-      <section className="relative bg-[#C7D4A6] -mt-8 flex justify-center py-14 md:py-20">
+      <section className="relative bg-[#C7D4A6] - mt-8 md:-mt-10 z-10 rounded-t-[32px] md:rounded-t-[48px] flex justify-center py-14 md:py-20">
         {/* centered container */}
         <div className="w-full max-w-[1400px] px-4">
-          <div className=" rounded-[32px] md:rounded-[48px] px-6 sm:px-10 md:px-20 lg:px-28 py-12 md:py-20">
+          <div className=" px-6 sm:px-10 md:px-20 lg:px-28 py-12 md:py-20">
             <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 md:gap-20 items-center">
               {/* LEFT CONTENT */}
               <div className="text-center md:text-left max-w-md mx-auto md:mx-0">
@@ -816,7 +760,6 @@ export default function EventsPage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
                 </div>
-
               </div>
             </div>
           </div>

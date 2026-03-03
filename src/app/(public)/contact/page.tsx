@@ -277,7 +277,7 @@ export default function ContactPage() {
   return (
     <div className="overflow-x-visible">
       {/* Hero Section */}
-      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
+      <section className="relative bg-[#FFE5EC] py-8 md:py-10 lg:py-16">
         <div className="container px-4 flex justify-center">
           <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
@@ -314,11 +314,11 @@ export default function ContactPage() {
       </section>
 
       {/* Contact Info + Form Section */}
-      <section className="bg-white w-full relative z-20">
+      <section className=" relative bg-[#E2F0CB] -mt-8 md:-mt-10 z-10 rounded-t-[32px] md:rounded-t-[48px] overflow-hidden">
         {/* rounded main box */}
-        <div className="w-full rounded-[30px] -mt-6 relative z-10 overflow-hidden shadow-md">
+        <div className="w-full relative z-10 overflow-hidden">
           {/* main rounded box */}
-          <div className="bg-[#E2F0CB] rounded-[30px] md:rounded-[40px] px-6 md:px-12 lg:px-16 py-16 md:py-24">
+          <div className="px-6 md:px-12 lg:px-16 py-16 md:py-24">
             {/* top info */}
             <div className="space-y-6 md:space-y-8 max-w-xl">
               <div>
@@ -385,47 +385,50 @@ export default function ContactPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* ================= BOTTOM FORM ================= */}
-          <div className="bg-[#FFE5EC] rounded-b-[40px] py-12 md:py-16">
-            <div className="max-w-5xl mx-auto px-6 md:px-12">
-              {/* title */}
-              <h2 className="text-center text-lg md:text-xl font-medium mb-10">
-                Send an Enquiry
-              </h2>
+      <section className="relative bg-[#FFE5EC] -mt-8 md:-mt-10 z-10 rounded-t-[32px] md:rounded-t-[48px] overflow-hidden">
+        {/* Form */}
+        <div className="bg-[#FFE5EC] py-12 md:py-16">
+          <div className="max-w-5xl mx-auto px-6 md:px-12">
+            {/* title */}
+            <h2 className="text-center text-lg md:text-xl font-medium mb-10">
+              Send an Enquiry
+            </h2>
 
-              <div className="grid md:grid-cols-[320px_1fr] gap-10 md:gap-12 items-center">
-                {/* LEFT INPUTS */}
-                <div className="space-y-5 flex flex-col items-center md:items-start">
-                  <input
-                    placeholder="Enter Name"
-                    className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
-                  />
+            <div className="grid md:grid-cols-[320px_1fr] gap-10 md:gap-12 items-center">
+              {/* LEFT INPUTS */}
+              <div className="space-y-5 flex flex-col items-center md:items-start">
+                <input
+                  placeholder="Enter Name"
+                  className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
+                />
 
-                  <input
-                    placeholder="Email"
-                    className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
-                  />
+                <input
+                  placeholder="Email"
+                  className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
+                />
 
-                  <input
-                    placeholder="Phone Number"
-                    className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
-                  />
-                </div>
+                <input
+                  placeholder="Phone Number"
+                  className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
+                />
+              </div>
 
-                {/* RIGHT MESSAGE */}
-                <div className="flex justify-center md:block">
-                  <textarea
-                    placeholder="Message"
-                    rows={7}
-                    className="w-full md:w-full max-w-md md:max-w-none rounded-[28px] border border-black/80 bg-transparent px-6 py-5 text-sm outline-none resize-none"
-                  ></textarea>
-                </div>
+              {/* RIGHT MESSAGE */}
+              <div className="flex justify-center md:block">
+                <textarea
+                  placeholder="Message"
+                  rows={7}
+                  className="w-full md:w-full max-w-md md:max-w-none rounded-[28px] border border-black/80 bg-transparent px-6 py-5 text-sm outline-none resize-none"
+                ></textarea>
               </div>
             </div>
           </div>
         </div>
       </section>
+      
       {/* Community and Culture Section */}
       <section className="relative bg-white py-10 sm:py-12 md:py-16 lg:py-20">
         <div className="container px-4 sm:px-6 relative ">
