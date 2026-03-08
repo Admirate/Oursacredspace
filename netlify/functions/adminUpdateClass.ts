@@ -1,5 +1,6 @@
 import { Handler } from "@netlify/functions";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
 
@@ -68,13 +69,16 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const { startsAt, endsAt, ...rest } = data;
+    const { startsAt, endsAt, timeSlots, ...rest } = data;
     const classSession = await prisma.classSession.update({
       where: { id },
       data: {
         ...rest,
         startsAt: startsAt ? new Date(startsAt) : undefined,
         endsAt: endsAt !== undefined ? (endsAt ? new Date(endsAt) : null) : undefined,
+        ...(timeSlots !== undefined && {
+          timeSlots: timeSlots === null ? Prisma.JsonNull : timeSlots,
+        }),
       },
     });
 
