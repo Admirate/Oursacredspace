@@ -145,6 +145,17 @@ OSS/
 │       ├── adminUpdateSpaceRequest.ts
 │       ├── adminCheckinPass.ts
 │       └── adminUploadImage.ts
+├── unit-tests/                # Jest unit tests
+│   ├── __mocks__/
+│   │   └── prisma.ts          # Mocked Prisma client
+│   ├── security.test.ts       # Security helpers tests
+│   ├── validators.test.ts     # Zod schema tests
+│   ├── verifyAdmin.test.ts    # Admin session verification tests
+│   ├── adminAuth.test.ts      # Admin auth handler tests
+│   └── adminUpdateSpaceRequest.test.ts
+├── docs/
+│   └── claude.md              # Full codebase reference
+├── jest.config.ts             # Jest config (ts-jest, roots: unit-tests/)
 ├── package.json
 ├── netlify.toml               # Build, redirects, security headers
 ├── next.config.mjs            # Next.js config (standalone output, Supabase images)
