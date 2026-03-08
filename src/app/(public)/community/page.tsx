@@ -199,7 +199,7 @@ export default function CommunityPage() {
               <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
               <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white tracking-wide">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white tracking-wide whitespace-nowrap">
                   <AnimatedText
                     text="Community Spaces"
                     isVisible={heroLoaded}
@@ -303,13 +303,13 @@ export default function CommunityPage() {
       </section>
 
       {/* Community and Culture Section */}
-      <section className="relative bg-white py-10 sm:py-12 md:py-16 lg:py-20">
+      <section className="relative bg-white py-10 sm:py-12 md:py-16 lg:py-20 overflow-hidden">
         <div className="container px-4 sm:px-6 relative ">
           <img
             src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree.png"
             alt="tree"
-            className=" absolute lg:-bottom-80 md:-bottom-56 bottom-[-260px] lg:right-32 md:-right-12 -right-20 w-[420px]
-            xl:w-[520px] h-auto object-contain opacity-20 pointer-events-none select-none "
+            className="absolute lg:-bottom-80 md:-bottom-56 bottom-[-260px] lg:right-32 md:-right-12 -right-20 w-[420px]
+            xl:w-[520px] h-auto object-contain opacity-20 pointer-events-none select-none"
             aria-hidden="true"
           />
           {/* Community and Culture */}

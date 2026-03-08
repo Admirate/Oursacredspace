@@ -289,7 +289,7 @@ export default function ContactPage() {
               <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
               <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
                   <AnimatedText
                     text="Contact"
                     isVisible={heroLoaded}

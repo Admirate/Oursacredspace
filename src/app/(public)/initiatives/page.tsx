@@ -161,7 +161,7 @@ export default function InitiativesPage() {
               <div className="absolute inset-0 flex flex-col sm:flex-row sm:justify-between px-4 xs:px-5 sm:px-6 md:px-10 lg:px-16 py-4 xs:py-5 sm:py-8 md:py-12">
                 {/* Left Section - Title and Description */}
                 <div className="flex flex-col justify-center max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md">
-                  <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide">
+                  <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide whitespace-nowrap">
                     <AnimatedText
                       text="Initiatives"
                       isVisible={heroLoaded}
@@ -254,13 +254,13 @@ export default function InitiativesPage() {
       {/* White Content Section with Rounded Top Corners */}
       <section className="relative bg-white rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10">
         {/* Community and Culture Section */}
-        <section className="relative bg-white py-10 sm:py-12 md:py-16 lg:py-20">
+        <section className="relative bg-white py-10 sm:py-12 md:py-16 lg:py-20 overflow-hidden">
           <div className="container px-4 sm:px-6 relative ">
             <img
               src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree.png"
               alt="tree"
-              className=" absolute lg:-bottom-80 md:-bottom-56 bottom-[-260px] lg:right-32 md:-right-12 -right-20 w-[420px]
-            xl:w-[520px] h-auto object-contain opacity-20 pointer-events-none select-none "
+              className="absolute lg:-bottom-80 md:-bottom-56 bottom-[-260px] lg:right-32 md:-right-12 -right-20 w-[420px]
+            xl:w-[520px] h-auto object-contain opacity-20 pointer-events-none select-none"
               aria-hidden="true"
             />
             {/* Community and Culture */}

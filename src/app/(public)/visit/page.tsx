@@ -164,7 +164,7 @@ export default function VisitPage() {
               </div> */}
 
               <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
                   <AnimatedText
                     text="Visit Us"
                     isVisible={heroLoaded}

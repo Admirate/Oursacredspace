@@ -379,7 +379,7 @@ export default function SpacesPage() {
               <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
               <div className="absolute inset-0 flex flex-col justify-center px-4 xs:px-5 sm:px-6 md:px-10 lg:px-16">
-                <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide">
+                <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide whitespace-nowrap">
                   <AnimatedText
                     text="Space Rentals"
                     isVisible={heroLoaded}

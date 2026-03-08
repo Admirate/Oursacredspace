@@ -185,7 +185,7 @@ export default function HomePage() {
               <img
                 src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/hero.jpg"
                 alt="Sacred space background"
-                className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(124,124,124,0.58),rgba(22,22,22,0.58)_74%)]"
+                className="absolute inset-0 w-full h-full object-cover"
                 style={{
                   objectPosition: "top",
                 }}
@@ -210,7 +210,7 @@ export default function HomePage() {
               </div>
 
               <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white">
+                <h1 className="text-[1.35rem] sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white whitespace-nowrap">
                   <AnimatedText
                     text="Our Sacred Space"
                     isVisible={heroLoaded}
@@ -337,7 +337,7 @@ export default function HomePage() {
       {/* Who We Are Section */}
       <section
         ref={whoWeAreSection.ref as React.RefObject<HTMLElement>}
-        className={`relative bg-[#E2F0CB] transition-all duration-1000 ease-out ${
+        className={`relative bg-[#E2F0CB] overflow-hidden transition-all duration-1000 ease-out ${
           whoWeAreSection.isInView
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-12"
@@ -347,7 +347,7 @@ export default function HomePage() {
         <img
           src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree.png"
           alt="tree"
-          className=" absolute -right-20 top-0 md:top-56 h-full w-[420px] xl:w-[650] object-contain opacity-20 pointer-events-none"
+          className="absolute -right-20 top-0 md:top-56 h-full w-[420px] xl:w-[650px] object-contain opacity-20 pointer-events-none"
           aria-hidden="true"
         />
 
