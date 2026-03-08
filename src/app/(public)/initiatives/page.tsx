@@ -146,7 +146,7 @@ export default function InitiativesPage() {
   };
 
   return (
-    <div className="overflow-x-hidden">
+    <div>
       <section className="relative bg-[#FFE5EC] py-4 xs:py-6 sm:py-8 md:py-10">
         <div className="container px-3 xs:px-4 flex justify-center">
           <div className="relative w-full max-w-[1414px] p-3 xs:p-4 sm:p-5 md:p-[40px] bg-[#FFE5EC] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px]">

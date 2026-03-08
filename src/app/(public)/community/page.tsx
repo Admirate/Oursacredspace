@@ -185,7 +185,7 @@ export default function CommunityPage() {
   }, []);
 
   return (
-    <div className="overflow-x-hidden">
+    <div>
       {/* Hero Section */}
       <section className="relative bg-[#FFE5EC] py-8 md:py-10">
         <div className="container px-4 flex justify-center">

@@ -1,0 +1,919 @@
+# OSS Booking System — Complete Codebase Reference
+
+> **Our Sacred Space** — Booking and event management platform for a cultural and community centre in Secunderabad.
+
+---
+
+## Table of Contents
+
+1. [Project Overview](#1-project-overview)
+2. [Tech Stack](#2-tech-stack)
+3. [Directory Structure](#3-directory-structure)
+4. [Configuration Files](#4-configuration-files)
+5. [Database Schema (Prisma)](#5-database-schema-prisma)
+6. [Netlify Functions (Backend)](#6-netlify-functions-backend)
+7. [Helper Modules](#7-helper-modules)
+8. [Frontend Architecture](#8-frontend-architecture)
+9. [Routing](#9-routing)
+10. [Components](#10-components)
+11. [Hooks](#11-hooks)
+12. [Lib / Utilities](#12-lib--utilities)
+13. [TypeScript Types](#13-typescript-types)
+14. [Styling & Theming](#14-styling--theming)
+15. [Assets & Media](#15-assets--media)
+16. [Authentication & Authorization](#16-authentication--authorization)
+17. [Security Model](#17-security-model)
+18. [Payment Flow (Razorpay)](#18-payment-flow-razorpay)
+19. [User Flows](#19-user-flows)
+20. [Environment Variables](#20-environment-variables)
+21. [NPM Scripts](#21-npm-scripts)
+22. [Deployment (Netlify)](#22-deployment-netlify)
+23. [Known Gaps](#23-known-gaps)
+24. [Change Log](#24-change-log)
+
+---
+
+## 1. Project Overview
+
+**Name:** `oss-booking-system`
+**Version:** 1.0.0
+**Purpose:** Full-stack booking platform where users can:
+
+- Browse and book **classes** (yoga, meditation, etc.)
+- Purchase **event passes** with QR codes for check-in
+- Submit **space rental requests** for the venue
+- Admins manage all of the above via a dashboard
+
+---
+
+## 2. Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript (strict mode) |
+| UI Library | React 18 |
+| Styling | Tailwind CSS 3.4 + shadcn/ui (Radix UI) |
+| State Management | TanStack React Query v5 |
+| Forms | React Hook Form + Zod validation |
+| Backend | Netlify Functions (serverless, esbuild-bundled) |
+| Database | PostgreSQL via Supabase |
+| ORM | Prisma 5.9 |
+| Payments | Razorpay |
+| File Storage | Supabase Storage |
+| QR Codes | `qrcode` library |
+| Smooth Scroll | Lenis |
+| Fonts | Plus Jakarta Sans, Geist |
+| Notifications | WhatsApp Business API (scaffolded, not active) |
+| Deployment | Netlify (with `@netlify/plugin-nextjs`) |
+
+---
+
+## 3. Directory Structure
+
+```
+OSS/
+├── prisma/
+│   ├── schema.prisma          # Database schema (9 models, 6 enums)
+│   └── seed.ts                # Database seeding script
+├── public/
+│   └── placeholder.svg        # Placeholder image
+├── src/
+│   ├── app/                   # Next.js App Router
+│   │   ├── layout.tsx         # Root layout (providers, fonts, metadata)
+│   │   ├── globals.css        # Global styles + CSS animations
+│   │   ├── sitemap.ts         # Dynamic sitemap generator
+│   │   ├── robots.ts          # Robots.txt config
+│   │   ├── (public)/          # Public route group
+│   │   │   ├── layout.tsx     # Header + Footer wrapper
+│   │   │   ├── page.tsx       # Home page
+│   │   │   ├── events/page.tsx
+│   │   │   ├── classes/page.tsx
+│   │   │   ├── workshops/page.tsx
+│   │   │   ├── book-space/page.tsx
+│   │   │   ├── co-working-space/page.tsx
+│   │   │   ├── space-enquiry/page.tsx
+│   │   │   ├── community/page.tsx
+│   │   │   ├── initiatives/page.tsx
+│   │   │   ├── visit/page.tsx
+│   │   │   ├── contact/page.tsx
+│   │   │   ├── success/page.tsx       # Post-booking confirmation
+│   │   │   └── verify/page.tsx        # QR pass verification
+│   │   └── admin/             # Admin dashboard
+│   │       ├── layout.tsx     # Admin layout (sidebar, auth guard)
+│   │       ├── page.tsx       # Dashboard home
+│   │       ├── login/page.tsx
+│   │       ├── bookings/page.tsx
+│   │       ├── classes/page.tsx
+│   │       ├── events/page.tsx
+│   │       └── space/page.tsx
+│   ├── components/
+│   │   ├── shared/            # Header, Footer, OptimizedImage, OptimizedVideo, LoadingSpinner
+│   │   ├── providers/         # QueryProvider (React Query), LenisProvider (smooth scroll)
+│   │   └── ui/                # ~21 shadcn/ui primitives (button, card, dialog, form, table, etc.)
+│   ├── hooks/                 # useBooking, usePayment, use-toast, useLenis
+│   ├── lib/                   # api.ts, constants.ts, assets.ts, utils.ts, supabase.ts, validators.ts
+│   └── types/                 # TypeScript type definitions (index.ts)
+├── netlify/
+│   └── functions/             # 21 serverless functions
+│       ├── helpers/           # 7 shared helper modules
+│       │   ├── prisma.ts
+│       │   ├── security.ts
+│       │   ├── verifyAdmin.ts
+│       │   ├── generateQR.ts
+│       │   ├── uploadQrToSupabase.ts
+│       │   ├── sendWhatsApp.ts
+│       │   └── types.ts
+│       ├── getEvents.ts
+│       ├── getClasses.ts
+│       ├── getBooking.ts
+│       ├── createBooking.ts
+│       ├── createRazorpayOrder.ts
+│       ├── razorpayWebhook.ts
+│       ├── verifyPass.ts
+│       ├── devConfirmPayment.ts
+│       ├── adminAuth.ts
+│       ├── adminListBookings.ts
+│       ├── adminListClasses.ts
+│       ├── adminListEvents.ts
+│       ├── adminListPasses.ts
+│       ├── adminListSpaceRequests.ts
+│       ├── adminCreateClass.ts
+│       ├── adminCreateEvent.ts
+│       ├── adminUpdateClass.ts
+│       ├── adminUpdateEvent.ts
+│       ├── adminUpdateSpaceRequest.ts
+│       ├── adminCheckinPass.ts
+│       └── adminUploadImage.ts
+├── package.json
+├── netlify.toml               # Build, redirects, security headers
+├── next.config.mjs            # Next.js config (standalone output, Supabase images)
+├── tailwind.config.ts         # Brand colors, custom animations
+├── tsconfig.json              # Path alias @/* → ./src/*
+├── postcss.config.js
+├── components.json            # shadcn/ui config
+└── README.md
+```
+
+---
+
+## 4. Configuration Files
+
+### `package.json`
+
+- **Name:** `oss-booking-system`, v1.0.0, private
+- **Key deps:** next@^16.1.4, react@^18.2.0, @prisma/client@^5.9.1, @supabase/supabase-js@^2.39.6, razorpay@^2.9.2, @tanstack/react-query@^5.18.1, zod@^3.22.4, react-hook-form@^7.50.1
+- **Dev deps:** prisma@^5.9.1, typescript@^5.3.3, tailwindcss@^3.4.1, @netlify/plugin-nextjs@^5.0.0, netlify-cli (added for local dev)
+
+### `netlify.toml`
+
+- Build command: `npm run build` (runs `prisma generate && next build`)
+- Publish: `.next`
+- Node 20
+- Functions directory: `netlify/functions` (esbuild bundler)
+- Redirect: `/api/*` → `/.netlify/functions/:splat` (status 200)
+- Security headers: X-Frame-Options DENY, CSP, HSTS, X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy
+- CSP allows: Razorpay, Supabase, Google Fonts, OpenStreetMap
+
+### `next.config.mjs`
+
+- Output: `standalone` (for Netlify)
+- Remote image patterns: `*.supabase.co/storage/v1/object/public/**`
+- React strict mode: enabled
+
+### `tsconfig.json`
+
+- Target: ES2017, Module: ESNext, bundler resolution
+- Path alias: `@/*` → `./src/*`
+- Strict: true
+
+### `components.json`
+
+- shadcn/ui config: RSC enabled, Tailwind, neutral base color, `src/lib/utils` for cn(), `@/components/ui` aliases
+
+---
+
+## 5. Database Schema (Prisma)
+
+**File:** `prisma/schema.prisma`
+**Provider:** PostgreSQL via `DATABASE_URL`
+
+### Enums
+
+| Enum | Values |
+|------|--------|
+| `BookingType` | CLASS, EVENT, SPACE |
+| `BookingStatus` | PENDING_PAYMENT, CONFIRMED, PAYMENT_FAILED, CANCELLED, EXPIRED |
+| `PaymentStatus` | CREATED, PAID, FAILED, REFUNDED |
+| `SpaceRequestStatus` | REQUESTED, APPROVED_CALL_SCHEDULED, RESCHEDULE_REQUESTED, DECLINED, CONFIRMED, NOT_PROCEEDING, FOLLOW_UP_REQUIRED |
+| `CheckInStatus` | NOT_CHECKED_IN, CHECKED_IN |
+| `NotificationChannel` | WHATSAPP, EMAIL |
+| `NotificationStatus` | SENT, FAILED, PENDING |
+
+### Models
+
+#### `Booking` — Central booking entity
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| type | BookingType | CLASS / EVENT / SPACE |
+| status | BookingStatus | Default: PENDING_PAYMENT |
+| name | String | Customer name (denormalized) |
+| phone | String | E.164 format (+91...) |
+| email | String | Customer email |
+| amountPaise | Int | Amount in paise (INR smallest unit) |
+| currency | String | Default: "INR" |
+| classSessionId | String? | FK → ClassSession (for CLASS bookings) |
+| eventId | String? | FK → Event (for EVENT bookings) |
+| spaceRequestId | String? | FK → SpaceRequest (unique, for SPACE bookings) |
+| payments | Payment[] | Related payments |
+| eventPass | EventPass? | Related event pass (1:1) |
+| notifications | NotificationLog[] | Related notifications |
+| statusHistory | StatusHistory[] | Audit trail |
+| Indexes | type, status, createdAt, email |
+
+#### `Payment` — Razorpay payment records
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| bookingId | String | FK → Booking |
+| provider | String | Default: "RAZORPAY" |
+| razorpayOrderId | String | Unique |
+| razorpayPaymentId | String? | Unique, set after payment |
+| status | PaymentStatus | Default: CREATED |
+| amountPaise | Int | Amount in paise |
+| webhookEventId | String? | Unique, idempotency key |
+| rawPayload | Json? | Raw webhook data |
+
+#### `ClassSession` — Class sessions
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| title | String | Class name |
+| description | String? | |
+| imageUrl | String? | Supabase Storage URL |
+| startsAt | DateTime | Session start time |
+| duration | Int | Default: 60 (minutes) |
+| capacity | Int | Max participants |
+| spotsBooked | Int | Default: 0, incremented on confirmation |
+| pricePaise | Int | Price in paise |
+| active | Boolean | Default: true |
+
+#### `Event` — Events
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| title | String | Event name |
+| description | String? | |
+| imageUrl | String? | Supabase Storage URL |
+| startsAt | DateTime | Event start time |
+| venue | String | Event location |
+| pricePaise | Int | Ticket price in paise |
+| capacity | Int? | Optional max capacity |
+| active | Boolean | Default: true |
+
+#### `EventPass` — QR event passes
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| bookingId | String | FK → Booking (unique, 1:1) |
+| eventId | String | FK → Event |
+| passId | String | Unique, format: `OSS-EV-XXXXXXXX` (8 alphanumeric chars) |
+| qrImageUrl | String | Supabase Storage URL for QR image |
+| checkInStatus | CheckInStatus | Default: NOT_CHECKED_IN |
+| checkInTime | DateTime? | When checked in |
+| checkedInBy | String? | Admin email who performed check-in |
+
+#### `SpaceRequest` — Space rental requests
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| name, phone, email | String | Customer info |
+| preferredSlots | Json | Array of preferred datetime slots |
+| scheduledSlot | DateTime? | Admin-assigned slot |
+| notes | String? | Customer notes |
+| purpose | String? | Purpose of rental |
+| status | SpaceRequestStatus | Default: REQUESTED |
+| adminNotes | String? | Admin notes |
+
+#### `NotificationLog` — Notification tracking
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| bookingId | String? | FK → Booking |
+| channel | NotificationChannel | WHATSAPP or EMAIL |
+| templateName | String | Template identifier |
+| to | String | Phone or email |
+| status | NotificationStatus | SENT / FAILED / PENDING |
+| providerMessageId | String? | External message ID |
+| error | String? | Error message if failed |
+| retryCount | Int | Default: 0 |
+
+#### `StatusHistory` — Booking audit trail
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| bookingId | String | FK → Booking |
+| fromStatus | String | Previous status |
+| toStatus | String | New status |
+| changedBy | String | "SYSTEM" or admin email |
+| reason | String? | Reason for change |
+
+#### `AdminSession` — Admin authentication sessions
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| email | String | Unique |
+| token | String | Unique, 64-char hex |
+| expiresAt | DateTime | Session expiry |
+
+---
+
+## 6. Netlify Functions (Backend)
+
+All functions are at `netlify/functions/`. They're exposed under `/.netlify/functions/*` (and also `/api/*` via redirect).
+
+### Public Functions (no authentication required)
+
+| Function | Method | Rate Limit | Purpose |
+|----------|--------|------------|---------|
+| `getEvents` | GET | 100/min | List active future events |
+| `getClasses` | GET | 100/min | List active future class sessions |
+| `createBooking` | POST | 10/min | Create CLASS/EVENT/SPACE booking |
+| `createRazorpayOrder` | POST | 5/min | Create Razorpay payment order for a booking |
+| `getBooking` | GET | 60/min | Fetch a single booking by ID (with relations) |
+| `verifyPass` | GET | 30/min | Validate an event pass by passId |
+
+### Webhook
+
+| Function | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `razorpayWebhook` | POST | HMAC-SHA256 signature (`x-razorpay-signature`) | Handle `payment.captured` and `payment.failed` from Razorpay |
+
+On `payment.captured`:
+- Updates Payment → PAID
+- Updates Booking → CONFIRMED
+- Creates StatusHistory
+- For CLASS: increments `spotsBooked` on ClassSession
+- For EVENT: creates EventPass + generates QR → uploads to Supabase Storage
+- Creates NotificationLog
+
+### Dev-Only
+
+| Function | Method | Guard | Purpose |
+|----------|--------|-------|---------|
+| `devConfirmPayment` | POST | `ALLOW_DEV_ENDPOINTS=true` + `x-dev-secret` header | Simulate payment confirmation without Razorpay |
+
+### Admin Functions (all require `admin_token` cookie via `verifyAdminSession`)
+
+| Function | Method | Purpose |
+|----------|--------|---------|
+| `adminAuth` | POST | Login (email + password → creates session + sets cookie) |
+| `adminAuth` | GET | Check session validity |
+| `adminAuth` | DELETE | Logout (clears cookie + deletes session) |
+| `adminListBookings` | GET | Paginated bookings with filters (type, status, date range, search) |
+| `adminListClasses` | GET | List classes with booking counts |
+| `adminListEvents` | GET | List events with pass/check-in counts |
+| `adminCreateClass` | POST | Create class session |
+| `adminUpdateClass` | PUT | Update class session |
+| `adminCreateEvent` | POST | Create event |
+| `adminUpdateEvent` | PUT | Update event |
+| `adminListPasses` | GET | List event passes (optionally by eventId) |
+| `adminCheckinPass` | POST | Check in an attendee by passId |
+| `adminListSpaceRequests` | GET | List space requests (optionally by status) |
+| `adminUpdateSpaceRequest` | POST | Update space request status + admin notes |
+| `adminUploadImage` | POST | Upload base64 image to Supabase Storage |
+
+---
+
+## 7. Helper Modules
+
+Located at `netlify/functions/helpers/`:
+
+### `prisma.ts`
+Singleton Prisma client. Loads `.env` file for Netlify Functions environment.
+
+### `security.ts`
+Core security utilities:
+- `timingSafeCompare(a, b)` — Constant-time string comparison using `crypto.timingSafeEqual`
+- `generateSecureId(length, charset)` — Crypto-random ID generation (default: 8 chars, no ambiguous chars like 0/O/1/I)
+- `sanitizeTemplateParam(value, maxLength)` — Sanitize notification template params
+- `validateImageMagicBytes(buffer)` — Validate image file magic bytes (JPEG/PNG/GIF/WebP)
+- `getClientIP(event)` — Extract client IP from headers
+- `isRateLimited(identifier, maxRequests, windowMs)` — In-memory rate limiter with auto-cleanup
+- `sanitizeString(input)` — XSS prevention (HTML entity encoding)
+- `validateEnvVars(required)` — Check required environment variables
+- `getSecureHeaders(origin?)` — Security response headers
+- `isAllowedOrigin(event)` — CORS origin validation against allowlist
+- `getValidatedOrigin(event)` — Safe origin for CORS header
+- `getSecureAdminHeaders(event)` — Admin CORS headers with credentials
+- `getPublicHeaders(event, methods)` — Public CORS headers
+- `rateLimitResponse()` — 429 Too Many Requests response
+- `logSecurityEvent(type, details)` — Security event logging (console.warn, ready for external service)
+
+**Rate limit presets (`RATE_LIMITS`):**
+| Key | Limit |
+|-----|-------|
+| LOGIN | 5/min |
+| PAYMENT | 5/min |
+| BOOKING_CREATE | 10/min |
+| BOOKING_READ | 60/min |
+| PUBLIC_READ | 100/min |
+| PASS_VERIFY | 30/min |
+| ADMIN_READ | 200/min |
+| ADMIN_WRITE | 50/min |
+
+### `verifyAdmin.ts`
+- `parseAdminToken(cookie)` — Extracts and validates `admin_token` from cookie (must be 64 hex chars)
+- `verifyAdminSession(event)` — Checks token against `AdminSession` in DB, validates expiry
+- `getAdminHeaders(event)` — Delegates to `getSecureAdminHeaders`
+- `unauthorizedResponse(event, error)` — 401 response helper
+
+### `generateQR.ts`
+- `generateQRBuffer(data)` — Returns QR code as PNG Buffer
+- `generateQRDataURL(data)` — Returns QR code as data URL string
+
+### `uploadQrToSupabase.ts`
+- Uploads QR PNG buffer to Supabase Storage bucket
+- Returns public URL for the uploaded image
+
+### `sendWhatsApp.ts`
+- WhatsApp Business API integration (templates for event/class/space confirmations)
+- Uses `sanitizeTemplateParam` for input safety
+- **Currently not called** in production flows
+
+### `types.ts`
+- `CreateBookingInput` — Server-side booking input type
+- `ApiResponse<T>` — Standard API response wrapper
+- `RazorpayOrderResponse` — Order creation response
+- `RazorpayWebhookPayload` — Webhook event payload structure
+
+---
+
+## 8. Frontend Architecture
+
+### Root Layout (`src/app/layout.tsx`)
+- Wraps app in `QueryProvider` (React Query) → `LenisProvider` (smooth scroll) → `Toaster`
+- Font: Plus Jakarta Sans (variable `--font-jakarta`)
+- Metadata: Title template `%s | OSS Space`, Open Graph, Twitter Card, SEO keywords
+- Disables Netlify RUM to prevent ad-blocker console errors
+
+### Public Layout (`src/app/(public)/layout.tsx`)
+- Wraps public pages with `Header` + `Footer`
+
+### Admin Layout (`src/app/admin/layout.tsx`)
+- Auth guard: calls `adminApi.listBookings({ limit: 1 })` on mount; redirects to `/admin/login` on failure
+- Sidebar with `ADMIN_NAV_ITEMS`
+- `/admin/login` bypasses this layout
+
+---
+
+## 9. Routing
+
+### Public Routes
+
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/` | Home | Landing page with hero, sections |
+| `/events` | Events | Browse and book event passes (fetches from API) |
+| `/classes` | Classes | Browse and book classes (fetches from API) |
+| `/workshops` | Workshops | Static workshops info |
+| `/book-space` | Book Space | Space rental information |
+| `/co-working-space` | Co-Working | Co-working space information |
+| `/space-enquiry` | Space Enquiry | Space rental request form → `createBooking(type: SPACE)` |
+| `/community` | Community | Community section |
+| `/initiatives` | Initiatives | Initiatives section |
+| `/visit` | Visit | Location & visit info |
+| `/contact` | Contact | Contact form |
+| `/success?bookingId=...` | Success | Post-booking/payment confirmation page |
+| `/verify?passId=...` | Verify | Public QR pass verification |
+
+### Admin Routes
+
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/admin/login` | Login | Email + password login form |
+| `/admin` | Dashboard | Admin home |
+| `/admin/bookings` | Bookings | List/filter/search bookings |
+| `/admin/classes` | Classes | Create/edit/list classes |
+| `/admin/events` | Events | Create/edit/list events |
+| `/admin/space` | Space | Manage space requests |
+
+---
+
+## 10. Components
+
+### Shared (`src/components/shared/`)
+
+| Component | Purpose |
+|-----------|---------|
+| `Header.tsx` | Fixed navigation bar, green accent bar, logo from Supabase, desktop + mobile (Sheet) nav, uses `PUBLIC_NAV_ITEMS` |
+| `Footer.tsx` | Brand info, navigation links, contact info, social links (Instagram, Facebook, YouTube) |
+| `OptimizedImage.tsx` | Next.js Image wrapper with optimizations |
+| `OptimizedVideo.tsx` | Video element wrapper |
+| `LoadingSpinner.tsx` | Spinner UI |
+| `index.ts` | Barrel exports |
+
+### UI (`src/components/ui/`)
+
+21 shadcn/ui (Radix-based) components:
+
+`alert-dialog`, `avatar`, `badge`, `button`, `calendar`, `card`, `dialog`, `dropdown-menu`, `form`, `input`, `label`, `popover`, `select`, `separator`, `sheet`, `skeleton`, `table`, `tabs`, `textarea`, `toast`, `toaster`
+
+### Providers (`src/components/providers/`)
+
+| Provider | Purpose |
+|----------|---------|
+| `QueryProvider.tsx` | TanStack React Query `QueryClientProvider` |
+| `LenisProvider.tsx` | Lenis smooth scroll context |
+
+---
+
+## 11. Hooks
+
+Located at `src/hooks/`:
+
+### `useBooking.ts`
+| Hook | Purpose |
+|------|---------|
+| `useCreateBooking(options)` | Mutation to create a booking via `api.createBooking()`. Returns `createBooking`, `createBookingAsync`, `isLoading`, `error`, `reset` |
+| `useBooking(bookingId, options)` | Query to fetch a single booking |
+| `usePollBookingStatus(bookingId, options)` | Polls booking status every 2s (max 15 attempts / 30s). Calls `onConfirmed`, `onFailed`, or `onTimeout` callbacks |
+| `useClasses()` | Query to fetch all classes |
+| `useEvents()` | Query to fetch all events |
+| `useVerifyPass(passId)` | Query to verify an event pass |
+
+### `usePayment.ts`
+| Hook | Purpose |
+|------|---------|
+| `usePayment(options)` | Full Razorpay checkout flow: loads script → creates order → opens modal → redirects on success. Returns `isLoading`, `isCreatingOrder`, `error`, `initiatePayment(bookingId)`, `resetError` |
+
+### `use-toast.ts`
+Toast notification hook (shadcn/ui pattern).
+
+### `useLenis.ts`
+Access Lenis smooth scroll instance.
+
+---
+
+## 12. Lib / Utilities
+
+Located at `src/lib/`:
+
+### `api.ts`
+- `apiFetch<T>(endpoint, options)` — Base fetch helper with JSON, query params, error handling
+- `api` object — Public API methods: `createBooking`, `createRazorpayOrder`, `getBooking`, `getClasses`, `getEvents`, `verifyPass`
+- `adminApi` object — Admin API methods: `login`, `logout`, `listBookings`, `listClasses`, `createClass`, `updateClass`, `listEvents`, `createEvent`, `updateEvent`, `listPasses`, `checkinPass`, `listSpaceRequests`, `updateSpaceRequest`, `uploadImage`
+- Admin calls use `credentials: "include"` for cookie auth
+
+### `constants.ts`
+- `API_ENDPOINTS` — All 15 function endpoint paths
+- `RAZORPAY_CONFIG` — Payment gateway display config
+- `BOOKING_STATUS_LABELS` / `BOOKING_STATUS_COLORS` — UI label/color maps
+- `SPACE_STATUS_LABELS` / `SPACE_STATUS_COLORS` — Space request status UI maps
+- `CHECKIN_STATUS_LABELS`, `BOOKING_TYPE_LABELS`
+- `PUBLIC_NAV_ITEMS` (10 items), `ADMIN_NAV_ITEMS` (5 items)
+- `POLLING_INTERVAL` (2s), `POLLING_MAX_ATTEMPTS` (15), `POLLING_TIMEOUT` (30s)
+- `WHATSAPP_TEMPLATES` — Template name references
+
+### `assets.ts`
+- `getAssetUrl(path)` — Builds full Supabase Storage URL
+- `assets` object — Organized asset paths (brand, hero, classes, events, space, about, icons, backgrounds)
+- `videos` object — Video asset paths
+- `blurPlaceholder` — Base64 blur data URL for image placeholders
+- `imageSizes` — Standard dimensions (hero 1920x800, card 400x300, etc.)
+
+### `utils.ts`
+- `cn(...inputs)` — Tailwind class merging via `clsx` + `tailwind-merge`
+
+### `supabase.ts`
+- Client-side Supabase client initialization using `NEXT_PUBLIC_SUPABASE_URL` and anon key
+
+### `validators.ts`
+- Zod validation schemas (booking forms, etc.)
+
+---
+
+## 13. TypeScript Types
+
+Located at `src/types/index.ts`:
+
+### Core Types
+- `Booking` — id, type, status, customerName/Phone/Email, amountPaise, relations to ClassSession/Event/SpaceRequest/EventPass/Payment
+- `Payment` — id, bookingId, razorpayOrderId/PaymentId, status, amountPaise, webhookEventId
+- `ClassSession` — id, title, description, imageUrl, startsAt, duration, capacity, spotsBooked, pricePaise, active
+- `Event` — id, title, description, imageUrl, startsAt, venue, pricePaise, capacity, passesIssued, active
+- `EventPass` — id, bookingId, eventId, passId, qrImageUrl, checkInStatus, checkInTime, checkedInBy
+- `SpaceRequest` — id, bookingId, preferredDate, duration, purpose, attendees, specialRequirements, status, adminNotes
+- `NotificationLog` — id, bookingId, channel, templateName, to, status, error, retryCount
+- `StatusHistory` — id, bookingId, fromStatus, toStatus, changedBy, reason
+
+### API Types
+- `CreateBookingRequest` — type, name, phone, email, classSessionId?, eventId?, preferredSlots?, purpose?, notes?
+- `CreateBookingResponse` — success, data: { bookingId, type, amount, requiresPayment }
+- `CreateRazorpayOrderRequest` — bookingId
+- `CreateRazorpayOrderResponse` — success, data: { orderId, keyId, amount, currency, bookingId, customer info }
+- `GetBookingResponse` — success, data: Booking
+- `AdminListBookingsRequest` — type?, status?, page?, limit?, startDate?, endDate?
+- `AdminListBookingsResponse` — success, data: Booking[], pagination
+- `AdminUpdateSpaceRequestRequest` — requestId, status, adminNotes?
+- `AdminCheckinPassRequest` — passId, adminEmail
+- `AdminCheckinPassResponse` — success, data: { passId, attendeeName, eventTitle, checkInTime, alreadyCheckedIn }
+
+### Razorpay Types
+- `RazorpayOptions` — Checkout modal configuration
+- `RazorpaySuccessResponse` — razorpay_payment_id, razorpay_order_id, razorpay_signature
+- Global `Window.Razorpay` declaration
+
+---
+
+## 14. Styling & Theming
+
+### Tailwind Config (`tailwind.config.ts`)
+
+**Brand Colors:**
+| Name | Hex | Usage |
+|------|-----|-------|
+| `sacred-green` | #5a7a3d | Accent bar, active states |
+| `sacred-burgundy` | #8b2942 | Text, links |
+| `sacred-pink` | #e8a0b0 | Lotus accents, hero backgrounds |
+| `sacred-cream` | #faf8f5 | Background accents |
+| `oss-500` | #ee751c | Primary brand orange |
+
+**Breakpoints:** xs (480px), sm (640px), md (768px), lg (1024px), xl (1280px), 2xl (1536px)
+
+**Custom Animations:** fade-in, slide-in, spin-slow, accordion-down/up
+
+**Font:** Plus Jakarta Sans via `--font-jakarta` CSS variable
+
+### Global CSS (`src/app/globals.css`)
+
+**CSS Utilities:** `gradient-text`, `glass`, `animated-gradient`, `card-hover`, `focus-ring`
+
+**CSS Animations:** shimmer, spin-slow, float, ripple, bounce-slow, heartbeat, border-glow, slide-in-left/right/up/down
+
+**Other:** Custom scrollbar, Lenis styles, light/dark theme CSS variables
+
+---
+
+## 15. Assets & Media
+
+All stored in **Supabase Storage** under the `Assets` bucket.
+
+**Asset structure:**
+```
+Assets/
+├── brand/          # logo.png, logo-white.png, favicon.ico
+├── hero/           # main.webp, background.webp
+├── classes/        # placeholder.webp, yoga.webp, meditation.webp, fitness.webp
+├── events/         # placeholder.webp, workshop.webp, seminar.webp
+├── space/          # main.webp, gallery-1/2/3.webp
+├── about/          # team.webp, story.webp
+├── icons/          # calendar.svg, location.svg, clock.svg
+├── backgrounds/    # pattern.svg, gradient.webp
+├── videos/         # hero-background.mp4, classes-promo.mp4, space-tour.mp4, events-highlight.mp4
+└── passes/         # QR code images (auto-generated)
+```
+
+Access via `getAssetUrl('path/to/file')` → `{SUPABASE_URL}/storage/v1/object/public/Assets/path/to/file`
+
+---
+
+## 16. Authentication & Authorization
+
+### Admin Auth Flow
+
+1. Admin goes to `/admin/login`
+2. Submits email + password
+3. `adminAuth` function validates:
+   - Email against `ADMIN_ALLOWED_EMAILS` (comma-separated)
+   - Password against `ADMIN_PASSWORD` using `timingSafeCompare`
+4. On success: generates 64-char hex token → creates `AdminSession` in DB → sets `admin_token` cookie:
+   - `HttpOnly` — not accessible via JavaScript
+   - `Secure` — HTTPS only (in production)
+   - `SameSite=Strict` — CSRF protection
+   - Expires: 24 hours
+5. All admin endpoints call `verifyAdminSession(event)`:
+   - Parses cookie → validates token format (64 hex chars) → looks up session → checks expiry
+6. Logout: `DELETE /api/adminAuth` → clears cookie + deletes session from DB
+
+### Admin Auth Guard (Frontend)
+- `AdminLayout` calls `adminApi.listBookings({ limit: 1 })` on mount
+- On failure → redirects to `/admin/login`
+- `/admin/login` page uses a separate layout (skips the auth guard)
+
+### Public Endpoints
+No authentication required. Protected only by rate limiting and CORS.
+
+---
+
+## 17. Security Model
+
+| Layer | Implementation |
+|-------|----------------|
+| **Rate Limiting** | In-memory per-container (see RATE_LIMITS table above) |
+| **CORS** | Origin validation against allowlist (`localhost:3000`, `localhost:8888`, `APP_BASE_URL`) |
+| **Admin Auth** | HttpOnly + Secure + SameSite=Strict cookies, 64-char hex tokens |
+| **Password Check** | Timing-safe comparison to prevent timing attacks |
+| **Webhook Auth** | HMAC-SHA256 signature verification for Razorpay |
+| **Input Sanitization** | XSS prevention via `sanitizeString()`, template param sanitization |
+| **Image Upload** | Magic byte validation (JPEG/PNG/GIF/WebP only) |
+| **ID Generation** | `crypto.randomBytes()` — no `Math.random()` for security-sensitive values |
+| **Response Headers** | X-Frame-Options DENY, X-Content-Type-Options nosniff, HSTS, CSP |
+| **Security Logging** | `logSecurityEvent()` for AUTH_FAILURE, RATE_LIMIT, INVALID_SIGNATURE events |
+| **Pass ID Format** | `OSS-EV-XXXXXXXX` with regex validation `/^OSS-EV-[A-Z0-9]{8}$/` |
+
+---
+
+## 18. Payment Flow (Razorpay)
+
+```
+Frontend                          Backend                           Razorpay
+───────                          ───────                           ────────
+1. User clicks "Pay"
+   │
+   ├─→ usePayment.initiatePayment(bookingId)
+   │    ├── Load Razorpay script (checkout.js)
+   │    ├── POST /api/createRazorpayOrder { bookingId }
+   │    │                                 │
+   │    │                    ┌─────────────┘
+   │    │                    ├── Find booking in DB
+   │    │                    ├── Create Payment record (status: CREATED)
+   │    │                    ├── Create Razorpay order ──────────→ Razorpay API
+   │    │                    │                         ←────────── orderId
+   │    │                    └── Return { orderId, keyId, amount, ... }
+   │    │
+   │    ├── Open Razorpay checkout modal
+   │    │         │
+   │    │         └── User pays ──────────────────────→ Razorpay processes
+   │    │                                              │
+   │    │                                              ├── POST /api/razorpayWebhook
+   │    │                                              │   (payment.captured)
+   │    │                                              │         │
+   │    │                                              │    ┌────┘
+   │    │                                              │    ├── Verify HMAC-SHA256 signature
+   │    │                                              │    ├── Update Payment → PAID
+   │    │                                              │    ├── Update Booking → CONFIRMED
+   │    │                                              │    ├── CLASS: increment spotsBooked
+   │    │                                              │    ├── EVENT: create EventPass + QR
+   │    │                                              │    └── Log notification
+   │    │
+   │    └── handler callback fires
+   │         └── router.push('/success?bookingId=...')
+   │
+2. /success page polls getBooking until CONFIRMED
+   └── Shows booking details, event pass QR, etc.
+```
+
+**Note:** `createRazorpayOrder` currently uses a mock order ID — the real Razorpay API call is commented out.
+
+---
+
+## 19. User Flows
+
+### Class Booking
+1. `/classes` → `useClasses()` fetches from `getClasses`
+2. User selects class → booking dialog opens
+3. Fills name, phone, email → `createBooking(type: CLASS, classSessionId)`
+4. Redirected to payment → Razorpay checkout
+5. On success → `/success?bookingId=...` polls until CONFIRMED
+
+### Event Booking
+1. `/events` → `useEvents()` fetches from `getEvents`
+2. User selects event → booking dialog opens
+3. Fills name, phone, email → `createBooking(type: EVENT, eventId)`
+4. Redirected to payment → Razorpay checkout
+5. On success → `/success?bookingId=...` shows event pass with QR code
+
+### Space Request
+1. `/space-enquiry` → user fills form
+2. `createBooking(type: SPACE, preferredSlots, purpose, notes)`
+3. SpaceRequest created in DB (status: REQUESTED, no payment)
+4. Admin reviews at `/admin/space` → updates status via `adminUpdateSpaceRequest`
+5. Status workflow: REQUESTED → APPROVED_CALL_SCHEDULED → CONFIRMED / DECLINED / etc.
+
+### Pass Verification
+1. Attendee shows QR code → scanned → opens `/verify?passId=OSS-EV-XXXXXXXX`
+2. `verifyPass` checks pass in DB → shows validity + attendee info
+3. Admin uses `/admin` → `adminCheckinPass` → marks CHECKED_IN with timestamp
+
+---
+
+## 20. Environment Variables
+
+| Variable | Required | Used By | Purpose |
+|----------|----------|---------|---------|
+| `DATABASE_URL` | Yes | Prisma | PostgreSQL connection string |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Frontend + assets | Supabase project URL |
+| `SUPABASE_URL` | Yes | Functions | Supabase URL (server-side) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Functions | Supabase service role for Storage uploads |
+| `SUPABASE_STORAGE_BUCKET` | No | uploadQrToSupabase | Storage bucket name (default: `passes`) |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Yes | Frontend | Razorpay public key for checkout |
+| `RAZORPAY_KEY_ID` | Yes | createRazorpayOrder | Razorpay server key |
+| `RAZORPAY_KEY_SECRET` | Yes | createRazorpayOrder | Razorpay server secret |
+| `RAZORPAY_WEBHOOK_SECRET` | Yes | razorpayWebhook | Webhook HMAC verification |
+| `ADMIN_ALLOWED_EMAILS` | Yes | adminAuth | Comma-separated admin emails |
+| `ADMIN_PASSWORD` | Yes | adminAuth | Admin login password |
+| `APP_BASE_URL` | Yes | CORS, webhooks | Production app URL |
+| `NEXT_PUBLIC_APP_URL` | No | Frontend | App URL for client-side use |
+| `WHATSAPP_PHONE_NUMBER_ID` | No | sendWhatsApp | WhatsApp Business phone number ID |
+| `WHATSAPP_TOKEN` | No | sendWhatsApp | WhatsApp API token |
+| `ALLOW_DEV_ENDPOINTS` | No | devConfirmPayment | Set to `true` to enable dev endpoints |
+| `DEV_SECRET` | No | devConfirmPayment | Secret for dev endpoint auth |
+| `NODE_ENV` | Auto | Various | `development` / `production` |
+
+---
+
+## 21. NPM Scripts
+
+| Script | Command | Purpose |
+|--------|---------|---------|
+| `dev` | `next dev` | Start Next.js dev server (use `npx netlify dev` for full stack) |
+| `build` | `prisma generate && next build` | Generate Prisma client + build Next.js |
+| `start` | `next start` | Run production build |
+| `lint` | `next lint` | ESLint |
+| `db:push` | `prisma db push` | Push schema to DB (no migrations) |
+| `db:migrate` | `prisma migrate dev` | Run Prisma migrations |
+| `db:studio` | `prisma studio` | Open Prisma Studio GUI |
+| `db:seed` | `npx tsx prisma/seed.ts` | Seed database |
+
+**Important:** For local development with Netlify Functions, run `npx netlify dev` instead of `npm run dev`. The Netlify CLI wraps Next.js and also serves the serverless functions.
+
+---
+
+## 22. Deployment (Netlify)
+
+1. Connect repository to Netlify
+2. Set all environment variables in Netlify dashboard
+3. Build runs automatically:
+   - `npm run build` → `prisma generate && next build`
+   - Publish directory: `.next`
+   - Functions bundled from `netlify/functions/` with esbuild
+4. Plugin: `@netlify/plugin-nextjs` handles SSR/ISR
+5. Redirects: `/api/*` → `/.netlify/functions/:splat`
+6. Security headers applied globally via `netlify.toml`
+
+---
+
+## 23. Known Gaps
+
+| Issue | Details |
+|-------|---------|
+| No tests | No test files exist (no `*.test.*`, `*.spec.*`, `__tests__/`) |
+| No CI/CD | No GitHub Actions or pipeline config |
+| No `.env.example` | Referenced in README but file doesn't exist |
+| Razorpay partially mocked | `createRazorpayOrder` uses mock order IDs; real API call is commented out |
+| WhatsApp not active | `sendWhatsApp.ts` is scaffolded but never called in flows |
+| Rate limiting is per-container | In-memory store; not shared across serverless instances |
+| README says Next.js 14 | Project actually uses Next.js 16 |
+
+---
+
+## 24. Change Log
+
+All changes made by Claude are documented here.
+
+### 2026-03-08
+
+#### Fix: Netlify Functions returning 404 in local development
+
+**Problem:** Running `npm run dev` (which executes `next dev`) only starts the Next.js server. Netlify Functions at `netlify/functions/` are not served by Next.js, so all requests to `/.netlify/functions/*` returned 404.
+
+**Root Cause:** The project uses Netlify Functions as its backend, but the dev script only launched Next.js. The Netlify CLI (`netlify dev`) is required to serve both Next.js and Netlify Functions together locally.
+
+**Fix:** Installed `netlify-cli` as a dev dependency and switched to using `npx netlify dev` for local development.
+
+```
+npm install -D netlify-cli && npx netlify dev
+```
+
+**Files affected:** `package.json` (new dev dependency: `netlify-cli`)
+
+---
+
+#### Fix: Double scrollbar on page load (content scrollbar appearing alongside page scrollbar)
+
+**Problem:** On the home page and most other public pages, an extra scrollbar appeared on initial load that scrolled the content area independently of the page. This second scrollbar disappeared after scrolling to the bottom.
+
+**Root Cause:** The CSS specification states that when `overflow-x` is set to `hidden`, the browser automatically computes `overflow-y` as `auto` (instead of `visible`). This turns the element into a scroll container in the Y direction.
+
+The `overflow-x-hidden` class was applied at three nested levels:
+1. Public layout wrapper: `<div className="flex min-h-screen flex-col overflow-x-hidden">`
+2. Main element: `<main className="flex-1 overflow-x-hidden pt-[88px]">`
+3. Every individual page wrapper: `<div className="overflow-x-hidden">`
+
+Each of these became an independent scroll container, causing the double scrollbar. The `html { overflow-x: hidden }` rule in `globals.css` already handles horizontal overflow at the document level, making all of these redundant.
+
+**Fix:** Removed all `overflow-x-hidden` classes from layout and page wrappers. Horizontal overflow is already clipped by the `html` element rule in `globals.css`.
+
+**Files affected (11 files):**
+- `src/app/(public)/layout.tsx` — removed from wrapper div and main
+- `src/app/(public)/page.tsx` — removed from page wrapper
+- `src/app/(public)/events/page.tsx` — removed from page wrapper
+- `src/app/(public)/classes/page.tsx` — removed from page wrapper
+- `src/app/(public)/workshops/page.tsx` — removed from page wrapper
+- `src/app/(public)/book-space/page.tsx` — removed from page wrapper
+- `src/app/(public)/co-working-space/page.tsx` — removed from page wrapper
+- `src/app/(public)/community/page.tsx` — removed from page wrapper
+- `src/app/(public)/initiatives/page.tsx` — removed from page wrapper
+- `src/app/(public)/visit/page.tsx` — removed from page wrapper
