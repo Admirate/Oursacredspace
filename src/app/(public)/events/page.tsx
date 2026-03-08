@@ -196,17 +196,27 @@ const formatTime = (date: string): string => {
   });
 };
 
-// Format day and time for display
-const formatSchedule = (date: string): string => {
-  const d = new Date(date);
-  const day = d.toLocaleDateString("en-IN", { weekday: "long" });
-  const startTime = d.toLocaleTimeString("en-IN", { 
-    hour: "numeric", 
-    minute: "2-digit",
-    hour12: true 
-  });
-  
-  return `${day} · ${startTime}`;
+const formatTime12FromDate = (d: Date): string => {
+  return d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+};
+
+const formatEventSchedule = (event: Event): string => {
+  const start = new Date(event.startsAt);
+  if (!event.endsAt) {
+    const day = start.toLocaleDateString("en-IN", { weekday: "long" });
+    return `${day} · ${formatTime12FromDate(start)}`;
+  }
+  const end = new Date(event.endsAt);
+  const sameDay = start.toDateString() === end.toDateString();
+  if (sameDay) {
+    const day = start.toLocaleDateString("en-IN", { weekday: "long" });
+    return `${day} · ${formatTime12FromDate(start)} - ${formatTime12FromDate(end)}`;
+  }
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  if (sameMonth) {
+    return `${start.toLocaleDateString("en-IN", { month: "long" })} ${start.getDate()} - ${end.getDate()}, ${start.getFullYear()}`;
+  }
+  return `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
 };
 
 const EventCard = ({
@@ -221,7 +231,8 @@ const EventCard = ({
   isVisible?: boolean;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const isPast = new Date(event.startsAt) < new Date();
+  const effectiveEnd = event.endsAt ? new Date(event.endsAt) : new Date(event.startsAt);
+  const isPast = effectiveEnd < new Date();
   const passesRemaining = event.capacity ? event.capacity - (event.passesIssued || 0) : null;
   const isSoldOut = passesRemaining !== null && passesRemaining <= 0;
 
@@ -282,7 +293,7 @@ const EventCard = ({
           {event.title}
         </h3>
         <p className="text-white/80 text-sm">
-          {formatSchedule(event.startsAt)}
+          {formatEventSchedule(event)}
         </p>
       </div>
 
@@ -345,7 +356,7 @@ const EventCard = ({
           >
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              <span>{formatDate(event.startsAt)}</span>
+              <span>{formatEventSchedule(event)}</span>
             </div>
             <div className="flex items-center gap-1">
               <MapPin className="h-4 w-4" />

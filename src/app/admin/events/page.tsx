@@ -44,6 +44,8 @@ const eventFormSchema = z.object({
   description: z.string().optional(),
   startsAt: z.date({ required_error: "Please select a date" }),
   startsAtTime: z.string({ required_error: "Please select a time" }),
+  endsAt: z.date().optional(),
+  endsAtTime: z.string().optional(),
   venue: z.string().min(2, "Venue is required"),
   capacity: z.coerce.number().min(1, "Capacity must be at least 1").optional(),
   pricePaise: z.coerce.number().min(0, "Price must be 0 or more"),
@@ -157,15 +159,25 @@ const formatPrice = (paise: number): string => {
   }).format(paise / 100);
 };
 
-const formatDateTime = (date: string): string => {
-  return new Date(date).toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+const formatTime12 = (date: Date): string => {
+  return date.toLocaleString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+};
+
+const formatDateRange = (startsAt: string, endsAt?: string | null): string => {
+  const start = new Date(startsAt);
+  if (!endsAt) {
+    return start.toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+  }
+  const end = new Date(endsAt);
+  const sameDay = start.toDateString() === end.toDateString();
+  if (sameDay) {
+    return `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} · ${formatTime12(start)} - ${formatTime12(end)}`;
+  }
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  if (sameMonth) {
+    return `${start.toLocaleDateString("en-IN", { month: "short" })} ${start.getDate()} - ${end.getDate()}, ${start.getFullYear()}`;
+  }
+  return `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
 };
 
 export default function AdminEventsPage() {
@@ -258,11 +270,20 @@ export default function AdminEventsPage() {
     const startsAt = new Date(data.startsAt);
     startsAt.setHours(hours, minutes, 0, 0);
 
-    const eventData = {
+    let endsAtISO: string | null = null;
+    if (data.endsAt) {
+      const [eH, eM] = (data.endsAtTime || "23:59").split(":").map(Number);
+      const endsAt = new Date(data.endsAt);
+      endsAt.setHours(eH, eM, 0, 0);
+      endsAtISO = endsAt.toISOString();
+    }
+
+    const eventData: any = {
       title: data.title,
       description: data.description || null,
       imageUrl: imageUrl,
       startsAt: startsAt.toISOString(),
+      endsAt: endsAtISO,
       venue: data.venue,
       capacity: data.capacity || null,
       pricePaise: data.pricePaise * 100,
@@ -272,7 +293,7 @@ export default function AdminEventsPage() {
     if (editingEvent) {
       updateMutation.mutate({ id: editingEvent.id, data: eventData });
     } else {
-      createMutation.mutate(eventData as any);
+      createMutation.mutate(eventData);
     }
   };
 
@@ -280,11 +301,14 @@ export default function AdminEventsPage() {
     setEditingEvent(event);
     setImageUrl(event.imageUrl || null);
     const startsAt = new Date(event.startsAt);
+    const endsAt = event.endsAt ? new Date(event.endsAt) : undefined;
     form.reset({
       title: event.title,
       description: event.description || "",
       startsAt: startsAt,
       startsAtTime: `${startsAt.getHours().toString().padStart(2, "0")}:${startsAt.getMinutes().toString().padStart(2, "0")}`,
+      endsAt: endsAt,
+      endsAtTime: endsAt ? `${endsAt.getHours().toString().padStart(2, "0")}:${endsAt.getMinutes().toString().padStart(2, "0")}` : undefined,
       venue: event.venue,
       capacity: event.capacity || undefined,
       pricePaise: event.pricePaise / 100,
@@ -445,6 +469,58 @@ export default function AdminEventsPage() {
                   />
                 </div>
 
+                {/* End Date / Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="endsAt"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>End Date (optional)</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? format(field.value, "PPP") : "Pick end date"}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endsAtTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Time</FormLabel>
+                        <FormControl>
+                          <Input type="time" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -563,7 +639,7 @@ export default function AdminEventsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {formatDateTime(event.startsAt)}
+                          {formatDateRange(event.startsAt, event.endsAt)}
                         </TableCell>
                         <TableCell>{event.venue}</TableCell>
                         <TableCell>
@@ -572,9 +648,15 @@ export default function AdminEventsPage() {
                         </TableCell>
                         <TableCell>{formatPrice(event.pricePaise)}</TableCell>
                         <TableCell>
-                          <Badge variant={event.active ? "default" : "secondary"}>
-                            {event.active ? "Active" : "Inactive"}
-                          </Badge>
+                          {event.isExpired && !event.active ? (
+                            <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600">
+                              Expired
+                            </Badge>
+                          ) : (
+                            <Badge variant={event.active ? "default" : "secondary"}>
+                              {event.active ? "Active" : "Inactive"}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">

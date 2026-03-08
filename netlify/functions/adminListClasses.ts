@@ -24,6 +24,17 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const now = new Date();
+
+    // Auto-deactivate classes whose time has passed
+    await prisma.classSession.updateMany({
+      where: {
+        active: true,
+        startsAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      },
+      data: { active: false },
+    });
+
     const classes = await prisma.classSession.findMany({
       orderBy: { startsAt: "desc" },
       include: {
@@ -33,12 +44,17 @@ export const handler: Handler = async (event) => {
       },
     });
 
+    const classesWithExpiry = classes.map((c) => {
+      const endTime = new Date(c.startsAt.getTime() + c.duration * 60 * 1000);
+      return { ...c, isExpired: endTime < now };
+    });
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        data: classes,
+        data: classesWithExpiry,
       }),
     };
   } catch (error) {

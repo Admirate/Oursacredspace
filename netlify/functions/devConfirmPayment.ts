@@ -16,7 +16,7 @@ import { generateQRBuffer } from "./helpers/generateQR";
 import { generateSecureId, logSecurityEvent, timingSafeCompare } from "./helpers/security";
 
 const confirmSchema = z.object({
-  bookingId: z.string().uuid(),
+  bookingId: z.string().min(1).max(30),
 });
 
 const headers = {
@@ -170,7 +170,7 @@ export const handler: Handler = async (event) => {
           bookingId: booking.id,
           channel: "WHATSAPP",
           templateName: "booking_event_confirmed",
-          to: booking.phone,
+          to: booking.customerPhone,
           status: "PENDING",
         },
       });
@@ -188,7 +188,7 @@ export const handler: Handler = async (event) => {
           bookingId: booking.id,
           channel: "WHATSAPP",
           templateName: "booking_class_confirmed",
-          to: booking.phone,
+          to: booking.customerPhone,
           status: "PENDING",
         },
       });

@@ -917,3 +917,247 @@ Each of these became an independent scroll container, causing the double scrollb
 - `src/app/(public)/community/page.tsx` — removed from page wrapper
 - `src/app/(public)/initiatives/page.tsx` — removed from page wrapper
 - `src/app/(public)/visit/page.tsx` — removed from page wrapper
+
+---
+
+### Enhancement: Admin Login & Dashboard Brand Redesign
+
+**Problem:** The admin login page used a generic lock icon with default shadcn/ui styling (orange button, plain gray background). The dashboard sidebar used a placeholder "O" square instead of the actual OSS logo. None of the admin UI used the brand color palette.
+
+**Changes:**
+
+#### Admin Login Page (`src/app/admin/login/page.tsx`)
+- Replaced the lock icon with the actual OSS logo (`brand/logo.png` from Supabase Storage)
+- Background changed to `sacred-cream` (#faf8f5) with a subtle radial gradient using brand green/pink
+- Added a gradient accent bar at the top of the card (sacred-green → sacred-burgundy → sacred-green)
+- Title changed to "Admin Portal" in sacred-burgundy color
+- Sign-in button uses `sacred-green` with hover state using `sacred-green-dark`
+- Input field icons use sacred-green tinting
+- Error banner uses explicit red styling instead of shadcn destructive
+- Removed `CardHeader`/`CardTitle`/`CardDescription` in favor of a cleaner custom header with logo
+
+#### Admin Layout Sidebar (`src/app/admin/layout.tsx`)
+- Replaced the "O" placeholder square with the actual OSS logo image
+- Logo area now shows "OSS Admin" in sacred-burgundy with "Management Portal" subtitle
+- Active nav items use `sacred-green` background with white text + subtle green shadow
+- Inactive nav items hover to `sacred-cream` background with sacred-green text
+- Sidebar border uses `sacred-cream-dark`
+- Added "Menu" section label above nav items
+- Logout button hovers to sacred-burgundy color with sacred-pink background
+- Mobile header updated with matching brand logo and colors
+- Auth loading screen uses sacred-cream background with sacred-green spinner
+- Extracted `SidebarContent` component to avoid code duplication between desktop and mobile
+
+#### Admin Dashboard Page (`src/app/admin/page.tsx`)
+- Dashboard heading uses sacred-burgundy color
+- Stats card icons/backgrounds updated to brand palette:
+  - Bookings: sacred-green
+  - Classes: sacred-burgundy
+  - Events: sacred-pink-dark
+  - Space Requests: sacred-green-dark on sacred-cream
+- Revenue card uses a sacred-green gradient background with green-tinted border
+- Pending space request badge uses sacred-burgundy instead of orange
+
+**Brand colors used (from `tailwind.config.ts`):**
+- `sacred-green` (#5a7a3d) — primary action color, nav active states
+- `sacred-burgundy` (#8b2942) — headings, secondary accents
+- `sacred-pink` (#e8a0b0) — subtle backgrounds, highlights
+- `sacred-cream` (#faf8f5) — page backgrounds, hover states
+
+---
+
+### Enhancement: Industry-Level Database Schema + RLS
+
+**Problem:** The database schema had several issues:
+1. **Field name mismatch**: Prisma used `name`/`phone`/`email` on Booking, but the frontend expected `customerName`/`customerPhone`/`customerEmail` — causing `undefined` values in the UI
+2. **Missing timestamps**: `NotificationLog` lacked `updatedAt`; no `sentAt` tracking
+3. **No soft deletes**: Records were permanently deleted with no recovery option
+4. **No optimistic locking**: Concurrent updates could overwrite each other
+5. **UUID IDs**: Non-sortable, longer format than necessary
+6. **Missing indexes**: No composite indexes for common query patterns
+7. **No cascading rules**: Relations used default cascade behavior
+8. **Missing audit fields**: Admin sessions didn't track IP or user agent
+9. **No RLS**: Database had no Row Level Security policies
+
+**Schema Changes (`prisma/schema.prisma`):**
+
+1. **IDs**: Switched from `@default(uuid())` to `@default(cuid())` — CUIDs are sortable, collision-resistant, and URL-friendly
+2. **Table names**: Added `@@map("snake_case")` to all 9 models for PostgreSQL naming convention
+3. **Column names**: Added `@map("snake_case")` to all camelCase fields for proper DB column naming
+4. **Booking model**:
+   - Renamed `name` → `customerName`, `phone` → `customerPhone`, `email` → `customerEmail`
+   - Added `cancelledAt`, `cancelReason` for cancellation tracking
+   - Added `version` for optimistic concurrency control
+   - Added `metadata Json?` for flexible extensions
+   - Added `deletedAt` for soft deletes
+   - Added composite indexes: `(type, status)`, `(customerEmail, type)`, `(type, createdAt)`, `(deletedAt)`
+   - Added `onDelete: SetNull` on relations
+5. **Payment model**:
+   - Added `refundedAt`, `refundAmountPaise` for refund tracking
+   - Added `bookingId` index
+   - Added `onDelete: Cascade` from Booking
+6. **ClassSession model**:
+   - Added `instructor` and `location` fields
+   - Added `endsAt` for explicit end times
+   - Added `deletedAt` for soft deletes
+   - Added composite index `(active, startsAt)`
+7. **Event model**:
+   - Added `endsAt` for explicit end times
+   - Added `deletedAt` for soft deletes
+   - Added composite index `(active, startsAt)`
+8. **EventPass model**:
+   - Added composite index `(eventId, checkInStatus)`
+   - Added `onDelete: Cascade` on both relations
+9. **SpaceRequest model**:
+   - Renamed `name` → `customerName`, `phone` → `customerPhone`, `email` → `customerEmail`
+   - Added `deletedAt` for soft deletes
+   - Added composite index `(status, createdAt)`
+10. **NotificationLog model**:
+    - Added `updatedAt` timestamp
+    - Added `sentAt` for delivery tracking
+    - Added composite index `(channel, status)`
+    - Added `onDelete: SetNull` from Booking
+11. **StatusHistory model**:
+    - Added composite index `(bookingId, createdAt)`
+    - Added `onDelete: Cascade` from Booking
+12. **AdminSession model**:
+    - Added `ipAddress` and `userAgent` for security auditing
+    - Added `lastActivityAt` for session monitoring
+    - Added `expiresAt` index
+
+**Function Updates (14 files):**
+- `createBooking.ts` — `name`→`customerName`, `phone`→`customerPhone`, `email`→`customerEmail` in Prisma create calls; relaxed `.uuid()` to `.string().min(1).max(30)` for CUID support
+- `createRazorpayOrder.ts` — `booking.name`→`booking.customerName`, etc.; updated ID validation
+- `razorpayWebhook.ts` — `booking.phone`→`booking.customerPhone` in notification logs
+- `devConfirmPayment.ts` — same field renames + ID validation update
+- `getBooking.ts` — replaced `UUID_REGEX` with `ID_REGEX` that accepts both CUID and UUID formats
+- `adminListBookings.ts` — `name`→`customerName`, `email`→`customerEmail` in search filter
+- `adminListPasses.ts` — `booking.name`→`booking.customerName`, etc. in select + response mapping; updated ID validation
+- `verifyPass.ts` — `booking.name`→`booking.customerName` in select + response
+- `adminCheckinPass.ts` — `booking.name`→`booking.customerName` in select + response
+- `adminUpdateSpaceRequest.ts` — `spaceRequest.phone`→`spaceRequest.customerPhone`; updated ID validation
+- `adminUpdateEvent.ts` — updated ID validation from `.uuid()` to `.min(1).max(30)`
+- `adminUpdateClass.ts` — updated ID validation from `.uuid()` to `.min(1).max(30)`
+- `adminAuth.ts` — now saves `ipAddress` and `userAgent` on session creation
+- `prisma/seed.ts` — added `instructor`, `location`, `endsAt` to seed data
+
+**Frontend Updates:**
+- `src/types/index.ts` — added new fields: `cancelledAt`, `cancelReason`, `version`, `metadata`, `deletedAt` on Booking; `instructor`, `location`, `endsAt`, `deletedAt` on ClassSession; `endsAt`, `deletedAt` on Event; renamed SpaceRequest fields to `customerName`/`customerPhone`/`customerEmail`; added `sentAt`, `updatedAt` to NotificationLog; added `refundedAt`, `refundAmountPaise` to Payment
+- `src/app/(public)/success/page.tsx` — fixed bug referencing non-existent `spaceRequest.preferredDate` and `spaceRequest.duration`; now shows `purpose` and `status` instead
+
+**RLS Policies (`prisma/rls-policies.sql`):**
+
+Created comprehensive Row Level Security for all 9 tables:
+- **Default deny**: All tables deny `anon` role for SELECT, INSERT, UPDATE, DELETE
+- **Public read exceptions**: `class_sessions` and `events` allow `anon` SELECT for active, non-deleted records only
+- **service_role bypass**: Netlify Functions connect via `service_role` key which bypasses RLS
+- **Forced RLS**: All tables use `FORCE ROW LEVEL SECURITY` to prevent accidental bypass by table owners
+- **Idempotent**: Script drops existing policies before creating new ones
+- **Verification**: Includes a check block that warns if RLS is not enabled on any table
+
+**How to apply changes:**
+```bash
+# Reset the database and apply new schema
+npx prisma db push --force-reset
+
+# Re-seed with updated data
+npx prisma db seed
+
+# Apply RLS policies in Supabase SQL Editor
+# Copy and paste prisma/rls-policies.sql
+```
+
+---
+
+### Feature: Auto-Deactivate Expired Classes & Events
+
+**Problem:** Classes and events that had already passed their scheduled time still showed as "Active" in the admin dashboard. Admins had to manually deactivate each one.
+
+**Solution:**
+
+#### Backend Auto-Deactivation
+- `adminListClasses.ts` — on every list request, auto-deactivates classes that ended more than 24 hours ago (`startsAt + 24h < now`). Also computes `isExpired` flag by checking if `startsAt + duration` is in the past.
+- `adminListEvents.ts` — same logic for events. Uses `endsAt` if available, otherwise falls back to `startsAt`.
+
+#### Frontend Visual Distinction
+- `src/app/admin/classes/page.tsx` — shows amber "Expired" badge instead of gray "Inactive" when a class was auto-deactivated due to time passing
+- `src/app/admin/events/page.tsx` — same amber "Expired" badge for past events
+
+**Badge states:**
+- **Active** (green) — upcoming, bookable
+- **Expired** (amber) — time has passed, auto-deactivated
+- **Inactive** (gray) — manually deactivated by admin
+
+---
+
+### Feature: Class & Event Enhancements (Duration, Recurring, Pricing, Time Slots)
+
+Six interconnected features were added to classes and events.
+
+#### 1. Schema Changes (`prisma/schema.prisma`)
+- New enum `PricingType` (`PER_SESSION`, `PER_MONTH`)
+- `ClassSession.capacity` changed from `Int` to `Int?` (nullable = unlimited)
+- New fields on `ClassSession`:
+  - `isRecurring Boolean @default(false)` — marks a class as recurring
+  - `recurrenceDays Int[] @default([])` — days of week (0=Sun..6=Sat)
+  - `timeSlots Json?` — array of `{ startTime: "HH:MM", endTime: "HH:MM" }`
+  - `pricingType PricingType @default(PER_SESSION)` — controls price label
+
+#### 2. Backend Function Updates
+- `adminCreateClass.ts` & `adminUpdateClass.ts` — Zod schemas accept `isRecurring`, `recurrenceDays`, `timeSlots`, `pricingType`, `instructor`, `location`, `endsAt`. Capacity is `.min(0).optional().nullable()`.
+- `adminCreateEvent.ts` & `adminUpdateEvent.ts` — Accept `endsAt` date string for multi-day events.
+- `createBooking.ts` — Capacity null-check: skip overbooking validation when capacity is null.
+- `razorpayWebhook.ts` — Same null-capacity guard on the overbooking check.
+
+#### 3. Frontend Types (`src/types/index.ts`)
+- New `TimeSlot` interface and `PricingType` type alias.
+- `ClassSession.capacity` changed to `number | null`.
+- Added `isRecurring`, `recurrenceDays`, `timeSlots`, `pricingType` optional fields.
+
+#### 4. Admin Classes Page (`src/app/admin/classes/page.tsx`)
+Complete form redesign:
+- **Pricing toggle**: Radio-style buttons for "Per Session" / "Per Month". Label changes accordingly.
+- **Recurring toggle**: Custom switch in a bordered section. When ON, shows:
+  - Day picker: 7 circular buttons (Sun-Sat) for `recurrenceDays`.
+  - Time slots: Dynamic list of start/end time inputs with Add/Remove.
+- **Capacity**: "Unlimited" toggle — when enabled, capacity is null. Otherwise a numeric input (min 0).
+- **Table columns updated**: "Date & Time" → "Schedule" (shows "Every Thu" for recurring), new "Time" column (shows time slot range), "Price" appends "/mo" or "/session", "Capacity" shows "Unlimited" when null.
+
+#### 5. Admin Events Page (`src/app/admin/events/page.tsx`)
+- Added "End Date" date picker + "End Time" input to the form.
+- Table "Date & Time" column uses range format:
+  - Same day: "Mar 8, 2026 · 5:00 PM - 8:00 PM"
+  - Multi-day same month: "Mar 3 - 5, 2026"
+  - Multi-month: "Mar 28 - Apr 2, 2026"
+
+#### 6. Public Classes Page (`src/app/(public)/classes/page.tsx`)
+- `formatClassSchedule()` — new helper that produces:
+  - One-off: "Monday · 5:00 PM - 6:00 PM"
+  - Recurring: "Every Thursday · 4:00 PM - 5:00 PM"
+  - Recurring multi-day: "Every Sun & Wed · 10:00 AM - 12:00 PM"
+- Hover card: price shows "/mo" or "/session" suffix, capacity shows "Unlimited" when null, multiple time slots listed with numbering.
+- isPast logic skipped for recurring classes.
+
+#### 7. Public Events Page (`src/app/(public)/events/page.tsx`)
+- `formatEventSchedule()` — new helper for date ranges:
+  - Same day: "Saturday · 5:00 PM - 8:00 PM"
+  - Multi-day: "March 3 - 5, 2026"
+- isPast logic uses `endsAt` when available.
+
+#### 8. Seed Data (`prisma/seed.ts`)
+Updated to demonstrate all feature combinations:
+- Yoga: recurring Thu, 2 time slots, monthly pricing (₹2000/mo), unlimited capacity
+- Pottery: recurring Sun & Wed, 1 slot, monthly pricing (₹3500/mo), 10 capacity
+- Digital Art: one-off, per-session ₹800, 12 capacity
+- Photography: one-off, per-session ₹1000, 20 capacity
+- Art Exhibition: multi-day event (3 days)
+- Other events: same-day with start/end times
+
+#### Migration Steps
+```bash
+# Push schema changes
+npx prisma db push --force-reset
+
+# Re-seed with updated data
+npx prisma db seed
+```

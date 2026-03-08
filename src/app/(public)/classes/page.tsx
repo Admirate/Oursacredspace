@@ -217,6 +217,9 @@ const formatPrice = (paise: number): string => {
   }).format(paise / 100);
 };
 
+const DAY_NAMES_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 const formatDate = (date: string): string => {
   return new Date(date).toLocaleDateString("en-IN", {
     weekday: "short",
@@ -234,25 +237,44 @@ const formatTime = (date: string): string => {
   });
 };
 
-// Format day and time for display
-const formatSchedule = (date: string, duration: number): string => {
-  const d = new Date(date);
+const formatTime12 = (time24: string): string => {
+  const [h, m] = time24.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return m === 0 ? `${h12} ${suffix}` : `${h12}:${m.toString().padStart(2, "0")} ${suffix}`;
+};
+
+const formatTimeRange = (start: string, end: string): string =>
+  `${formatTime12(start)} - ${formatTime12(end)}`;
+
+const formatRecurrenceDays = (days: number[]): string => {
+  if (!days || days.length === 0) return "";
+  if (days.length === 1) return `Every ${DAY_NAMES_FULL[days[0]]}`;
+  const sorted = [...days].sort();
+  return `Every ${sorted.map((d) => DAY_NAMES_SHORT[d]).join(" & ")}`;
+};
+
+const formatClassSchedule = (classItem: ClassSession): string => {
+  const slots = classItem.timeSlots;
+  let timeStr = "";
+
+  if (slots && slots.length > 0) {
+    timeStr = formatTimeRange(slots[0].startTime, slots[0].endTime);
+  } else {
+    const d = new Date(classItem.startsAt);
+    const startTime = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+    const endDate = new Date(d.getTime() + classItem.duration * 60000);
+    const endTime = endDate.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+    timeStr = `${startTime} - ${endTime}`;
+  }
+
+  if (classItem.isRecurring && classItem.recurrenceDays && classItem.recurrenceDays.length > 0) {
+    return `${formatRecurrenceDays(classItem.recurrenceDays)} · ${timeStr}`;
+  }
+
+  const d = new Date(classItem.startsAt);
   const day = d.toLocaleDateString("en-IN", { weekday: "long" });
-  const startTime = d.toLocaleTimeString("en-IN", { 
-    hour: "numeric", 
-    minute: "2-digit",
-    hour12: true 
-  });
-  
-  // Calculate end time
-  const endDate = new Date(d.getTime() + duration * 60000);
-  const endTime = endDate.toLocaleTimeString("en-IN", { 
-    hour: "numeric", 
-    minute: "2-digit",
-    hour12: true 
-  });
-  
-  return `${day} · ${startTime} to ${endTime}`;
+  return `${day} · ${timeStr}`;
 };
 
 const ClassCard = ({
@@ -267,9 +289,10 @@ const ClassCard = ({
   isVisible?: boolean;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const spotsLeft = classItem.capacity - classItem.spotsBooked;
-  const isFull = spotsLeft === 0;
-  const isPast = new Date(classItem.startsAt) < new Date();
+  const hasCapacity = classItem.capacity !== null && classItem.capacity !== undefined;
+  const spotsLeft = hasCapacity ? classItem.capacity! - classItem.spotsBooked : Infinity;
+  const isFull = hasCapacity && spotsLeft <= 0;
+  const isPast = !classItem.isRecurring && new Date(classItem.startsAt) < new Date();
 
   return (
     <div 
@@ -328,7 +351,7 @@ const ClassCard = ({
           {classItem.title}
         </h3>
         <p className="text-white/80 text-sm">
-          {formatSchedule(classItem.startsAt, classItem.duration)}
+          {formatClassSchedule(classItem)}
         </p>
       </div>
 
@@ -351,7 +374,7 @@ const ClassCard = ({
               transitionDelay: '100ms',
             }}
           >
-            {isPast ? "Past" : isFull ? "Fully Booked" : `${spotsLeft} spots left`}
+            {isPast ? "Past" : isFull ? "Fully Booked" : hasCapacity ? `${spotsLeft} spots left` : "Open"}
           </span>
           <span 
             className="bg-white/95 text-gray-900 px-3 py-1 rounded-full text-lg font-bold shadow-lg transition-all duration-300"
@@ -361,6 +384,9 @@ const ClassCard = ({
             }}
           >
             {formatPrice(classItem.pricePaise)}
+            <span className="text-xs font-normal text-gray-500">
+              {classItem.pricingType === "PER_MONTH" ? "/mo" : "/session"}
+            </span>
           </span>
         </div>
 
@@ -382,21 +408,33 @@ const ClassCard = ({
           </div>
 
           <div 
-            className="flex items-center gap-4 text-white/70 text-sm"
+            className="flex flex-col gap-1 text-white/70 text-sm"
             style={{
               transform: isHovered ? 'translateY(0)' : 'translateY(20px)',
               transition: 'transform 0.4s ease-out',
               transitionDelay: '150ms',
             }}
           >
-            <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              <span>{formatDate(classItem.startsAt)}</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                <span>{classItem.isRecurring ? formatRecurrenceDays(classItem.recurrenceDays || []) : formatDate(classItem.startsAt)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Users className="h-4 w-4" />
+                <span>{hasCapacity ? `${classItem.spotsBooked}/${classItem.capacity}` : "Unlimited"}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              <span>{classItem.spotsBooked}/{classItem.capacity}</span>
-            </div>
+            {classItem.timeSlots && classItem.timeSlots.length > 1 && (
+              <div className="text-white/60 text-xs mt-1">
+                {classItem.timeSlots.map((slot, i) => (
+                  <span key={i}>
+                    {i > 0 && " · "}
+                    {i + 1}) {formatTimeRange(slot.startTime, slot.endTime)}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div
@@ -457,10 +495,6 @@ export default function ClassesPage() {
     queryKey: ["classes"],
     queryFn: api.getClasses,
   });
-  console.log("classes api:", data);
-  console.log("classes array:", data?.data);
-  console.log("error:", error);
-
 
   // Trigger hero animations on mount
   useEffect(() => {

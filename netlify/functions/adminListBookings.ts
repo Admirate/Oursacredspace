@@ -106,8 +106,8 @@ export const handler: Handler = async (event) => {
       
       if (sanitizedSearch.length > 0) {
         where.OR = [
-          { name: { contains: sanitizedSearch, mode: "insensitive" } },
-          { email: { contains: sanitizedSearch, mode: "insensitive" } },
+          { customerName: { contains: sanitizedSearch, mode: "insensitive" } },
+          { customerEmail: { contains: sanitizedSearch, mode: "insensitive" } },
           { id: { contains: sanitizedSearch } },
         ];
       }

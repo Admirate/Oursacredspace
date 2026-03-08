@@ -12,7 +12,7 @@ import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHe
 // });
 
 const createOrderSchema = z.object({
-  bookingId: z.string().uuid(),
+  bookingId: z.string().min(1).max(30),
 });
 
 export const handler: Handler = async (event) => {
@@ -107,9 +107,9 @@ export const handler: Handler = async (event) => {
           amount: booking.amountPaise,
           currency: booking.currency,
           bookingId: booking.id,
-          customerName: booking.name,
-          customerEmail: booking.email,
-          customerPhone: booking.phone,
+          customerName: booking.customerName,
+          customerEmail: booking.customerEmail,
+          customerPhone: booking.customerPhone,
           // For development: Auto-confirm after "payment"
           _dev_note: "DEVELOPMENT MODE: Payment will auto-confirm",
         },

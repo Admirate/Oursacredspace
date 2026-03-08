@@ -1,5 +1,6 @@
 // ============================================
-// OSS BOOKING SYSTEM - PRISMA SCHEMA
+// OSS BOOKING SYSTEM — PRISMA SCHEMA
+// Industry-standard PostgreSQL schema
 // ============================================
 
 generator client {
@@ -20,11 +21,13 @@ enum BookingType {
 }
 
 enum BookingStatus {
+  REQUESTED
   PENDING_PAYMENT
   CONFIRMED
   PAYMENT_FAILED
   CANCELLED
   EXPIRED
+  DECLINED
 }
 
 enum PaymentStatus {
@@ -60,207 +63,277 @@ enum NotificationStatus {
   PENDING
 }
 
+enum PricingType {
+  PER_SESSION
+  PER_MONTH
+}
+
 // ============ TABLES ============
 
 model Booking {
-  id              String        @id @default(uuid())
+  id              String        @id @default(cuid())
   type            BookingType
   status          BookingStatus @default(PENDING_PAYMENT)
-  
-  // Customer snapshot (denormalized for audit)
-  name            String
-  phone           String        // E.164 format (+91...)
-  email           String
-  
+
+  // Customer snapshot (denormalized for audit trail)
+  customerName    String        @map("customer_name")
+  customerPhone   String        @map("customer_phone")
+  customerEmail   String        @map("customer_email")
+
   // Financial
-  amountPaise     Int
+  amountPaise     Int           @map("amount_paise")
   currency        String        @default("INR")
-  
-  // Relations (nullable based on type)
-  classSessionId  String?
-  classSession    ClassSession? @relation(fields: [classSessionId], references: [id])
-  
-  eventId         String?
-  event           Event?        @relation(fields: [eventId], references: [id])
-  
-  spaceRequestId  String?       @unique
-  spaceRequest    SpaceRequest? @relation(fields: [spaceRequestId], references: [id])
-  
-  // Related records
+
+  // Cancellation tracking
+  cancelledAt     DateTime?     @map("cancelled_at")
+  cancelReason    String?       @map("cancel_reason")
+
+  // Optimistic concurrency control
+  version         Int           @default(1)
+
+  // Flexible key-value store for future extensions
+  metadata        Json?
+
+  // Relations (nullable based on booking type)
+  classSessionId  String?       @map("class_session_id")
+  classSession    ClassSession? @relation(fields: [classSessionId], references: [id], onDelete: SetNull)
+
+  eventId         String?       @map("event_id")
+  event           Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  spaceRequestId  String?       @unique @map("space_request_id")
+  spaceRequest    SpaceRequest? @relation(fields: [spaceRequestId], references: [id], onDelete: SetNull)
+
   payments        Payment[]
   eventPass       EventPass?
   notifications   NotificationLog[]
   statusHistory   StatusHistory[]
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+
+  // Timestamps
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
 
   @@index([type])
   @@index([status])
   @@index([createdAt])
-  @@index([email])
+  @@index([customerEmail])
+  @@index([type, status])
+  @@index([customerEmail, type])
+  @@index([type, createdAt])
+  @@index([deletedAt])
+  @@map("bookings")
 }
 
 model Payment {
-  id                String        @id @default(uuid())
-  bookingId         String
-  booking           Booking       @relation(fields: [bookingId], references: [id])
-  
+  id                String        @id @default(cuid())
+  bookingId         String        @map("booking_id")
+  booking           Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
   provider          String        @default("RAZORPAY")
-  razorpayOrderId   String        @unique
-  razorpayPaymentId String?       @unique
-  
+  razorpayOrderId   String        @unique @map("razorpay_order_id")
+  razorpayPaymentId String?       @unique @map("razorpay_payment_id")
+
   status            PaymentStatus @default(CREATED)
-  amountPaise       Int
+  amountPaise       Int           @map("amount_paise")
   currency          String        @default("INR")
-  
-  // Idempotency
-  webhookEventId    String?       @unique
-  
-  // Audit
-  rawPayload        Json?
-  
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+
+  // Idempotency key for webhook deduplication
+  webhookEventId    String?       @unique @map("webhook_event_id")
+
+  // Raw provider payload for debugging & disputes
+  rawPayload        Json?         @map("raw_payload")
+
+  // Refund tracking
+  refundedAt        DateTime?     @map("refunded_at")
+  refundAmountPaise Int?          @map("refund_amount_paise")
+
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
 
   @@index([razorpayOrderId])
   @@index([status])
+  @@index([bookingId])
+  @@map("payments")
 }
 
 model ClassSession {
-  id          String    @id @default(uuid())
+  id          String    @id @default(cuid())
   title       String
   description String?
-  imageUrl    String?   // URL to image in Supabase Storage
-  startsAt    DateTime
-  duration    Int       @default(60) // minutes
-  capacity    Int
-  spotsBooked Int       @default(0)
-  pricePaise  Int
+  imageUrl    String?   @map("image_url")
+  instructor  String?
+  location    String?
+
+  startsAt    DateTime  @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  duration    Int       @default(60)
+  capacity    Int?
+  spotsBooked Int       @default(0) @map("spots_booked")
+  pricePaise  Int       @map("price_paise")
   active      Boolean   @default(true)
-  
+
+  // Recurring schedule
+  isRecurring     Boolean     @default(false) @map("is_recurring")
+  recurrenceDays  Int[]       @default([]) @map("recurrence_days")
+
+  // Multiple time slot options (JSON array of { startTime, endTime })
+  timeSlots       Json?       @map("time_slots")
+
+  // Pricing model
+  pricingType     PricingType @default(PER_SESSION) @map("pricing_type")
+
   bookings    Booking[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
 
   @@index([startsAt])
   @@index([active])
+  @@index([active, startsAt])
+  @@index([deletedAt])
+  @@map("class_sessions")
 }
 
 model Event {
-  id          String      @id @default(uuid())
+  id          String      @id @default(cuid())
   title       String
   description String?
-  imageUrl    String?     // URL to image in Supabase Storage
-  startsAt    DateTime
+  imageUrl    String?     @map("image_url")
+
+  startsAt    DateTime    @map("starts_at")
+  endsAt      DateTime?   @map("ends_at")
   venue       String
-  pricePaise  Int
+  pricePaise  Int         @map("price_paise")
   capacity    Int?
   active      Boolean     @default(true)
-  
+
   bookings    Booking[]
   eventPasses EventPass[]
-  
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  deletedAt   DateTime?   @map("deleted_at")
 
   @@index([startsAt])
   @@index([active])
+  @@index([active, startsAt])
+  @@index([deletedAt])
+  @@map("events")
 }
 
 model EventPass {
-  id            String        @id @default(uuid())
-  bookingId     String        @unique
-  booking       Booking       @relation(fields: [bookingId], references: [id])
-  
-  eventId       String
-  event         Event         @relation(fields: [eventId], references: [id])
-  
-  passId        String        @unique // OSS-EV-xxxxxxxx
-  qrImageUrl    String
-  
-  checkInStatus CheckInStatus @default(NOT_CHECKED_IN)
-  checkInTime   DateTime?
-  checkedInBy   String?       // Admin email who checked in
-  
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  bookingId     String        @unique @map("booking_id")
+  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  eventId       String        @map("event_id")
+  event         Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  passId        String        @unique @map("pass_id")
+  qrImageUrl    String        @map("qr_image_url")
+
+  checkInStatus CheckInStatus @default(NOT_CHECKED_IN) @map("check_in_status")
+  checkInTime   DateTime?     @map("check_in_time")
+  checkedInBy   String?       @map("checked_in_by")
+
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   @@index([passId])
   @@index([eventId])
   @@index([checkInStatus])
+  @@index([eventId, checkInStatus])
+  @@map("event_passes")
 }
 
 model SpaceRequest {
-  id              String             @id @default(uuid())
-  
-  // Customer info
-  name            String
-  phone           String
-  email           String
-  
-  // Request details
-  preferredSlots  Json               // Array of preferred datetime slots
-  scheduledSlot   DateTime?
+  id              String             @id @default(cuid())
+
+  customerName    String             @map("customer_name")
+  customerPhone   String             @map("customer_phone")
+  customerEmail   String             @map("customer_email")
+
+  preferredSlots  Json               @map("preferred_slots")
+  scheduledSlot   DateTime?          @map("scheduled_slot")
   notes           String?
   purpose         String?
-  
+
   status          SpaceRequestStatus @default(REQUESTED)
-  adminNotes      String?
-  
+  adminNotes      String?            @map("admin_notes")
+
   booking         Booking?
-  
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  deletedAt       DateTime?          @map("deleted_at")
 
   @@index([status])
   @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([deletedAt])
+  @@map("space_requests")
 }
 
 model NotificationLog {
-  id                String             @id @default(uuid())
-  
-  bookingId         String?
-  booking           Booking?           @relation(fields: [bookingId], references: [id])
-  
+  id                String             @id @default(cuid())
+
+  bookingId         String?            @map("booking_id")
+  booking           Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
   channel           NotificationChannel
-  templateName      String
-  to                String             // Phone or email
-  
+  templateName      String             @map("template_name")
+  to                String
+
   status            NotificationStatus @default(PENDING)
-  providerMessageId String?
+  providerMessageId String?            @map("provider_message_id")
   error             String?
-  retryCount        Int                @default(0)
-  
-  createdAt         DateTime           @default(now())
+  retryCount        Int                @default(0) @map("retry_count")
+
+  sentAt            DateTime?          @map("sent_at")
+
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
 
   @@index([bookingId])
   @@index([status])
+  @@index([channel, status])
+  @@map("notification_logs")
 }
 
 model StatusHistory {
-  id          String   @id @default(uuid())
-  
-  bookingId   String
-  booking     Booking  @relation(fields: [bookingId], references: [id])
-  
-  fromStatus  String
-  toStatus    String
-  changedBy   String   // "SYSTEM" | admin email
+  id          String   @id @default(cuid())
+
+  bookingId   String   @map("booking_id")
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  fromStatus  String   @map("from_status")
+  toStatus    String   @map("to_status")
+  changedBy   String   @map("changed_by")
   reason      String?
-  
-  createdAt   DateTime @default(now())
+
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([bookingId])
+  @@index([bookingId, createdAt])
+  @@map("status_history")
 }
 
 model AdminSession {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  email          String   @unique
+  token          String   @unique
+
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+
+  expiresAt      DateTime @map("expires_at")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+
+  createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([token])
+  @@index([expiresAt])
+  @@map("admin_sessions")
 }

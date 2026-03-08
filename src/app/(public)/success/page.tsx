@@ -247,21 +247,25 @@ function SuccessPageContent() {
             {/* Space Request Details */}
             {isSpace && booking.spaceRequest && (
               <>
-                <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="font-medium">Requested Date</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(booking.spaceRequest.preferredDate)}
-                    </p>
+                {booking.spaceRequest.purpose && (
+                  <div className="flex items-start gap-3">
+                    <Calendar className="h-5 w-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium">Purpose</p>
+                      <p className="text-sm text-muted-foreground">
+                        {booking.spaceRequest.purpose}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="flex items-start gap-3">
                   <Clock className="h-5 w-5 text-primary mt-0.5" />
                   <div>
-                    <p className="font-medium">Duration</p>
+                    <p className="font-medium">Status</p>
                     <p className="text-sm text-muted-foreground">
-                      {booking.spaceRequest.duration} hour(s)
+                      {booking.spaceRequest.status === "REQUESTED"
+                        ? "Under Review"
+                        : booking.spaceRequest.status.replace(/_/g, " ")}
                     </p>
                   </div>
                 </div>

@@ -56,13 +56,16 @@ const getStatusBadge = (status: string) => {
     CONFIRMED: { variant: "default", className: "bg-green-500" },
     PENDING_PAYMENT: { variant: "outline", className: "border-yellow-500 text-yellow-600" },
     CANCELLED: { variant: "destructive" },
-    REQUESTED: { variant: "secondary" },
+    REQUESTED: { variant: "outline", className: "border-orange-500 text-orange-600" },
     APPROVED: { variant: "default", className: "bg-blue-500" },
+    DECLINED: { variant: "destructive", className: "bg-red-600" },
+    EXPIRED: { variant: "secondary" },
+    PAYMENT_FAILED: { variant: "destructive", className: "bg-red-400" },
   };
   const config = variants[status] || { variant: "outline" as const };
   return (
     <Badge variant={config.variant} className={config.className}>
-      {status.replace("_", " ")}
+      {status.replace(/_/g, " ")}
     </Badge>
   );
 };
@@ -161,6 +164,7 @@ export default function AdminBookingsPage() {
                 <SelectItem value="CONFIRMED">Confirmed</SelectItem>
                 <SelectItem value="PENDING_PAYMENT">Pending Payment</SelectItem>
                 <SelectItem value="REQUESTED">Requested</SelectItem>
+                <SelectItem value="DECLINED">Declined</SelectItem>
                 <SelectItem value="CANCELLED">Cancelled</SelectItem>
               </SelectContent>
             </Select>

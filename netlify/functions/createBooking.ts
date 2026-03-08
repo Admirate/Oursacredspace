@@ -24,8 +24,8 @@ const createBookingSchema = z.object({
       message: "Invalid phone number",
     }),
   email: z.string().email().max(254).toLowerCase(),
-  classSessionId: z.string().uuid().optional(),
-  eventId: z.string().uuid().optional(),
+  classSessionId: z.string().min(1).max(30).optional(),
+  eventId: z.string().min(1).max(30).optional(),
   preferredSlots: z.array(z.string().max(100)).max(10).optional(),
   notes: z.string().max(500).trim().optional(),
   purpose: z.string().max(500).trim().optional(),
@@ -100,16 +100,18 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      const spotsLeft = classSession.capacity - classSession.spotsBooked;
-      if (spotsLeft <= 0) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({
-            success: false,
-            error: "This class is fully booked",
-          }),
-        };
+      if (classSession.capacity !== null) {
+        const spotsLeft = classSession.capacity - classSession.spotsBooked;
+        if (spotsLeft <= 0) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: "This class is fully booked",
+            }),
+          };
+        }
       }
 
       amountPaise = classSession.pricePaise;
@@ -173,9 +175,9 @@ export const handler: Handler = async (event) => {
       // Create SpaceRequest first
       const spaceRequest = await prisma.spaceRequest.create({
         data: {
-          name: validatedData.name,
-          phone: validatedData.phone,
-          email: validatedData.email,
+          customerName: validatedData.name,
+          customerPhone: validatedData.phone,
+          customerEmail: validatedData.email,
           preferredSlots: validatedData.preferredSlots,
           notes: validatedData.notes,
           purpose: validatedData.purpose,
@@ -193,11 +195,11 @@ export const handler: Handler = async (event) => {
         type: validatedData.type,
         status:
           validatedData.type === BookingType.SPACE
-            ? BookingStatus.CONFIRMED // Space requests don't need payment initially
+            ? BookingStatus.REQUESTED
             : BookingStatus.PENDING_PAYMENT,
-        name: validatedData.name,
-        phone: validatedData.phone,
-        email: validatedData.email,
+        customerName: validatedData.name,
+        customerPhone: validatedData.phone,
+        customerEmail: validatedData.email,
         amountPaise,
         currency: "INR",
         classSessionId: validatedData.classSessionId,

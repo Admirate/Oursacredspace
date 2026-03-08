@@ -2,13 +2,13 @@ import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
-import { SpaceRequestStatus } from "@prisma/client";
+import { SpaceRequestStatus, BookingStatus } from "@prisma/client";
 // TODO: Uncomment when WhatsApp is configured
 // import { sendSpaceCallConfirmation } from "./helpers/sendWhatsApp";
 
 // Accept the status values that the frontend sends
 const updateSchema = z.object({
-  requestId: z.string().uuid(),
+  requestId: z.string().min(1).max(30),
   status: z.enum(["APPROVED", "DECLINED", "CONFIRMED", "CANCELLED", "REQUESTED"]),
   adminNotes: z.string().max(500).optional(),
 });
@@ -47,9 +47,9 @@ export const handler: Handler = async (event) => {
     const body = JSON.parse(event.body || "{}");
     const { requestId, status, adminNotes } = updateSchema.parse(body);
 
-    // Find space request
     const spaceRequest = await prisma.spaceRequest.findUnique({
       where: { id: requestId },
+      include: { booking: { select: { id: true } } },
     });
 
     if (!spaceRequest) {
@@ -76,7 +76,6 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Update space request with the new status
     const updatedRequest = await prisma.spaceRequest.update({
       where: { id: requestId },
       data: {
@@ -85,13 +84,29 @@ export const handler: Handler = async (event) => {
       },
     });
 
-    // Log notification placeholder for approval
+    // Sync the associated booking status
+    const bookingStatusMap: Record<string, BookingStatus> = {
+      APPROVED: BookingStatus.PENDING_PAYMENT,
+      DECLINED: BookingStatus.DECLINED,
+      CONFIRMED: BookingStatus.CONFIRMED,
+      CANCELLED: BookingStatus.CANCELLED,
+      REQUESTED: BookingStatus.REQUESTED,
+    };
+
+    const newBookingStatus = bookingStatusMap[status];
+    if (newBookingStatus && spaceRequest.booking?.id) {
+      await prisma.booking.update({
+        where: { id: spaceRequest.booking.id },
+        data: { status: newBookingStatus },
+      });
+    }
+
     if (status === "APPROVED") {
       await prisma.notificationLog.create({
         data: {
           channel: "WHATSAPP",
           templateName: "space_approved",
-          to: spaceRequest.phone,
+          to: spaceRequest.customerPhone,
           status: "PENDING",
         },
       });

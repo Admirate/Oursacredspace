@@ -138,9 +138,15 @@ export const handler: Handler = async (event) => {
       // This prevents session accumulation and ensures clean token rotation
       await prisma.adminSession.deleteMany({ where: { email } });
       
-      // Create new session
+      // Create new session with audit info
       await prisma.adminSession.create({
-        data: { email, token, expiresAt },
+        data: {
+          email,
+          token,
+          expiresAt,
+          ipAddress: clientIP,
+          userAgent: (event.headers["user-agent"] || "").slice(0, 500),
+        },
       });
 
       // SECURITY: Set Secure flag in production, SameSite=Strict for CSRF protection

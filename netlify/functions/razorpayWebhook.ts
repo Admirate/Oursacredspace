@@ -223,12 +223,9 @@ export const handler: Handler = async (event) => {
             select: { capacity: true, spotsBooked: true },
           });
 
-          if (classSession && classSession.spotsBooked >= classSession.capacity) {
-            // Class is full - this shouldn't happen but handle gracefully
+          if (classSession && classSession.capacity !== null && classSession.spotsBooked >= classSession.capacity) {
             console.error(`Class ${booking.classSessionId} is at capacity!`);
-            // Still confirm the booking but log the issue
           } else {
-            // Increment spots booked
             await tx.classSession.update({
               where: { id: booking.classSessionId },
               data: { spotsBooked: { increment: 1 } },
@@ -279,8 +276,8 @@ export const handler: Handler = async (event) => {
         const event = await prisma.event.findUnique({ where: { id: booking.eventId } });
         if (event) {
           await sendEventConfirmation({
-            to: booking.phone,
-            name: booking.name,
+            to: booking.customerPhone,
+            name: booking.customerName,
             eventTitle: event.title,
             datetime: event.startsAt.toISOString(),
             venue: event.venue,
@@ -296,8 +293,8 @@ export const handler: Handler = async (event) => {
             bookingId: booking.id,
             channel: "WHATSAPP",
             templateName: "booking_event_confirmed",
-            to: booking.phone,
-            status: "PENDING", // Would be SENT when WhatsApp is configured
+            to: booking.customerPhone,
+            status: "PENDING",
           },
         });
       }
@@ -309,7 +306,7 @@ export const handler: Handler = async (event) => {
             bookingId: booking.id,
             channel: "WHATSAPP",
             templateName: "booking_class_confirmed",
-            to: booking.phone,
+            to: booking.customerPhone,
             status: "PENDING",
           },
         });

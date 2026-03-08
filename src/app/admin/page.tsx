@@ -84,8 +84,8 @@ export default function AdminDashboardPage() {
       description: `${confirmedBookings} confirmed, ${pendingBookings} pending`,
       icon: Calendar,
       href: "/admin/bookings",
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
+      color: "text-sacred-green",
+      bgColor: "bg-sacred-green/10",
     },
     {
       title: "Classes",
@@ -93,8 +93,8 @@ export default function AdminDashboardPage() {
       description: `${activeClasses} active classes`,
       icon: Users,
       href: "/admin/classes",
-      color: "text-green-600",
-      bgColor: "bg-green-100",
+      color: "text-sacred-burgundy",
+      bgColor: "bg-sacred-burgundy/10",
     },
     {
       title: "Events",
@@ -102,8 +102,8 @@ export default function AdminDashboardPage() {
       description: `${activeEvents} upcoming events`,
       icon: Ticket,
       href: "/admin/events",
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
+      color: "text-sacred-pink-dark",
+      bgColor: "bg-sacred-pink/20",
     },
     {
       title: "Space Requests",
@@ -111,8 +111,8 @@ export default function AdminDashboardPage() {
       description: "Pending review",
       icon: MapPin,
       href: "/admin/space",
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
+      color: "text-sacred-green-dark",
+      bgColor: "bg-sacred-cream",
     },
   ];
 
@@ -120,8 +120,8 @@ export default function AdminDashboardPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-3xl font-bold text-sacred-burgundy">Dashboard</h1>
+        <p className="text-gray-500">
           Overview of your OSS booking system
         </p>
       </div>
@@ -158,19 +158,19 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Revenue Card */}
-      <Card>
+      <Card className="border-sacred-green/20 bg-gradient-to-br from-sacred-green/5 to-transparent">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-green-600" />
+            <TrendingUp className="h-5 w-5 text-sacred-green" />
             Total Revenue
           </CardTitle>
           <CardDescription>From confirmed bookings</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <Loader2 className="h-8 w-8 animate-spin text-sacred-green/40" />
           ) : (
-            <div className="text-4xl font-bold text-green-600">
+            <div className="text-4xl font-bold text-sacred-green">
               {formatPrice(totalRevenue)}
             </div>
           )}
@@ -280,7 +280,7 @@ export default function AdminDashboardPage() {
                           {request.purpose}
                         </p>
                       </div>
-                      <Badge variant="outline" className="border-orange-500 text-orange-600">
+                      <Badge variant="outline" className="border-sacred-burgundy/40 text-sacred-burgundy">
                         Pending
                       </Badge>
                     </div>

@@ -24,6 +24,17 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const now = new Date();
+
+    // Auto-deactivate events whose time has passed
+    await prisma.event.updateMany({
+      where: {
+        active: true,
+        startsAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      },
+      data: { active: false },
+    });
+
     const events = await prisma.event.findMany({
       orderBy: { startsAt: "desc" },
       include: {
@@ -41,17 +52,18 @@ export const handler: Handler = async (event) => {
       },
     });
 
-    // Calculate check-in counts
     const eventsWithStats = events.map((event) => {
       const checkedInCount = event.eventPasses.filter(
         (p) => p.checkInStatus === "CHECKED_IN"
       ).length;
-      
+      const endTime = event.endsAt || event.startsAt;
+
       return {
         ...event,
         passesIssued: event._count.eventPasses,
         checkIns: checkedInCount,
-        eventPasses: undefined, // Remove raw passes
+        isExpired: endTime < now,
+        eventPasses: undefined,
       };
     });
 

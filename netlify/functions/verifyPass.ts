@@ -53,9 +53,9 @@ export const handler: Handler = async (event) => {
         event: true,
         booking: {
           select: {
-            name: true,
-            phone: true,
-            email: true,
+            customerName: true,
+            customerPhone: true,
+            customerEmail: true,
             status: true,
           },
         },
@@ -87,7 +87,7 @@ export const handler: Handler = async (event) => {
             checkInTime: eventPass.checkInTime,
           },
           event: eventPass.event,
-          attendeeName: eventPass.booking.name,
+          attendeeName: eventPass.booking.customerName,
           bookingStatus: eventPass.booking.status,
         },
       }),

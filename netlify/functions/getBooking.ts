@@ -2,8 +2,8 @@ import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
 import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
 
-// SECURITY: UUID v4 format validation
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// SECURITY: ID format validation (supports CUID and UUID)
+const ID_REGEX = /^[a-z0-9]{20,30}$|^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const handler: Handler = async (event) => {
   // SECURITY: Use origin-validated CORS headers
@@ -38,8 +38,8 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // SECURITY: Validate UUID format to prevent injection
-    if (!UUID_REGEX.test(bookingId)) {
+    // SECURITY: Validate ID format to prevent injection
+    if (!ID_REGEX.test(bookingId)) {
       return {
         statusCode: 400,
         headers,

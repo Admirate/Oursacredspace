@@ -38,7 +38,7 @@ export const handler: Handler = async (event) => {
       where: { passId },
       include: {
         event: { select: { title: true } },
-        booking: { select: { name: true, status: true } },
+        booking: { select: { customerName: true, status: true } },
       },
     });
 
@@ -74,7 +74,7 @@ export const handler: Handler = async (event) => {
           success: true,
           data: {
             passId: eventPass.passId,
-            attendeeName: eventPass.booking.name,
+            attendeeName: eventPass.booking.customerName,
             eventTitle: eventPass.event.title,
             checkInTime: eventPass.checkInTime,
             alreadyCheckedIn: true,
@@ -101,7 +101,7 @@ export const handler: Handler = async (event) => {
         success: true,
         data: {
           passId: eventPass.passId,
-          attendeeName: eventPass.booking.name,
+          attendeeName: eventPass.booking.customerName,
           eventTitle: eventPass.event.title,
           checkInTime,
           alreadyCheckedIn: false,

@@ -17,10 +17,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { adminApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { getAssetUrl } from "@/lib/assets";
 
 const navItems = [
   {
@@ -67,10 +67,10 @@ const NavLink = ({
     href={href}
     onClick={onClick}
     className={cn(
-      "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium",
       isActive
-        ? "bg-primary text-primary-foreground"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        ? "bg-sacred-green text-white shadow-sm shadow-sacred-green/20"
+        : "text-gray-600 hover:bg-sacred-cream hover:text-sacred-green"
     )}
   >
     <Icon className="h-5 w-5" />
@@ -91,17 +91,14 @@ export default function AdminLayout({
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
-      // Skip auth check on login page
       if (pathname === "/admin/login") {
         setIsCheckingAuth(false);
         return;
       }
 
       try {
-        // Try to fetch admin data to verify session
         const response = await adminApi.listBookings({ limit: 1 });
         if (response.success) {
           setIsAuthenticated(true);
@@ -109,7 +106,6 @@ export default function AdminLayout({
           router.replace("/admin/login");
         }
       } catch (error) {
-        // If API call fails, redirect to login
         router.replace("/admin/login");
       } finally {
         setIsCheckingAuth(false);
@@ -119,24 +115,21 @@ export default function AdminLayout({
     checkAuth();
   }, [pathname, router]);
 
-  // Don't show admin layout on login page
   if (pathname === "/admin/login") {
     return <>{children}</>;
   }
 
-  // Show loading while checking auth
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+      <div className="min-h-screen flex items-center justify-center bg-sacred-cream">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Verifying authentication...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-sacred-green" />
+          <p className="text-gray-500">Verifying authentication...</p>
         </div>
       </div>
     );
   }
 
-  // If not authenticated, don't render anything (will redirect)
   if (!isAuthenticated) {
     return null;
   }
@@ -150,7 +143,6 @@ export default function AdminLayout({
       });
       router.push("/admin/login");
     } catch (error) {
-      // Still redirect even if logout fails
       router.push("/admin/login");
     }
   };
@@ -162,110 +154,93 @@ export default function AdminLayout({
     return pathname.startsWith(href);
   };
 
+  const SidebarContent = ({ onNavClick }: { onNavClick?: () => void }) => (
+    <div className="flex h-full flex-col">
+      {/* Logo */}
+      <div className="flex h-16 items-center border-b border-sacred-cream-dark px-5">
+        <Link
+          href="/admin"
+          className="flex items-center gap-3"
+          onClick={onNavClick}
+        >
+          <img
+            src={getAssetUrl("brand/logo.png")}
+            alt="Our Sacred Space"
+            className="h-9 w-auto object-contain"
+          />
+          <div className="flex flex-col">
+            <span className="font-bold text-sm text-sacred-burgundy leading-tight">
+              OSS Admin
+            </span>
+            <span className="text-[10px] text-gray-400 leading-tight">
+              Management Portal
+            </span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 space-y-1 p-4">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 mb-3">
+          Menu
+        </p>
+        {navItems.map((item) => (
+          <NavLink
+            key={item.href}
+            href={item.href}
+            icon={item.icon}
+            title={item.title}
+            isActive={isActive(item.href)}
+            onClick={onNavClick}
+          />
+        ))}
+      </nav>
+
+      {/* Logout */}
+      <div className="border-t border-sacred-cream-dark p-4">
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-gray-500 hover:text-sacred-burgundy hover:bg-sacred-pink/10"
+          onClick={() => {
+            onNavClick?.();
+            handleLogout();
+          }}
+        >
+          <LogOut className="mr-3 h-5 w-5" />
+          Logout
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-gray-50/80">
       {/* Desktop Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 border-r bg-background lg:block">
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center border-b px-6">
-            <Link href="/admin" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold">O</span>
-              </div>
-              <span className="font-bold text-xl">OSS Admin</span>
-            </Link>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.href}
-                href={item.href}
-                icon={item.icon}
-                title={item.title}
-                isActive={isActive(item.href)}
-              />
-            ))}
-          </nav>
-
-          {/* Logout */}
-          <div className="border-t p-4">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-muted-foreground hover:text-foreground"
-              onClick={handleLogout}
-            >
-              <LogOut className="mr-3 h-5 w-5" />
-              Logout
-            </Button>
-          </div>
-        </div>
+      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 border-r border-sacred-cream-dark bg-white lg:block">
+        <SidebarContent />
       </aside>
 
       {/* Mobile Header */}
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 lg:hidden">
+      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-sacred-cream-dark bg-white px-4 lg:hidden">
         <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-sacred-green">
               <Menu className="h-6 w-6" />
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
-            <div className="flex h-full flex-col">
-              {/* Logo */}
-              <div className="flex h-16 items-center border-b px-6">
-                <Link
-                  href="/admin"
-                  className="flex items-center gap-2"
-                  onClick={() => setIsMobileNavOpen(false)}
-                >
-                  <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                    <span className="text-primary-foreground font-bold">O</span>
-                  </div>
-                  <span className="font-bold text-xl">OSS Admin</span>
-                </Link>
-              </div>
-
-              {/* Navigation */}
-              <nav className="flex-1 space-y-1 p-4">
-                {navItems.map((item) => (
-                  <NavLink
-                    key={item.href}
-                    href={item.href}
-                    icon={item.icon}
-                    title={item.title}
-                    isActive={isActive(item.href)}
-                    onClick={() => setIsMobileNavOpen(false)}
-                  />
-                ))}
-              </nav>
-
-              {/* Logout */}
-              <div className="border-t p-4">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-muted-foreground hover:text-foreground"
-                  onClick={() => {
-                    setIsMobileNavOpen(false);
-                    handleLogout();
-                  }}
-                >
-                  <LogOut className="mr-3 h-5 w-5" />
-                  Logout
-                </Button>
-              </div>
-            </div>
+            <SidebarContent onNavClick={() => setIsMobileNavOpen(false)} />
           </SheetContent>
         </Sheet>
 
         <Link href="/admin" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold">O</span>
-          </div>
-          <span className="font-bold text-xl">OSS Admin</span>
+          <img
+            src={getAssetUrl("brand/logo.png")}
+            alt="Our Sacred Space"
+            className="h-8 w-auto object-contain"
+          />
+          <span className="font-bold text-sacred-burgundy">OSS Admin</span>
         </Link>
       </header>
 

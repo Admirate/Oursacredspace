@@ -4,12 +4,13 @@ import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
 
 const updateEventSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string().min(3).max(100).optional(),
+  id: z.string().min(1).max(30),
+  title: z.string().min(2).max(100).optional(),
   description: z.string().max(1000).optional().nullable(),
   imageUrl: z.string().url().optional().nullable(),
-  startsAt: z.string().datetime().optional(),
-  venue: z.string().min(3).max(200).optional(),
+  startsAt: z.string().optional(),
+  endsAt: z.string().optional().nullable(),
+  venue: z.string().min(2).max(200).optional(),
   pricePaise: z.number().min(0).optional(),
   capacity: z.number().min(1).max(10000).optional().nullable(),
   active: z.boolean().optional(),
@@ -56,11 +57,13 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    const { startsAt, endsAt, ...rest } = data;
     const updatedEvent = await prisma.event.update({
       where: { id },
       data: {
-        ...data,
-        startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
+        ...rest,
+        startsAt: startsAt ? new Date(startsAt) : undefined,
+        endsAt: endsAt !== undefined ? (endsAt ? new Date(endsAt) : null) : undefined,
       },
     });
 

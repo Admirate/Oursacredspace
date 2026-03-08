@@ -3,16 +3,28 @@ import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
 
+const timeSlotSchema = z.object({
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+});
+
 const updateClassSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string().min(3).max(100).optional(),
+  id: z.string().min(1).max(30),
+  title: z.string().min(2).max(100).optional(),
   description: z.string().max(500).optional().nullable(),
   imageUrl: z.string().url().optional().nullable(),
-  startsAt: z.string().datetime().optional(),
+  instructor: z.string().max(100).optional().nullable(),
+  location: z.string().max(200).optional().nullable(),
+  startsAt: z.string().optional(),
+  endsAt: z.string().optional().nullable(),
   duration: z.number().min(15).max(480).optional(),
-  capacity: z.number().min(1).max(100).optional(),
+  capacity: z.number().min(0).max(1000).optional().nullable(),
   pricePaise: z.number().min(0).optional(),
   active: z.boolean().optional(),
+  isRecurring: z.boolean().optional(),
+  recurrenceDays: z.array(z.number().min(0).max(6)).optional(),
+  timeSlots: z.array(timeSlotSchema).optional().nullable(),
+  pricingType: z.enum(["PER_SESSION", "PER_MONTH"]).optional(),
 });
 
 export const handler: Handler = async (event) => {
@@ -56,11 +68,13 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    const { startsAt, endsAt, ...rest } = data;
     const classSession = await prisma.classSession.update({
       where: { id },
       data: {
-        ...data,
-        startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
+        ...rest,
+        startsAt: startsAt ? new Date(startsAt) : undefined,
+        endsAt: endsAt !== undefined ? (endsAt ? new Date(endsAt) : null) : undefined,
       },
     });
 

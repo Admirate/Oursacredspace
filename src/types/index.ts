@@ -1,12 +1,12 @@
 // ============================================
-// OSS BOOKING SYSTEM - TYPE DEFINITIONS
+// OSS BOOKING SYSTEM — TYPE DEFINITIONS
 // ============================================
 
 // === Enums ===
 
 export type BookingType = "CLASS" | "EVENT" | "SPACE";
 
-export type BookingStatus = 
+export type BookingStatus =
   | "PENDING_PAYMENT"
   | "CONFIRMED"
   | "PAYMENT_FAILED"
@@ -37,6 +37,12 @@ export interface Booking {
   customerEmail: string;
   amountPaise?: number | null;
   currency?: string;
+
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  version?: number;
+  metadata?: Record<string, unknown> | null;
+
   classSessionId?: string | null;
   classSession?: ClassSession | null;
   eventId?: string | null;
@@ -44,8 +50,10 @@ export interface Booking {
   spaceRequest?: SpaceRequest | null;
   payments?: Payment[];
   eventPass?: EventPass | null;
+
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface Payment {
@@ -58,23 +66,42 @@ export interface Payment {
   amountPaise: number;
   currency: string;
   webhookEventId?: string | null;
+  rawPayload?: unknown;
+  refundedAt?: string | null;
+  refundAmountPaise?: number | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface TimeSlot {
+  startTime: string;
+  endTime: string;
+}
+
+export type PricingType = "PER_SESSION" | "PER_MONTH";
 
 export interface ClassSession {
   id: string;
   title: string;
   description?: string | null;
   imageUrl?: string | null;
+  instructor?: string | null;
+  location?: string | null;
   startsAt: string;
+  endsAt?: string | null;
   duration: number;
-  capacity: number;
+  capacity?: number | null;
   spotsBooked: number;
   pricePaise: number;
   active: boolean;
+  isRecurring?: boolean;
+  recurrenceDays?: number[];
+  timeSlots?: TimeSlot[] | null;
+  pricingType?: PricingType;
+  isExpired?: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface Event {
@@ -83,6 +110,7 @@ export interface Event {
   description?: string | null;
   imageUrl?: string | null;
   startsAt: string;
+  endsAt?: string | null;
   venue: string;
   pricePaise: number;
   capacity?: number | null;
@@ -90,6 +118,7 @@ export interface Event {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface EventPass {
@@ -109,17 +138,19 @@ export interface EventPass {
 
 export interface SpaceRequest {
   id: string;
-  bookingId: string;
-  booking?: Booking;
-  preferredDate: string;
-  duration: number;
-  purpose: string;
-  attendees?: number | null;
-  specialRequirements?: string | null;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  preferredSlots?: string[];
+  scheduledSlot?: string | null;
+  notes?: string | null;
+  purpose?: string | null;
   status: SpaceRequestStatus;
   adminNotes?: string | null;
+  booking?: Booking;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface NotificationLog {
@@ -132,7 +163,9 @@ export interface NotificationLog {
   providerMessageId?: string | null;
   error?: string | null;
   retryCount: number;
+  sentAt?: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface StatusHistory {
@@ -154,7 +187,6 @@ export interface CreateBookingRequest {
   email: string;
   classSessionId?: string;
   eventId?: string;
-  // For SPACE bookings
   preferredSlots?: string[];
   purpose?: string;
   notes?: string;

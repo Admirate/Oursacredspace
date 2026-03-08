@@ -133,13 +133,38 @@ export default function AdminSpacePage() {
   const approvedRequests = requests.filter((r: any) => r.status === "APPROVED_CALL_SCHEDULED");
   const otherRequests = requests.filter((r: any) => !["REQUESTED", "APPROVED_CALL_SCHEDULED"].includes(r.status));
 
-  const RequestCard = ({ request }: { request: SpaceRequest }) => (
+  const parsePreferredSlot = (slots: any): { date: string; duration: string } => {
+    if (!slots) return { date: "Not specified", duration: "" };
+    const arr = Array.isArray(slots) ? slots : [];
+    if (arr.length === 0) return { date: "Not specified", duration: "" };
+    const raw = String(arr[0]);
+    const match = raw.match(/^(.+?)\s*\((.+?)\)$/);
+    if (match) {
+      const isoDate = match[1].trim();
+      const dur = match[2].trim();
+      try {
+        return { date: formatDate(isoDate), duration: dur };
+      } catch {
+        return { date: raw, duration: "" };
+      }
+    }
+    try {
+      return { date: formatDate(raw), duration: "" };
+    } catch {
+      return { date: raw, duration: "" };
+    }
+  };
+
+  const RequestCard = ({ request }: { request: SpaceRequest }) => {
+    const slot = parsePreferredSlot((request as any).preferredSlots);
+
+    return (
     <Card className="mb-4">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <CardTitle className="text-lg">
-              {request.booking?.customerName || "Unknown Customer"}
+              {request.customerName || "Unknown Customer"}
             </CardTitle>
             <CardDescription>
               Submitted {formatDateTime(request.createdAt)}
@@ -153,11 +178,11 @@ export default function AdminSpacePage() {
         <div className="flex flex-wrap gap-4 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Mail className="h-4 w-4" />
-            {request.booking?.customerEmail}
+            {request.customerEmail}
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Phone className="h-4 w-4" />
-            {request.booking?.customerPhone}
+            {request.customerPhone}
           </div>
         </div>
 
@@ -170,39 +195,33 @@ export default function AdminSpacePage() {
               <Calendar className="h-4 w-4 text-primary" />
               <span className="font-medium">Preferred Date</span>
             </div>
-            <p className="text-sm pl-6">{formatDate(request.preferredDate)}</p>
+            <p className="text-sm pl-6">{slot.date}</p>
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-primary" />
-              <span className="font-medium">Duration</span>
+          {slot.duration && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="h-4 w-4 text-primary" />
+                <span className="font-medium">Duration</span>
+              </div>
+              <p className="text-sm pl-6">{slot.duration}</p>
             </div>
-            <p className="text-sm pl-6">{request.duration} hour(s)</p>
-          </div>
+          )}
         </div>
 
-        {request.attendees && (
+        {request.purpose && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
-              <User className="h-4 w-4 text-primary" />
-              <span className="font-medium">Expected Attendees</span>
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <span className="font-medium">Purpose</span>
             </div>
-            <p className="text-sm pl-6">{request.attendees} people</p>
+            <p className="text-sm pl-6 text-muted-foreground">{request.purpose}</p>
           </div>
         )}
 
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm">
-            <MessageSquare className="h-4 w-4 text-primary" />
-            <span className="font-medium">Purpose</span>
-          </div>
-          <p className="text-sm pl-6 text-muted-foreground">{request.purpose}</p>
-        </div>
-
-        {request.specialRequirements && (
+        {request.notes && (
           <div className="space-y-2">
-            <span className="text-sm font-medium">Special Requirements</span>
-            <p className="text-sm text-muted-foreground">{request.specialRequirements}</p>
+            <span className="text-sm font-medium">Notes</span>
+            <p className="text-sm text-muted-foreground">{request.notes}</p>
           </div>
         )}
 
@@ -251,7 +270,8 @@ export default function AdminSpacePage() {
         )}
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">
