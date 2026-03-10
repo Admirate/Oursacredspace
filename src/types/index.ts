@@ -69,6 +69,7 @@ export interface Payment {
   rawPayload?: unknown;
   refundedAt?: string | null;
   refundAmountPaise?: number | null;
+  paymentExpiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -92,6 +93,8 @@ export interface ClassSession {
   duration: number;
   capacity?: number | null;
   spotsBooked: number;
+  bookedCount?: number;
+  availableSpots?: number | null;
   pricePaise: number;
   active: boolean;
   isRecurring?: boolean;
@@ -115,6 +118,8 @@ export interface Event {
   pricePaise: number;
   capacity?: number | null;
   passesIssued?: number;
+  bookedCount?: number;
+  availableSpots?: number | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;

@@ -103,6 +103,11 @@ export const BOOKING_TYPE_LABELS: Record<string, string> = {
   SPACE: "Space",
 };
 
+// === Admin Route ===
+// Obfuscated admin route to prevent automated scanners from finding the login page.
+// Change this value to rotate the admin path — all admin pages reference this constant.
+export const ADMIN_ROUTE_PREFIX = "/oss-ctrl-9x7k2m";
+
 // === Navigation ===
 
 export const PUBLIC_NAV_ITEMS = [
@@ -119,12 +124,12 @@ export const PUBLIC_NAV_ITEMS = [
 ] as const;
 
 export const ADMIN_NAV_ITEMS = [
-  { label: "Dashboard", href: "/admin" },
-  { label: "Bookings", href: "/admin/bookings" },
-  { label: "Classes", href: "/admin/classes" },
-  { label: "Events", href: "/admin/events" },
-  { label: "Space Requests", href: "/admin/space" },
-] as const;
+  { label: "Dashboard", href: ADMIN_ROUTE_PREFIX },
+  { label: "Bookings", href: `${ADMIN_ROUTE_PREFIX}/bookings` },
+  { label: "Classes", href: `${ADMIN_ROUTE_PREFIX}/classes` },
+  { label: "Events", href: `${ADMIN_ROUTE_PREFIX}/events` },
+  { label: "Space Requests", href: `${ADMIN_ROUTE_PREFIX}/space` },
+];
 
 // === Polling Config ===
 

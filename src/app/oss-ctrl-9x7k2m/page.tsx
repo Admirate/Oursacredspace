@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { adminApi } from "@/lib/api";
+import { ADMIN_ROUTE_PREFIX } from "@/lib/constants";
 
 const formatPrice = (paise: number): string => {
   return new Intl.NumberFormat("en-IN", {
@@ -83,7 +84,7 @@ export default function AdminDashboardPage() {
       value: totalBookings,
       description: `${confirmedBookings} confirmed, ${pendingBookings} pending`,
       icon: Calendar,
-      href: "/admin/bookings",
+      href: `${ADMIN_ROUTE_PREFIX}/bookings`,
       color: "text-sacred-green",
       bgColor: "bg-sacred-green/10",
     },
@@ -92,7 +93,7 @@ export default function AdminDashboardPage() {
       value: totalClasses,
       description: `${activeClasses} active classes`,
       icon: Users,
-      href: "/admin/classes",
+      href: `${ADMIN_ROUTE_PREFIX}/classes`,
       color: "text-sacred-burgundy",
       bgColor: "bg-sacred-burgundy/10",
     },
@@ -101,7 +102,7 @@ export default function AdminDashboardPage() {
       value: totalEvents,
       description: `${activeEvents} upcoming events`,
       icon: Ticket,
-      href: "/admin/events",
+      href: `${ADMIN_ROUTE_PREFIX}/events`,
       color: "text-sacred-pink-dark",
       bgColor: "bg-sacred-pink/20",
     },
@@ -110,7 +111,7 @@ export default function AdminDashboardPage() {
       value: pendingSpaceRequests,
       description: "Pending review",
       icon: MapPin,
-      href: "/admin/space",
+      href: `${ADMIN_ROUTE_PREFIX}/space`,
       color: "text-sacred-green-dark",
       bgColor: "bg-sacred-cream",
     },
@@ -185,7 +186,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between">
               <CardTitle>Recent Bookings</CardTitle>
               <Button asChild variant="outline" size="sm">
-                <Link href="/admin/bookings">View All</Link>
+                <Link href={`${ADMIN_ROUTE_PREFIX}/bookings`}>View All</Link>
               </Button>
             </div>
           </CardHeader>
@@ -253,7 +254,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between">
               <CardTitle>Pending Space Requests</CardTitle>
               <Button asChild variant="outline" size="sm">
-                <Link href="/admin/space">View All</Link>
+                <Link href={`${ADMIN_ROUTE_PREFIX}/space`}>View All</Link>
               </Button>
             </div>
           </CardHeader>

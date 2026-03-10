@@ -204,7 +204,6 @@ export const handler: Handler = async (event) => {
           data: { status: BookingStatus.CONFIRMED },
         });
 
-        // Record status change
         await tx.statusHistory.create({
           data: {
             bookingId: booking.id,
@@ -215,23 +214,8 @@ export const handler: Handler = async (event) => {
           },
         });
 
-        // === Handle CLASS booking ===
-        if (booking.type === BookingType.CLASS && booking.classSessionId) {
-          // SECURITY: Check capacity before incrementing to prevent overbooking
-          const classSession = await tx.classSession.findUnique({
-            where: { id: booking.classSessionId },
-            select: { capacity: true, spotsBooked: true },
-          });
-
-          if (classSession && classSession.capacity !== null && classSession.spotsBooked >= classSession.capacity) {
-            console.error(`Class ${booking.classSessionId} is at capacity!`);
-          } else {
-            await tx.classSession.update({
-              where: { id: booking.classSessionId },
-              data: { spotsBooked: { increment: 1 } },
-            });
-          }
-        }
+        // Inventory ledger: availability is derived from booking count.
+        // No need to increment spotsBooked — the CONFIRMED booking itself IS the record.
 
         return { skipped: false };
       });

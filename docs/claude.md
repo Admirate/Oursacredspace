@@ -74,8 +74,10 @@
 ```
 OSS/
 ├── prisma/
-│   ├── schema.prisma          # Database schema (9 models, 6 enums)
-│   └── seed.ts                # Database seeding script
+│   ├── schema.prisma          # Database schema (9 models, 8 enums)
+│   ├── seed.ts                # Database seeding script
+│   ├── migration-v2.sql       # V2 migration: constraints, triggers, views, indexes
+│   └── rls-policies.sql       # Row Level Security policies
 ├── public/
 │   └── placeholder.svg        # Placeholder image
 ├── src/
@@ -99,7 +101,7 @@ OSS/
 │   │   │   ├── contact/page.tsx
 │   │   │   ├── success/page.tsx       # Post-booking confirmation
 │   │   │   └── verify/page.tsx        # QR pass verification
-│   │   └── admin/             # Admin dashboard
+│   │   └── oss-ctrl-9x7k2m/   # Admin dashboard (obfuscated route)
 │   │       ├── layout.tsx     # Admin layout (sidebar, auth guard)
 │   │       ├── page.tsx       # Dashboard home
 │   │       ├── login/page.tsx
@@ -255,6 +257,7 @@ OSS/
 | amountPaise | Int | Amount in paise |
 | webhookEventId | String? | Unique, idempotency key |
 | rawPayload | Json? | Raw webhook data |
+| paymentExpiresAt | DateTime? | Payment expiry (default: created_at + 15min) |
 
 #### `ClassSession` — Class sessions
 | Field | Type | Notes |
@@ -333,10 +336,14 @@ OSS/
 #### `AdminSession` — Admin authentication sessions
 | Field | Type | Notes |
 |-------|------|-------|
-| id | String (UUID) | Primary key |
+| id | String (CUID) | Primary key |
 | email | String | Unique |
-| token | String | Unique, 64-char hex |
-| expiresAt | DateTime | Session expiry |
+| token | String | Unique, 64-char hex (raw, backward compat) |
+| hashedToken | String? | Unique, SHA-256 hash of token (used for lookups) |
+| ipAddress | String? | Client IP at login |
+| userAgent | String? | Browser user agent at login |
+| expiresAt | DateTime | Session expiry (timestamptz) |
+| lastActivityAt | DateTime | Last activity timestamp |
 
 ---
 
@@ -407,6 +414,7 @@ Singleton Prisma client. Loads `.env` file for Netlify Functions environment.
 ### `security.ts`
 Core security utilities:
 - `timingSafeCompare(a, b)` — Constant-time string comparison using `crypto.timingSafeEqual`
+- `hashToken(token)` — SHA-256 hash for session token storage (raw token in cookie, hash in DB)
 - `generateSecureId(length, charset)` — Crypto-random ID generation (default: 8 chars, no ambiguous chars like 0/O/1/I)
 - `sanitizeTemplateParam(value, maxLength)` — Sanitize notification template params
 - `validateImageMagicBytes(buffer)` — Validate image file magic bytes (JPEG/PNG/GIF/WebP)
@@ -472,10 +480,11 @@ Core security utilities:
 ### Public Layout (`src/app/(public)/layout.tsx`)
 - Wraps public pages with `Header` + `Footer`
 
-### Admin Layout (`src/app/admin/layout.tsx`)
-- Auth guard: calls `adminApi.listBookings({ limit: 1 })` on mount; redirects to `/admin/login` on failure
+### Admin Layout (`src/app/oss-ctrl-9x7k2m/layout.tsx`)
+- Auth guard: calls `adminApi.listBookings({ limit: 1 })` on mount; redirects to `ADMIN_ROUTE_PREFIX/login` on failure
 - Sidebar with `ADMIN_NAV_ITEMS`
-- `/admin/login` bypasses this layout
+- `ADMIN_ROUTE_PREFIX/login` bypasses this layout
+- All route references use `ADMIN_ROUTE_PREFIX` constant from `src/lib/constants.ts`
 
 ---
 
@@ -501,14 +510,16 @@ Core security utilities:
 
 ### Admin Routes
 
+> **Note:** The admin route is intentionally obfuscated. The actual path is defined by `ADMIN_ROUTE_PREFIX` in `src/lib/constants.ts` (currently `/oss-ctrl-9x7k2m`). All admin pages reference this constant — to rotate the path, rename the directory and update the single constant.
+
 | Route | Page | Purpose |
 |-------|------|---------|
-| `/admin/login` | Login | Email + password login form |
-| `/admin` | Dashboard | Admin home |
-| `/admin/bookings` | Bookings | List/filter/search bookings |
-| `/admin/classes` | Classes | Create/edit/list classes |
-| `/admin/events` | Events | Create/edit/list events |
-| `/admin/space` | Space | Manage space requests |
+| `{ADMIN_ROUTE_PREFIX}/login` | Login | Email + password login form |
+| `{ADMIN_ROUTE_PREFIX}` | Dashboard | Admin home |
+| `{ADMIN_ROUTE_PREFIX}/bookings` | Bookings | List/filter/search bookings |
+| `{ADMIN_ROUTE_PREFIX}/classes` | Classes | Create/edit/list classes |
+| `{ADMIN_ROUTE_PREFIX}/events` | Events | Create/edit/list events |
+| `{ADMIN_ROUTE_PREFIX}/space` | Space | Manage space requests |
 
 ---
 
@@ -694,24 +705,24 @@ Access via `getAssetUrl('path/to/file')` → `{SUPABASE_URL}/storage/v1/object/p
 
 ### Admin Auth Flow
 
-1. Admin goes to `/admin/login`
+1. Admin goes to `{ADMIN_ROUTE_PREFIX}/login`
 2. Submits email + password
 3. `adminAuth` function validates:
    - Email against `ADMIN_ALLOWED_EMAILS` (comma-separated)
    - Password against `ADMIN_PASSWORD` using `timingSafeCompare`
-4. On success: generates 64-char hex token → creates `AdminSession` in DB → sets `admin_token` cookie:
+4. On success: generates 64-char hex token → hashes with SHA-256 → stores hash in `AdminSession` → sets raw token as `admin_token` cookie:
    - `HttpOnly` — not accessible via JavaScript
    - `Secure` — HTTPS only (in production)
    - `SameSite=Strict` — CSRF protection
    - Expires: 24 hours
 5. All admin endpoints call `verifyAdminSession(event)`:
-   - Parses cookie → validates token format (64 hex chars) → looks up session → checks expiry
+   - Parses cookie → validates token format (64 hex chars) → hashes token → looks up `hashedToken` in DB → checks expiry
 6. Logout: `DELETE /api/adminAuth` → clears cookie + deletes session from DB
 
 ### Admin Auth Guard (Frontend)
 - `AdminLayout` calls `adminApi.listBookings({ limit: 1 })` on mount
-- On failure → redirects to `/admin/login`
-- `/admin/login` page uses a separate layout (skips the auth guard)
+- On failure → redirects to `{ADMIN_ROUTE_PREFIX}/login`
+- `{ADMIN_ROUTE_PREFIX}/login` page uses a separate layout (skips the auth guard)
 
 ### Public Endpoints
 No authentication required. Protected only by rate limiting and CORS.
@@ -724,7 +735,7 @@ No authentication required. Protected only by rate limiting and CORS.
 |-------|----------------|
 | **Rate Limiting** | In-memory per-container (see RATE_LIMITS table above) |
 | **CORS** | Origin validation against allowlist (`localhost:3000`, `localhost:8888`, `APP_BASE_URL`) |
-| **Admin Auth** | HttpOnly + Secure + SameSite=Strict cookies, 64-char hex tokens |
+| **Admin Auth** | HttpOnly + Secure + SameSite=Strict cookies, 64-char hex tokens, SHA-256 hashed in DB |
 | **Password Check** | Timing-safe comparison to prevent timing attacks |
 | **Webhook Auth** | HMAC-SHA256 signature verification for Razorpay |
 | **Input Sanitization** | XSS prevention via `sanitizeString()`, template param sanitization |
@@ -733,6 +744,7 @@ No authentication required. Protected only by rate limiting and CORS.
 | **Response Headers** | X-Frame-Options DENY, X-Content-Type-Options nosniff, HSTS, CSP |
 | **Security Logging** | `logSecurityEvent()` for AUTH_FAILURE, RATE_LIMIT, INVALID_SIGNATURE events |
 | **Pass ID Format** | `OSS-EV-XXXXXXXX` with regex validation `/^OSS-EV-[A-Z0-9]{8}$/` |
+| **Route Obfuscation** | Admin panel at randomized path (`ADMIN_ROUTE_PREFIX`) instead of `/admin` — reduces automated scanner noise |
 
 ---
 
@@ -800,13 +812,13 @@ Frontend                          Backend                           Razorpay
 1. `/space-enquiry` → user fills form
 2. `createBooking(type: SPACE, preferredSlots, purpose, notes)`
 3. SpaceRequest created in DB (status: REQUESTED, no payment)
-4. Admin reviews at `/admin/space` → updates status via `adminUpdateSpaceRequest`
+4. Admin reviews at `{ADMIN_ROUTE_PREFIX}/space` → updates status via `adminUpdateSpaceRequest`
 5. Status workflow: REQUESTED → APPROVED_CALL_SCHEDULED → CONFIRMED / DECLINED / etc.
 
 ### Pass Verification
 1. Attendee shows QR code → scanned → opens `/verify?passId=OSS-EV-XXXXXXXX`
 2. `verifyPass` checks pass in DB → shows validity + attendee info
-3. Admin uses `/admin` → `adminCheckinPass` → marks CHECKED_IN with timestamp
+3. Admin uses `{ADMIN_ROUTE_PREFIX}` dashboard → `adminCheckinPass` → marks CHECKED_IN with timestamp
 
 ---
 
@@ -937,7 +949,7 @@ Each of these became an independent scroll container, causing the double scrollb
 
 **Changes:**
 
-#### Admin Login Page (`src/app/admin/login/page.tsx`)
+#### Admin Login Page (`src/app/oss-ctrl-9x7k2m/login/page.tsx`)
 - Replaced the lock icon with the actual OSS logo (`brand/logo.png` from Supabase Storage)
 - Background changed to `sacred-cream` (#faf8f5) with a subtle radial gradient using brand green/pink
 - Added a gradient accent bar at the top of the card (sacred-green → sacred-burgundy → sacred-green)
@@ -947,7 +959,7 @@ Each of these became an independent scroll container, causing the double scrollb
 - Error banner uses explicit red styling instead of shadcn destructive
 - Removed `CardHeader`/`CardTitle`/`CardDescription` in favor of a cleaner custom header with logo
 
-#### Admin Layout Sidebar (`src/app/admin/layout.tsx`)
+#### Admin Layout Sidebar (`src/app/oss-ctrl-9x7k2m/layout.tsx`)
 - Replaced the "O" placeholder square with the actual OSS logo image
 - Logo area now shows "OSS Admin" in sacred-burgundy with "Management Portal" subtitle
 - Active nav items use `sacred-green` background with white text + subtle green shadow
@@ -959,7 +971,7 @@ Each of these became an independent scroll container, causing the double scrollb
 - Auth loading screen uses sacred-cream background with sacred-green spinner
 - Extracted `SidebarContent` component to avoid code duplication between desktop and mobile
 
-#### Admin Dashboard Page (`src/app/admin/page.tsx`)
+#### Admin Dashboard Page (`src/app/oss-ctrl-9x7k2m/page.tsx`)
 - Dashboard heading uses sacred-burgundy color
 - Stats card icons/backgrounds updated to brand palette:
   - Bookings: sacred-green
@@ -1091,8 +1103,8 @@ npx prisma db seed
 - `adminListEvents.ts` — same logic for events. Uses `endsAt` if available, otherwise falls back to `startsAt`.
 
 #### Frontend Visual Distinction
-- `src/app/admin/classes/page.tsx` — shows amber "Expired" badge instead of gray "Inactive" when a class was auto-deactivated due to time passing
-- `src/app/admin/events/page.tsx` — same amber "Expired" badge for past events
+- `src/app/oss-ctrl-9x7k2m/classes/page.tsx` — shows amber "Expired" badge instead of gray "Inactive" when a class was auto-deactivated due to time passing
+- `src/app/oss-ctrl-9x7k2m/events/page.tsx` — same amber "Expired" badge for past events
 
 **Badge states:**
 - **Active** (green) — upcoming, bookable
@@ -1125,7 +1137,7 @@ Six interconnected features were added to classes and events.
 - `ClassSession.capacity` changed to `number | null`.
 - Added `isRecurring`, `recurrenceDays`, `timeSlots`, `pricingType` optional fields.
 
-#### 4. Admin Classes Page (`src/app/admin/classes/page.tsx`)
+#### 4. Admin Classes Page (`src/app/oss-ctrl-9x7k2m/classes/page.tsx`)
 Complete form redesign:
 - **Pricing toggle**: Radio-style buttons for "Per Session" / "Per Month". Label changes accordingly.
 - **Recurring toggle**: Custom switch in a bordered section. When ON, shows:
@@ -1134,7 +1146,7 @@ Complete form redesign:
 - **Capacity**: "Unlimited" toggle — when enabled, capacity is null. Otherwise a numeric input (min 0).
 - **Table columns updated**: "Date & Time" → "Schedule" (shows "Every Thu" for recurring), new "Time" column (shows time slot range), "Price" appends "/mo" or "/session", "Capacity" shows "Unlimited" when null.
 
-#### 5. Admin Events Page (`src/app/admin/events/page.tsx`)
+#### 5. Admin Events Page (`src/app/oss-ctrl-9x7k2m/events/page.tsx`)
 - Added "End Date" date picker + "End Time" input to the form.
 - Table "Date & Time" column uses range format:
   - Same day: "Mar 8, 2026 · 5:00 PM - 8:00 PM"
@@ -1172,3 +1184,242 @@ npx prisma db push --force-reset
 # Re-seed with updated data
 npx prisma db seed
 ```
+
+---
+
+### 2026-03-10
+
+#### Database Hardening: Constraints, Inventory Ledger, Token Hashing, Timestamptz
+
+A comprehensive database hardening upgrade across 6 phases. All changes preserve existing data — no destructive migrations.
+
+**New file:** `prisma/migration-v2.sql` — Single SQL migration script to run in Supabase SQL Editor after `prisma db push`. Contains all database-level changes (constraints, triggers, views, indexes).
+
+---
+
+##### Phase 1: Schema Safety
+
+**1A. CHECK Constraints (7 constraints added)**
+
+Defensive guardrails to prevent invalid data at the database level:
+
+| Table | Constraint | Rule |
+|-------|-----------|------|
+| `bookings` | `chk_booking_amount` | `amount_paise >= 0` |
+| `payments` | `chk_payment_amount` | `amount_paise >= 0` |
+| `payments` | `chk_refund_amount` | `refund_amount_paise IS NULL OR >= 0` |
+| `class_sessions` | `chk_class_price` | `price_paise >= 0` |
+| `class_sessions` | `chk_capacity` | `capacity IS NULL OR spots_booked <= capacity` |
+| `class_sessions` | `chk_spots_booked_nonneg` | `spots_booked >= 0` |
+| `events` | `chk_event_price` | `price_paise >= 0` |
+
+**1B. Booking Integrity Trigger**
+
+Ensures exactly one of `class_session_id`, `event_id`, or `space_request_id` is set on each non-deleted booking. Uses a trigger (not CHECK) so soft-deleted records with NULL FKs don't violate the constraint.
+
+```sql
+CREATE TRIGGER trg_booking_fk_integrity
+  BEFORE INSERT OR UPDATE ON bookings
+  FOR EACH ROW EXECUTE FUNCTION check_booking_fk_integrity();
+```
+
+**1C. onDelete: SetNull → Restrict**
+
+Changed `Booking.classSession`, `Booking.event`, and `Booking.spaceRequest` foreign key cascade behavior from `SetNull` to `Restrict`. Prevents hard-deleting referenced entities that have bookings — use soft delete instead.
+
+**Files changed:** `prisma/schema.prisma`
+
+**1D. Partial Indexes**
+
+Added two partial FK indexes on bookings for JOIN performance:
+
+```sql
+CREATE INDEX idx_booking_event_id ON bookings(event_id) WHERE event_id IS NOT NULL;
+CREATE INDEX idx_booking_class_session_id ON bookings(class_session_id) WHERE class_session_id IS NOT NULL;
+```
+
+Also added corresponding `@@index` entries in Prisma schema for `eventId` and `classSessionId`.
+
+---
+
+##### Phase 2: Timestamp Safety
+
+**2A. timestamp → timestamptz**
+
+Converted all `DateTime` columns across all 9 tables from `timestamp(3)` to `timestamptz(3)` (timezone-aware). Added `@db.Timestamptz(3)` to every `DateTime` field in `prisma/schema.prisma`.
+
+Migration is in-place: `ALTER TABLE ... ALTER COLUMN ... TYPE timestamptz USING ... AT TIME ZONE 'UTC'`. Existing values are reinterpreted as UTC (which they already are since Prisma stores UTC).
+
+**2B. payment_expires_at column**
+
+Added `paymentExpiresAt DateTime? @map("payment_expires_at") @db.Timestamptz(3)` to the `Payment` model. Existing records are backfilled with `created_at + 15 minutes`. This explicit expiry is cleaner than deriving it from booking timestamps.
+
+**Files changed:** `prisma/schema.prisma`, `src/types/index.ts` (added `paymentExpiresAt` to `Payment` interface)
+
+---
+
+##### Phase 3: Security Hardening
+
+**3A. Hashed Admin Tokens**
+
+**Problem:** Admin session tokens were stored as raw hex strings in the `admin_sessions` table. If the database is compromised, all active admin sessions could be hijacked.
+
+**Solution:** Hash tokens with SHA-256 before storing in the database. The raw token is sent to the client in cookies; only the hash lives in the DB.
+
+**Schema change:** Added `hashedToken String? @unique @map("hashed_token")` to `AdminSession` model. The old `token` column is kept temporarily for backward compatibility (removed in a future migration after all sessions rotate).
+
+**New helper:** `hashToken(token: string): string` in `netlify/functions/helpers/security.ts` — creates SHA-256 hex digest.
+
+**Code changes:**
+- `adminAuth.ts` — On login: stores both raw `token` and `hashedToken`. On logout/session check: looks up by `hashedToken`.
+- `verifyAdmin.ts` — `verifyAdminSession()` now hashes the cookie token before DB lookup. Deletes expired sessions by `id` instead of `token`.
+
+**Effect on existing sessions:** Existing sessions with only a raw token will be invalidated. Admins must log in again after deployment — this is expected for a security upgrade.
+
+**3B. Audit Log Immutability**
+
+`status_history` is now append-only via a database trigger:
+
+```sql
+CREATE TRIGGER trg_status_history_immutable
+  BEFORE UPDATE OR DELETE ON status_history
+  FOR EACH ROW EXECUTE FUNCTION prevent_audit_modification();
+```
+
+Uses a trigger (not PostgreSQL RULE) as recommended by modern Postgres best practices.
+
+---
+
+##### Phase 4: Inventory Ledger
+
+**Problem:** The mutable `spots_booked` counter on `ClassSession` had a TOCTOU race condition. Two concurrent requests could both read the same counter value, both pass the capacity check, and both create bookings — resulting in overbooking.
+
+**Solution:** Inventory Ledger pattern — derive availability from the count of confirmed/pending bookings instead of maintaining a mutable counter.
+
+**Database views:**
+```sql
+CREATE VIEW class_availability AS
+  SELECT cs.id, cs.capacity, COUNT(bookings) AS booked_count,
+         capacity - booked_count AS available_spots ...
+
+CREATE VIEW event_availability AS
+  SELECT e.id, e.capacity, COUNT(bookings) AS booked_count,
+         capacity - booked_count AS available_spots ...
+```
+
+**Code changes:**
+
+| File | Change |
+|------|--------|
+| `createBooking.ts` | Replaced `spotsBooked` check with `prisma.booking.count()` query inside a `$transaction` for atomic capacity verification. Both pre-check (outside transaction, fast fail) and re-check (inside transaction, race-safe) are performed. |
+| `razorpayWebhook.ts` | Removed `spotsBooked` increment from payment confirmation transaction — the CONFIRMED booking itself is the inventory record. |
+| `devConfirmPayment.ts` | Same removal of `spotsBooked` increment. |
+| `getClasses.ts` | Now includes `_count.bookings` and returns `bookedCount` and `availableSpots` in the API response. |
+| `getEvents.ts` | Same derived availability in API response. |
+| `src/types/index.ts` | Added `bookedCount?: number` and `availableSpots?: number | null` to `ClassSession` and `Event` interfaces. |
+
+**Note:** The `spotsBooked` column is kept in the schema for backward compatibility. It is no longer incremented by any code path. It can be removed in a future migration once the admin dashboard and any direct SQL queries are verified to use derived counts.
+
+---
+
+##### Phase 5: Booking Expiration
+
+**5A. updated_at Database Trigger**
+
+Ensures `updated_at` is set correctly even for direct SQL operations (pg_cron, admin scripts). Applied to all 7 tables that have `updated_at`:
+
+```sql
+CREATE TRIGGER trg_bookings_updated_at
+  BEFORE UPDATE ON bookings FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+-- ... repeated for payments, class_sessions, events, event_passes, space_requests, notification_logs
+```
+
+**5B. Expiration Partial Index**
+
+```sql
+CREATE INDEX idx_booking_pending_expiry ON bookings(created_at) WHERE status = 'PENDING_PAYMENT';
+```
+
+Only indexes pending bookings — stays tiny and makes expiration queries instant.
+
+**5C. pg_cron Job (commented out)**
+
+The migration file includes a commented-out `cron.schedule()` call that expires unpaid bookings older than 15 minutes, running every 5 minutes. Uncomment and run in Supabase SQL Editor once pg_cron is enabled:
+
+```sql
+SELECT cron.schedule('expire-unpaid-bookings', '*/5 * * * *', $$
+  UPDATE bookings SET status = 'EXPIRED'
+  WHERE status = 'PENDING_PAYMENT' AND created_at < NOW() - INTERVAL '15 minutes';
+$$);
+```
+
+---
+
+##### Phase 6: Frontend Type Updates
+
+**`src/types/index.ts`:**
+- `Payment` — added `paymentExpiresAt?: string | null`
+- `ClassSession` — added `bookedCount?: number`, `availableSpots?: number | null`
+- `Event` — added `bookedCount?: number`, `availableSpots?: number | null`
+
+---
+
+##### How to Apply
+
+```bash
+# 1. Push Prisma schema changes (preserves existing data)
+npx prisma db push
+
+# 2. Run the migration SQL in Supabase SQL Editor
+# Copy and paste prisma/migration-v2.sql
+
+# 3. Regenerate Prisma client
+npx prisma generate
+
+# 4. Admins will need to log in again (tokens are now hashed)
+```
+
+**Files changed (13 files):**
+- `prisma/schema.prisma` — timestamptz, onDelete Restrict, hashedToken, paymentExpiresAt, new indexes
+- `prisma/migration-v2.sql` — NEW: complete SQL migration (constraints, triggers, views, indexes, pg_cron)
+- `netlify/functions/helpers/security.ts` — added `hashToken()` function
+- `netlify/functions/helpers/verifyAdmin.ts` — uses hashed token lookup
+- `netlify/functions/adminAuth.ts` — stores hashed tokens, looks up by hash
+- `netlify/functions/createBooking.ts` — inventory ledger with transactional capacity check
+- `netlify/functions/razorpayWebhook.ts` — removed spotsBooked increment
+- `netlify/functions/devConfirmPayment.ts` — removed spotsBooked increment
+- `netlify/functions/getClasses.ts` — returns derived bookedCount and availableSpots
+- `netlify/functions/getEvents.ts` — returns derived bookedCount and availableSpots
+- `src/types/index.ts` — added paymentExpiresAt, bookedCount, availableSpots
+
+---
+
+#### Security: Obfuscated Admin Route
+
+**Problem:** The admin panel lived at `/admin` — one of the most commonly guessed paths by bots and automated scanners. Even though login is required, exposing the login page reveals that an admin panel exists and invites brute-force attempts.
+
+**Solution:** Renamed the admin route to a random, non-guessable path (`/oss-ctrl-9x7k2m`). This is security through obscurity as an **additional layer** on top of existing protections (rate limiting, hashed tokens, timing-safe password comparison).
+
+**Changes:**
+
+1. **Renamed directory** `src/app/admin/` → `src/app/oss-ctrl-9x7k2m/` — all subpages moved automatically
+2. **Added `ADMIN_ROUTE_PREFIX` constant** in `src/lib/constants.ts` — single source of truth for the obfuscated path. To rotate the route, rename the directory and update this one constant.
+3. **Updated all hardcoded `/admin` references** to use the constant:
+   - `src/app/oss-ctrl-9x7k2m/layout.tsx` — nav items, auth redirects, logo links, active state checks
+   - `src/app/oss-ctrl-9x7k2m/page.tsx` — stats card links, "View All" links
+   - `src/app/oss-ctrl-9x7k2m/login/page.tsx` — post-login redirect
+   - `src/lib/constants.ts` — `ADMIN_NAV_ITEMS` hrefs
+4. **Updated `robots.ts`** — disallow rule now uses `ADMIN_ROUTE_PREFIX`
+5. **Updated `docs/claude.md`** — all documentation references updated
+
+**What did NOT change:**
+- Netlify Function paths (`/.netlify/functions/adminAuth` etc.) — API endpoints stay the same
+- Cookie names, token handling, session logic — all untouched
+- Public site — no public pages referenced `/admin`
+
+**Files changed (5 files):**
+- `src/app/oss-ctrl-9x7k2m/layout.tsx` — all `/admin` refs → `ADMIN_ROUTE_PREFIX`
+- `src/app/oss-ctrl-9x7k2m/page.tsx` — all `/admin/*` hrefs → `ADMIN_ROUTE_PREFIX/*`
+- `src/app/oss-ctrl-9x7k2m/login/page.tsx` — post-login redirect → `ADMIN_ROUTE_PREFIX`
+- `src/lib/constants.ts` — added `ADMIN_ROUTE_PREFIX`, updated `ADMIN_NAV_ITEMS`
+- `src/app/robots.ts` — disallow rule uses `ADMIN_ROUTE_PREFIX`

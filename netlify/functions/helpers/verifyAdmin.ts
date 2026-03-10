@@ -1,6 +1,6 @@
 import { HandlerEvent } from "@netlify/functions";
 import { prisma } from "./prisma";
-import { getSecureAdminHeaders } from "./security";
+import { getSecureAdminHeaders, hashToken } from "./security";
 
 export interface AdminVerifyResult {
   isValid: boolean;
@@ -41,8 +41,9 @@ export const verifyAdminSession = async (
       return { isValid: false, error: "Not authenticated" };
     }
 
+    const hashedTokenValue = hashToken(token);
     const session = await prisma.adminSession.findUnique({
-      where: { token },
+      where: { hashedToken: hashedTokenValue },
     });
 
     if (!session) {
@@ -50,10 +51,7 @@ export const verifyAdminSession = async (
     }
 
     if (session.expiresAt < new Date()) {
-      // Clean up expired session
-      await prisma.adminSession.delete({ where: { token } }).catch(() => {
-        // Ignore errors during cleanup
-      });
+      await prisma.adminSession.delete({ where: { id: session.id } }).catch(() => {});
       return { isValid: false, error: "Session expired" };
     }
 

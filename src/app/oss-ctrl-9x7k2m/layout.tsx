@@ -21,31 +21,32 @@ import { cn } from "@/lib/utils";
 import { adminApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { getAssetUrl } from "@/lib/assets";
+import { ADMIN_ROUTE_PREFIX } from "@/lib/constants";
 
 const navItems = [
   {
     title: "Dashboard",
-    href: "/admin",
+    href: ADMIN_ROUTE_PREFIX,
     icon: LayoutDashboard,
   },
   {
     title: "Bookings",
-    href: "/admin/bookings",
+    href: `${ADMIN_ROUTE_PREFIX}/bookings`,
     icon: Calendar,
   },
   {
     title: "Classes",
-    href: "/admin/classes",
+    href: `${ADMIN_ROUTE_PREFIX}/classes`,
     icon: Users,
   },
   {
     title: "Events",
-    href: "/admin/events",
+    href: `${ADMIN_ROUTE_PREFIX}/events`,
     icon: Ticket,
   },
   {
     title: "Space Requests",
-    href: "/admin/space",
+    href: `${ADMIN_ROUTE_PREFIX}/space`,
     icon: MapPin,
   },
 ];
@@ -93,7 +94,7 @@ export default function AdminLayout({
 
   useEffect(() => {
     const checkAuth = async () => {
-      if (pathname === "/admin/login") {
+      if (pathname === `${ADMIN_ROUTE_PREFIX}/login`) {
         setIsCheckingAuth(false);
         return;
       }
@@ -103,10 +104,10 @@ export default function AdminLayout({
         if (response.success) {
           setIsAuthenticated(true);
         } else {
-          router.replace("/admin/login");
+          router.replace(`${ADMIN_ROUTE_PREFIX}/login`);
         }
       } catch (error) {
-        router.replace("/admin/login");
+        router.replace(`${ADMIN_ROUTE_PREFIX}/login`);
       } finally {
         setIsCheckingAuth(false);
       }
@@ -115,7 +116,7 @@ export default function AdminLayout({
     checkAuth();
   }, [pathname, router]);
 
-  if (pathname === "/admin/login") {
+  if (pathname === `${ADMIN_ROUTE_PREFIX}/login`) {
     return <>{children}</>;
   }
 
@@ -141,15 +142,15 @@ export default function AdminLayout({
         title: "Logged out",
         description: "You have been logged out successfully.",
       });
-      router.push("/admin/login");
+      router.push(`${ADMIN_ROUTE_PREFIX}/login`);
     } catch (error) {
-      router.push("/admin/login");
+      router.push(`${ADMIN_ROUTE_PREFIX}/login`);
     }
   };
 
   const isActive = (href: string) => {
-    if (href === "/admin") {
-      return pathname === "/admin";
+    if (href === ADMIN_ROUTE_PREFIX) {
+      return pathname === ADMIN_ROUTE_PREFIX;
     }
     return pathname.startsWith(href);
   };
@@ -159,7 +160,7 @@ export default function AdminLayout({
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-sacred-cream-dark px-5">
         <Link
-          href="/admin"
+          href={ADMIN_ROUTE_PREFIX}
           className="flex items-center gap-3"
           onClick={onNavClick}
         >
@@ -234,7 +235,7 @@ export default function AdminLayout({
           </SheetContent>
         </Sheet>
 
-        <Link href="/admin" className="flex items-center gap-2">
+        <Link href={ADMIN_ROUTE_PREFIX} className="flex items-center gap-2">
           <img
             src={getAssetUrl("brand/logo.png")}
             alt="Our Sacred Space"

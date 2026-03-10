@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { prisma } from "./helpers/prisma";
 import { 
   getClientIP, 
+  hashToken,
   isRateLimited, 
   logSecurityEvent, 
   rateLimitResponse, 
@@ -74,7 +75,8 @@ export const handler: Handler = async (event) => {
       ?.split("=")[1];
 
     if (token) {
-      await prisma.adminSession.deleteMany({ where: { token } });
+      const hashed = hashToken(token);
+      await prisma.adminSession.deleteMany({ where: { hashedToken: hashed } });
     }
 
     // SECURITY: Clear cookie with same flags (SameSite=Strict for CSRF protection)
@@ -135,14 +137,15 @@ export const handler: Handler = async (event) => {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
       // SECURITY: Delete ALL existing sessions for this email before creating new one
-      // This prevents session accumulation and ensures clean token rotation
       await prisma.adminSession.deleteMany({ where: { email } });
       
-      // Create new session with audit info
+      const hashedToken = hashToken(token);
+      
       await prisma.adminSession.create({
         data: {
           email,
           token,
+          hashedToken,
           expiresAt,
           ipAddress: clientIP,
           userAgent: (event.headers["user-agent"] || "").slice(0, 500),
@@ -205,8 +208,9 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    const hashed = hashToken(token);
     const session = await prisma.adminSession.findUnique({
-      where: { token },
+      where: { hashedToken: hashed },
     });
 
     if (!session || session.expiresAt < new Date()) {

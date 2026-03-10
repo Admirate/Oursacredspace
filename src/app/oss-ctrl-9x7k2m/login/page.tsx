@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { adminApi } from "@/lib/api";
 import { getAssetUrl } from "@/lib/assets";
+import { ADMIN_ROUTE_PREFIX } from "@/lib/constants";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -47,7 +48,7 @@ export default function AdminLoginPage() {
           title: "Login Successful",
           description: "Welcome back!",
         });
-        router.push("/admin");
+        router.push(ADMIN_ROUTE_PREFIX);
       } else {
         setError(response.error || "Invalid credentials");
       }
@@ -100,7 +101,8 @@ export default function AdminLoginPage() {
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-sacred-green/60" />
                         <Input
                           type="email"
-                          placeholder="admin@ossspace.com"
+                          placeholder=""
+                          autoComplete="off"
                           className="pl-10 border-gray-200 focus-visible:ring-sacred-green/30 focus-visible:border-sacred-green"
                           {...field}
                         />
@@ -122,7 +124,8 @@ export default function AdminLoginPage() {
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-sacred-green/60" />
                         <Input
                           type="password"
-                          placeholder="••••••••"
+                          placeholder=""
+                          autoComplete="off"
                           className="pl-10 border-gray-200 focus-visible:ring-sacred-green/30 focus-visible:border-sacred-green"
                           {...field}
                         />

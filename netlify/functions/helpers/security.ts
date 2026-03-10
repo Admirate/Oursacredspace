@@ -61,6 +61,15 @@ export const timingSafeCompare = (a: string, b: string): boolean => {
 };
 
 /**
+ * SECURITY: Hash a session token with SHA-256 for storage.
+ * Raw tokens are sent to the client in cookies; only the hash is stored in DB.
+ * If the DB is compromised, hashed tokens cannot be used to hijack sessions.
+ */
+export const hashToken = (token: string): string => {
+  return crypto.createHash("sha256").update(token).digest("hex");
+};
+
+/**
  * SECURITY: Generate cryptographically secure random string
  * Use this instead of Math.random() for security-sensitive operations
  */

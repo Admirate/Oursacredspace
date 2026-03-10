@@ -32,9 +32,32 @@ export const handler: Handler = async (event) => {
         ? {}
         : {
             active: true,
-            startsAt: { gte: new Date() }, // Only future classes
+            deletedAt: null,
+            OR: [
+              { isRecurring: true },
+              { startsAt: { gte: new Date() } },
+            ],
           },
       orderBy: { startsAt: "asc" },
+      include: {
+        _count: {
+          select: {
+            bookings: {
+              where: {
+                status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
+                deletedAt: null,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const classesWithAvailability = classes.map((c) => {
+      const bookedCount = c._count.bookings;
+      const availableSpots = c.capacity !== null ? Math.max(0, c.capacity - bookedCount) : null;
+      const { _count, ...rest } = c;
+      return { ...rest, bookedCount, availableSpots };
     });
 
     return {
@@ -42,7 +65,7 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({
         success: true,
-        data: classes,
+        data: classesWithAvailability,
       }),
     };
   } catch (error) {

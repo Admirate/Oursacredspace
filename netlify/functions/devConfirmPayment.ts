@@ -178,10 +178,7 @@ export const handler: Handler = async (event) => {
 
     // Handle CLASS booking
     if (booking.type === BookingType.CLASS && booking.classSessionId) {
-      await prisma.classSession.update({
-        where: { id: booking.classSessionId },
-        data: { spotsBooked: { increment: 1 } },
-      });
+      // Inventory ledger: availability derived from booking count, no counter update needed
 
       await prisma.notificationLog.create({
         data: {

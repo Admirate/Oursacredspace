@@ -75,44 +75,36 @@ model Booking {
   type            BookingType
   status          BookingStatus @default(PENDING_PAYMENT)
 
-  // Customer snapshot (denormalized for audit trail)
   customerName    String        @map("customer_name")
   customerPhone   String        @map("customer_phone")
   customerEmail   String        @map("customer_email")
 
-  // Financial
   amountPaise     Int           @map("amount_paise")
   currency        String        @default("INR")
 
-  // Cancellation tracking
-  cancelledAt     DateTime?     @map("cancelled_at")
+  cancelledAt     DateTime?     @map("cancelled_at") @db.Timestamptz(3)
   cancelReason    String?       @map("cancel_reason")
 
-  // Optimistic concurrency control
   version         Int           @default(1)
-
-  // Flexible key-value store for future extensions
   metadata        Json?
 
-  // Relations (nullable based on booking type)
   classSessionId  String?       @map("class_session_id")
-  classSession    ClassSession? @relation(fields: [classSessionId], references: [id], onDelete: SetNull)
+  classSession    ClassSession? @relation(fields: [classSessionId], references: [id], onDelete: Restrict)
 
   eventId         String?       @map("event_id")
-  event           Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  event           Event?        @relation(fields: [eventId], references: [id], onDelete: Restrict)
 
   spaceRequestId  String?       @unique @map("space_request_id")
-  spaceRequest    SpaceRequest? @relation(fields: [spaceRequestId], references: [id], onDelete: SetNull)
+  spaceRequest    SpaceRequest? @relation(fields: [spaceRequestId], references: [id], onDelete: Restrict)
 
   payments        Payment[]
   eventPass       EventPass?
   notifications   NotificationLog[]
   statusHistory   StatusHistory[]
 
-  // Timestamps
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
-  deletedAt       DateTime?     @map("deleted_at")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz(3)
 
   @@index([type])
   @@index([status])
@@ -122,6 +114,8 @@ model Booking {
   @@index([customerEmail, type])
   @@index([type, createdAt])
   @@index([deletedAt])
+  @@index([eventId])
+  @@index([classSessionId])
   @@map("bookings")
 }
 
@@ -138,18 +132,16 @@ model Payment {
   amountPaise       Int           @map("amount_paise")
   currency          String        @default("INR")
 
-  // Idempotency key for webhook deduplication
   webhookEventId    String?       @unique @map("webhook_event_id")
-
-  // Raw provider payload for debugging & disputes
   rawPayload        Json?         @map("raw_payload")
 
-  // Refund tracking
-  refundedAt        DateTime?     @map("refunded_at")
+  refundedAt        DateTime?     @map("refunded_at") @db.Timestamptz(3)
   refundAmountPaise Int?          @map("refund_amount_paise")
 
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
+  paymentExpiresAt  DateTime?     @map("payment_expires_at") @db.Timestamptz(3)
+
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@index([razorpayOrderId])
   @@index([status])
@@ -165,29 +157,24 @@ model ClassSession {
   instructor  String?
   location    String?
 
-  startsAt    DateTime  @map("starts_at")
-  endsAt      DateTime? @map("ends_at")
+  startsAt    DateTime  @map("starts_at") @db.Timestamptz(3)
+  endsAt      DateTime? @map("ends_at") @db.Timestamptz(3)
   duration    Int       @default(60)
   capacity    Int?
   spotsBooked Int       @default(0) @map("spots_booked")
   pricePaise  Int       @map("price_paise")
   active      Boolean   @default(true)
 
-  // Recurring schedule
   isRecurring     Boolean     @default(false) @map("is_recurring")
   recurrenceDays  Int[]       @default([]) @map("recurrence_days")
-
-  // Multiple time slot options (JSON array of { startTime, endTime })
   timeSlots       Json?       @map("time_slots")
-
-  // Pricing model
   pricingType     PricingType @default(PER_SESSION) @map("pricing_type")
 
   bookings    Booking[]
 
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([startsAt])
   @@index([active])
@@ -202,8 +189,8 @@ model Event {
   description String?
   imageUrl    String?     @map("image_url")
 
-  startsAt    DateTime    @map("starts_at")
-  endsAt      DateTime?   @map("ends_at")
+  startsAt    DateTime    @map("starts_at") @db.Timestamptz(3)
+  endsAt      DateTime?   @map("ends_at") @db.Timestamptz(3)
   venue       String
   pricePaise  Int         @map("price_paise")
   capacity    Int?
@@ -212,9 +199,9 @@ model Event {
   bookings    Booking[]
   eventPasses EventPass[]
 
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  deletedAt   DateTime?   @map("deleted_at")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(3)
 
   @@index([startsAt])
   @@index([active])
@@ -235,11 +222,11 @@ model EventPass {
   qrImageUrl    String        @map("qr_image_url")
 
   checkInStatus CheckInStatus @default(NOT_CHECKED_IN) @map("check_in_status")
-  checkInTime   DateTime?     @map("check_in_time")
+  checkInTime   DateTime?     @map("check_in_time") @db.Timestamptz(3)
   checkedInBy   String?       @map("checked_in_by")
 
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@index([passId])
   @@index([eventId])
@@ -256,7 +243,7 @@ model SpaceRequest {
   customerEmail   String             @map("customer_email")
 
   preferredSlots  Json               @map("preferred_slots")
-  scheduledSlot   DateTime?          @map("scheduled_slot")
+  scheduledSlot   DateTime?          @map("scheduled_slot") @db.Timestamptz(3)
   notes           String?
   purpose         String?
 
@@ -265,9 +252,9 @@ model SpaceRequest {
 
   booking         Booking?
 
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
-  deletedAt       DateTime?          @map("deleted_at")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime?          @map("deleted_at") @db.Timestamptz(3)
 
   @@index([status])
   @@index([createdAt])
@@ -291,10 +278,10 @@ model NotificationLog {
   error             String?
   retryCount        Int                @default(0) @map("retry_count")
 
-  sentAt            DateTime?          @map("sent_at")
+  sentAt            DateTime?          @map("sent_at") @db.Timestamptz(3)
 
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@index([bookingId])
   @@index([status])
@@ -313,7 +300,7 @@ model StatusHistory {
   changedBy   String   @map("changed_by")
   reason      String?
 
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([bookingId])
   @@index([bookingId, createdAt])
@@ -324,16 +311,18 @@ model AdminSession {
   id             String   @id @default(cuid())
   email          String   @unique
   token          String   @unique
+  hashedToken    String?  @unique @map("hashed_token")
 
   ipAddress      String?  @map("ip_address")
   userAgent      String?  @map("user_agent")
 
-  expiresAt      DateTime @map("expires_at")
-  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(3)
+  lastActivityAt DateTime @default(now()) @map("last_activity_at") @db.Timestamptz(3)
 
-  createdAt      DateTime @default(now()) @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([token])
+  @@index([hashedToken])
   @@index([expiresAt])
   @@map("admin_sessions")
 }
