@@ -122,11 +122,11 @@ export default function AdminBookingsPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Bookings</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl sm:text-3xl font-bold">Bookings</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Manage all bookings across classes, events, and space requests
         </p>
       </div>
@@ -189,75 +189,91 @@ export default function AdminBookingsPage() {
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Booking ID</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredBookings.map((booking: any) => (
-                    <TableRow key={booking.id}>
-                      <TableCell className="font-mono text-sm">
-                        {booking.id.slice(0, 8).toUpperCase()}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{booking.customerName}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {booking.customerEmail}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getTypeBadge(booking.type)}</TableCell>
-                      <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                      <TableCell>
-                        {booking.amountPaise ? formatPrice(booking.amountPaise) : "-"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(booking.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedBooking(booking)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Booking ID</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredBookings.map((booking: any) => (
+                      <TableRow key={booking.id}>
+                        <TableCell className="font-mono text-sm">
+                          {booking.id.slice(0, 8).toUpperCase()}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{booking.customerName}</p>
+                            <p className="text-xs text-muted-foreground">{booking.customerEmail}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{getTypeBadge(booking.type)}</TableCell>
+                        <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                        <TableCell>{booking.amountPaise ? formatPrice(booking.amountPaise) : "-"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatDate(booking.createdAt)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedBooking(booking)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card Layout */}
+              <div className="md:hidden divide-y">
+                {filteredBookings.map((booking: any) => (
+                  <div
+                    key={booking.id}
+                    className="p-3 sm:p-4 space-y-2 active:bg-muted/30 cursor-pointer"
+                    onClick={() => setSelectedBooking(booking)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{booking.customerName}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{booking.customerEmail}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {getStatusBadge(booking.status)}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        {getTypeBadge(booking.type)}
+                        <span className="font-mono">{booking.id.slice(0, 8).toUpperCase()}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {booking.amountPaise ? (
+                          <span className="font-semibold text-foreground">{formatPrice(booking.amountPaise)}</span>
+                        ) : null}
+                        <span>{formatDate(booking.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-4 border-t">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between px-3 sm:px-4 py-3 sm:py-4 border-t">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Page {page} of {totalPages}
                   </p>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>

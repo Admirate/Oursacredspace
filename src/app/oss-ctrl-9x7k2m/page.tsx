@@ -118,35 +118,35 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 sm:space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-sacred-burgundy">Dashboard</h1>
-        <p className="text-gray-500">
+        <h1 className="text-2xl sm:text-3xl font-bold text-sacred-burgundy">Dashboard</h1>
+        <p className="text-sm sm:text-base text-gray-500">
           Overview of your OSS booking system
         </p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map((stat) => (
           <Card key={stat.title} className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 {stat.title}
               </CardTitle>
-              <div className={`h-8 w-8 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-lg ${stat.bgColor} flex items-center justify-center flex-shrink-0`}>
+                <stat.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${stat.color}`} />
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-6 pt-0">
               {isLoading ? (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-muted-foreground" />
               ) : (
                 <>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground">{stat.description}</p>
-                  <Button asChild variant="link" className="px-0 mt-2">
+                  <div className="text-xl sm:text-2xl font-bold">{stat.value}</div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{stat.description}</p>
+                  <Button asChild variant="link" className="px-0 mt-1 sm:mt-2 h-auto text-xs sm:text-sm">
                     <Link href={stat.href}>
                       View all <ArrowRight className="ml-1 h-3 w-3" />
                     </Link>
@@ -160,18 +160,18 @@ export default function AdminDashboardPage() {
 
       {/* Revenue Card */}
       <Card className="border-sacred-green/20 bg-gradient-to-br from-sacred-green/5 to-transparent">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-sacred-green" />
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-sacred-green" />
             Total Revenue
           </CardTitle>
-          <CardDescription>From confirmed bookings</CardDescription>
+          <CardDescription className="text-xs sm:text-sm">From confirmed bookings</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0">
           {isLoading ? (
-            <Loader2 className="h-8 w-8 animate-spin text-sacred-green/40" />
+            <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-sacred-green/40" />
           ) : (
-            <div className="text-4xl font-bold text-sacred-green">
+            <div className="text-2xl sm:text-4xl font-bold text-sacred-green">
               {formatPrice(totalRevenue)}
             </div>
           )}
@@ -179,38 +179,38 @@ export default function AdminDashboardPage() {
       </Card>
 
       {/* Recent Activity */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Recent Bookings */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Recent Bookings</CardTitle>
-              <Button asChild variant="outline" size="sm">
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base sm:text-lg">Recent Bookings</CardTitle>
+              <Button asChild variant="outline" size="sm" className="text-xs sm:text-sm h-8 shrink-0">
                 <Link href={`${ADMIN_ROUTE_PREFIX}/bookings`}>View All</Link>
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 pt-0">
             {bookingsLoading ? (
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
+                  <div key={i} className="h-14 sm:h-16 bg-muted animate-pulse rounded-lg" />
                 ))}
               </div>
             ) : bookings.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {bookings.slice(0, 5).map((booking) => (
                   <div
                     key={booking.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    className="flex items-start sm:items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/50"
                   >
-                    <div className="space-y-1">
-                      <p className="font-medium">{booking.customerName}</p>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                      <p className="font-medium text-sm sm:text-base truncate">{booking.customerName}</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">
                         {booking.type} • {booking.id.slice(0, 8).toUpperCase()}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <Badge
                         variant={
                           booking.status === "CONFIRMED"
@@ -219,20 +219,21 @@ export default function AdminDashboardPage() {
                             ? "outline"
                             : "secondary"
                         }
+                        className="text-[10px] sm:text-xs"
                       >
                         {booking.status === "CONFIRMED" && (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
                         )}
                         {booking.status === "PENDING_PAYMENT" && (
-                          <Clock className="h-3 w-3 mr-1" />
+                          <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
                         )}
                         {booking.status === "CANCELLED" && (
-                          <XCircle className="h-3 w-3 mr-1" />
+                          <XCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
                         )}
                         {booking.status.replace("_", " ")}
                       </Badge>
                       {booking.amountPaise && (
-                        <p className="text-sm font-medium mt-1">
+                        <p className="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">
                           {formatPrice(booking.amountPaise)}
                         </p>
                       )}
@@ -241,7 +242,7 @@ export default function AdminDashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground text-center py-8">
+              <p className="text-muted-foreground text-center py-6 sm:py-8 text-sm">
                 No bookings yet
               </p>
             )}
@@ -250,45 +251,45 @@ export default function AdminDashboardPage() {
 
         {/* Pending Space Requests */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Pending Space Requests</CardTitle>
-              <Button asChild variant="outline" size="sm">
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base sm:text-lg">Pending Space Requests</CardTitle>
+              <Button asChild variant="outline" size="sm" className="text-xs sm:text-sm h-8 shrink-0">
                 <Link href={`${ADMIN_ROUTE_PREFIX}/space`}>View All</Link>
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 pt-0">
             {spaceLoading ? (
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
+                  <div key={i} className="h-14 sm:h-16 bg-muted animate-pulse rounded-lg" />
                 ))}
               </div>
             ) : spaceRequests.filter(s => s.status === "REQUESTED").length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {spaceRequests
                   .filter(s => s.status === "REQUESTED")
                   .slice(0, 5)
                   .map((request) => (
                     <div
                       key={request.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      className="flex items-start sm:items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/50"
                     >
-                      <div className="space-y-1">
-                        <p className="font-medium">{request.booking?.customerName || "Unknown"}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
+                      <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                        <p className="font-medium text-sm sm:text-base truncate">{request.booking?.customerName || "Unknown"}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
                           {request.purpose}
                         </p>
                       </div>
-                      <Badge variant="outline" className="border-sacred-burgundy/40 text-sacred-burgundy">
+                      <Badge variant="outline" className="border-sacred-burgundy/40 text-sacred-burgundy text-[10px] sm:text-xs shrink-0">
                         Pending
                       </Badge>
                     </div>
                   ))}
               </div>
             ) : (
-              <p className="text-muted-foreground text-center py-8">
+              <p className="text-muted-foreground text-center py-6 sm:py-8 text-sm">
                 No pending requests
               </p>
             )}

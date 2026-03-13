@@ -180,6 +180,8 @@ const formatDateRange = (startsAt: string, endsAt?: string | null): string => {
   return `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
 };
 
+type EventStatusFilter = "all" | "active" | "inactive" | "expired";
+
 export default function AdminEventsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -187,6 +189,8 @@ export default function AdminEventsPage() {
   const [passSearch, setPassSearch] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<EventStatusFilter>("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -323,7 +327,7 @@ export default function AdminEventsPage() {
     form.reset();
   };
 
-  const events: any[] = data?.data || [];
+  const allEvents: any[] = data?.data || [];
   const passes: any[] = passesData?.data || [];
   const filteredPasses = passes.filter((pass: any) =>
     passSearch
@@ -333,19 +337,42 @@ export default function AdminEventsPage() {
   );
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  const filteredEvents = allEvents.filter((e) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (query) {
+      const matchesTitle = e.title?.toLowerCase().includes(query);
+      const matchesDesc = e.description?.toLowerCase().includes(query);
+      const matchesVenue = e.venue?.toLowerCase().includes(query);
+      if (!matchesTitle && !matchesDesc && !matchesVenue) return false;
+    }
+
+    if (statusFilter === "active" && !e.active) return false;
+    if (statusFilter === "inactive" && (e.active || e.isExpired)) return false;
+    if (statusFilter === "expired" && !(e.isExpired && !e.active)) return false;
+
+    return true;
+  });
+
+  const eventStatusCounts = {
+    all: allEvents.length,
+    active: allEvents.filter((e) => e.active).length,
+    inactive: allEvents.filter((e) => !e.active && !e.isExpired).length,
+    expired: allEvents.filter((e) => e.isExpired && !e.active).length,
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Events</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Events</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage events and check-in attendees
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => !open && handleDialogClose()}>
           <DialogTrigger asChild>
-            <Button onClick={() => { setEditingEvent(null); setImageUrl(null); form.reset(); setIsDialogOpen(true); }}>
+            <Button onClick={() => { setEditingEvent(null); setImageUrl(null); form.reset(); setIsDialogOpen(true); }} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Add Event
             </Button>
@@ -581,7 +608,45 @@ export default function AdminEventsPage() {
         </TabsList>
 
         {/* Events Tab */}
-        <TabsContent value="events">
+        <TabsContent value="events" className="space-y-4">
+          {/* Search & Filters */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by title, description, or venue..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10 text-sm sm:text-base"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+              {(["all", "active", "expired", "inactive"] as EventStatusFilter[]).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={cn(
+                    "px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-full border transition-colors capitalize whitespace-nowrap",
+                    statusFilter === status
+                      ? "bg-sacred-green text-white border-sacred-green"
+                      : "bg-background hover:bg-muted border-border"
+                  )}
+                >
+                  {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}{" "}
+                  <span className="text-[10px] sm:text-xs opacity-75">({eventStatusCounts[status]})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Card>
             <CardContent className="p-0">
               {isLoading ? (
@@ -592,112 +657,136 @@ export default function AdminEventsPage() {
                 <div className="text-center py-16 text-destructive">
                   Failed to load events. Please try again.
                 </div>
-              ) : events.length === 0 ? (
+              ) : allEvents.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                   No events found. Create your first event!
                 </div>
+              ) : filteredEvents.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p>No events match your search or filters.</p>
+                  <button onClick={() => { setSearchQuery(""); setStatusFilter("all"); }} className="text-sm text-sacred-green hover:underline mt-1">
+                    Clear all filters
+                  </button>
+                </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Event</TableHead>
-                      <TableHead>Date & Time</TableHead>
-                      <TableHead>Venue</TableHead>
-                      <TableHead>Passes</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {events.map((event) => (
-                      <TableRow key={event.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            {event.imageUrl ? (
-                              <div className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
-                                <Image
-                                  src={event.imageUrl}
-                                  alt={event.title}
-                                  fill
-                                  className="object-cover"
-                                />
+                <>
+                  {/* Desktop Table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Event</TableHead>
+                          <TableHead>Date & Time</TableHead>
+                          <TableHead>Venue</TableHead>
+                          <TableHead>Passes</TableHead>
+                          <TableHead>Price</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredEvents.map((event) => (
+                          <TableRow key={event.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                {event.imageUrl ? (
+                                  <div className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
+                                    <Image src={event.imageUrl} alt={event.title} fill className="object-cover" />
+                                  </div>
+                                ) : (
+                                  <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                    <ImageIcon className="h-5 w-5 text-gray-400" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-medium">{event.title}</p>
+                                  {event.description && (
+                                    <p className="text-xs text-muted-foreground line-clamp-1">{event.description}</p>
+                                  )}
+                                </div>
                               </div>
-                            ) : (
-                              <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                <ImageIcon className="h-5 w-5 text-gray-400" />
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium">{event.title}</p>
-                              {event.description && (
-                                <p className="text-xs text-muted-foreground line-clamp-1">
-                                  {event.description}
-                                </p>
+                            </TableCell>
+                            <TableCell className="text-sm">{formatDateRange(event.startsAt, event.endsAt)}</TableCell>
+                            <TableCell>{event.venue}</TableCell>
+                            <TableCell>{event.passesIssued || 0}{event.capacity && `/${event.capacity}`}</TableCell>
+                            <TableCell>{formatPrice(event.pricePaise)}</TableCell>
+                            <TableCell>
+                              {event.isExpired && !event.active ? (
+                                <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600">Expired</Badge>
+                              ) : (
+                                <Badge variant={event.active ? "default" : "secondary"}>{event.active ? "Active" : "Inactive"}</Badge>
                               )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button variant="ghost" size="sm" onClick={() => setSelectedEventForPasses(event)} title="View Passes">
+                                  <QrCode className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate({ id: event.id, active: !event.active })} title={event.active ? "Deactivate" : "Activate"}>
+                                  {event.active ? <ToggleRight className="h-4 w-4 text-green-600" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleEdit(event)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Mobile Card Layout */}
+                  <div className="md:hidden divide-y">
+                    {filteredEvents.map((event) => (
+                      <div key={event.id} className="p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          {event.imageUrl ? (
+                            <div className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
+                              <Image src={event.imageUrl} alt={event.title} fill className="object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                              <ImageIcon className="h-6 w-6 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-sm truncate">{event.title}</p>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  {event.isExpired && !event.active ? (
+                                    <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 text-[10px] h-5">Expired</Badge>
+                                  ) : (
+                                    <Badge variant={event.active ? "default" : "secondary"} className="text-[10px] h-5">{event.active ? "Active" : "Inactive"}</Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-0.5 shrink-0">
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setSelectedEventForPasses(event)}>
+                                  <QrCode className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggleActiveMutation.mutate({ id: event.id, active: !event.active })}>
+                                  {event.active ? <ToggleRight className="h-4 w-4 text-green-600" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEdit(event)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatDateRange(event.startsAt, event.endsAt)}
-                        </TableCell>
-                        <TableCell>{event.venue}</TableCell>
-                        <TableCell>
-                          {event.passesIssued || 0}
-                          {event.capacity && `/${event.capacity}`}
-                        </TableCell>
-                        <TableCell>{formatPrice(event.pricePaise)}</TableCell>
-                        <TableCell>
-                          {event.isExpired && !event.active ? (
-                            <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600">
-                              Expired
-                            </Badge>
-                          ) : (
-                            <Badge variant={event.active ? "default" : "secondary"}>
-                              {event.active ? "Active" : "Inactive"}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setSelectedEventForPasses(event)}
-                              title="View Passes"
-                            >
-                              <QrCode className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                toggleActiveMutation.mutate({
-                                  id: event.id,
-                                  active: !event.active,
-                                })
-                              }
-                              title={event.active ? "Deactivate" : "Activate"}
-                            >
-                              {event.active ? (
-                                <ToggleRight className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <ToggleLeft className="h-4 w-4 text-muted-foreground" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(event)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-muted-foreground pl-0.5">
+                          <div><span className="font-medium text-foreground">Date:</span> {formatDateRange(event.startsAt, event.endsAt)}</div>
+                          <div><span className="font-medium text-foreground">Venue:</span> {event.venue}</div>
+                          <div><span className="font-medium text-foreground">Passes:</span> {event.passesIssued || 0}{event.capacity ? `/${event.capacity}` : ""}</div>
+                          <div><span className="font-medium text-foreground">Price:</span> {formatPrice(event.pricePaise)}</div>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -716,7 +805,7 @@ export default function AdminEventsPage() {
               <div className="space-y-4">
                 {/* Event Selection */}
                 <div className="flex flex-wrap gap-2">
-                  {events.map((event) => (
+                  {allEvents.map((event) => (
                     <Button
                       key={event.id}
                       variant={selectedEventForPasses?.id === event.id ? "default" : "outline"}

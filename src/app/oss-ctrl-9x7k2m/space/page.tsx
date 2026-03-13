@@ -274,35 +274,35 @@ export default function AdminSpacePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Space Requests</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl sm:text-3xl font-bold">Space Requests</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Review and manage space booking requests
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-orange-600">{pendingRequests.length}</div>
-            <p className="text-sm text-muted-foreground">Pending Review</p>
+          <CardContent className="p-3 sm:pt-6 sm:p-6">
+            <div className="text-lg sm:text-2xl font-bold text-orange-600">{pendingRequests.length}</div>
+            <p className="text-[10px] sm:text-sm text-muted-foreground leading-tight">Pending Review</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-blue-600">{approvedRequests.length}</div>
-            <p className="text-sm text-muted-foreground">Awaiting Payment</p>
+          <CardContent className="p-3 sm:pt-6 sm:p-6">
+            <div className="text-lg sm:text-2xl font-bold text-blue-600">{approvedRequests.length}</div>
+            <p className="text-[10px] sm:text-sm text-muted-foreground leading-tight">Awaiting Payment</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">
+          <CardContent className="p-3 sm:pt-6 sm:p-6">
+            <div className="text-lg sm:text-2xl font-bold text-green-600">
               {requests.filter((r) => r.status === "CONFIRMED").length}
             </div>
-            <p className="text-sm text-muted-foreground">Confirmed</p>
+            <p className="text-[10px] sm:text-sm text-muted-foreground leading-tight">Confirmed</p>
           </CardContent>
         </Card>
       </div>

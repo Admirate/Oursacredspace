@@ -16,6 +16,7 @@ import {
   X,
   Image as ImageIcon,
   Repeat,
+  Search,
 } from "lucide-react";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
@@ -177,6 +178,9 @@ type ClassFormData = z.infer<typeof classFormSchema>;
 
 // ─── Page Component ──────────────────────────────────────
 
+type StatusFilter = "all" | "active" | "inactive" | "expired";
+type TypeFilter = "all" | "recurring" | "one-time";
+
 export default function AdminClassesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassSession | null>(null);
@@ -185,6 +189,9 @@ export default function AdminClassesPage() {
   const [unlimitedCapacity, setUnlimitedCapacity] = useState(false);
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -318,19 +325,46 @@ export default function AdminClassesPage() {
   const updateTimeSlot = (i: number, field: keyof TimeSlot, value: string) =>
     setTimeSlots((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
 
-  const classes: any[] = data?.data || [];
+  const allClasses: any[] = data?.data || [];
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  const filteredClasses = allClasses.filter((c) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (query) {
+      const matchesTitle = c.title?.toLowerCase().includes(query);
+      const matchesDesc = c.description?.toLowerCase().includes(query);
+      const matchesInstructor = c.instructor?.toLowerCase().includes(query);
+      const matchesLocation = c.location?.toLowerCase().includes(query);
+      if (!matchesTitle && !matchesDesc && !matchesInstructor && !matchesLocation) return false;
+    }
+
+    if (statusFilter === "active" && !c.active) return false;
+    if (statusFilter === "inactive" && (c.active || c.isExpired)) return false;
+    if (statusFilter === "expired" && !(c.isExpired && !c.active)) return false;
+
+    if (typeFilter === "recurring" && !c.isRecurring) return false;
+    if (typeFilter === "one-time" && c.isRecurring) return false;
+
+    return true;
+  });
+
+  const statusCounts = {
+    all: allClasses.length,
+    active: allClasses.filter((c) => c.active).length,
+    inactive: allClasses.filter((c) => !c.active && !c.isExpired).length,
+    expired: allClasses.filter((c) => c.isExpired && !c.active).length,
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Classes</h1>
-          <p className="text-muted-foreground">Manage class sessions and workshops</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Classes</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage class sessions and workshops</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => !open && handleDialogClose()}>
           <DialogTrigger asChild>
-            <Button onClick={() => { handleDialogClose(); setIsDialogOpen(true); }}>
+            <Button onClick={() => { handleDialogClose(); setIsDialogOpen(true); }} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> Add Class
             </Button>
           </DialogTrigger>
@@ -526,6 +560,63 @@ export default function AdminClassesPage() {
         </Dialog>
       </div>
 
+      {/* Search & Filters */}
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by title, description, instructor, or location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10 text-sm sm:text-base"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            {(["all", "active", "expired", "inactive"] as StatusFilter[]).map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={cn(
+                  "px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-full border transition-colors capitalize whitespace-nowrap",
+                  statusFilter === status
+                    ? "bg-sacred-green text-white border-sacred-green"
+                    : "bg-background hover:bg-muted border-border"
+                )}
+              >
+                {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}{" "}
+                <span className="text-[10px] sm:text-xs opacity-75">({statusCounts[status]})</span>
+              </button>
+            ))}
+          </div>
+          <div className="h-px w-full sm:h-5 sm:w-px bg-border" />
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            {(["all", "recurring", "one-time"] as TypeFilter[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => setTypeFilter(type)}
+                className={cn(
+                  "px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-full border transition-colors whitespace-nowrap",
+                  typeFilter === type
+                    ? "bg-sacred-burgundy text-white border-sacred-burgundy"
+                    : "bg-background hover:bg-muted border-border"
+                )}
+              >
+                {type === "all" ? "All Types" : type === "recurring" ? "Recurring" : "One-time"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Table */}
       <Card>
         <CardContent className="p-0">
@@ -533,75 +624,138 @@ export default function AdminClassesPage() {
             <div className="flex items-center justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
           ) : error ? (
             <div className="text-center py-16 text-destructive">Failed to load classes. Please try again.</div>
-          ) : classes.length === 0 ? (
+          ) : allClasses.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">No classes found. Create your first class!</div>
+          ) : filteredClasses.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p>No classes match your search or filters.</p>
+              <button onClick={() => { setSearchQuery(""); setStatusFilter("all"); setTypeFilter("all"); }} className="text-sm text-sacred-green hover:underline mt-1">
+                Clear all filters
+              </button>
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Schedule</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Capacity</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {classes.map((classItem) => (
-                  <TableRow key={classItem.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        {classItem.imageUrl ? (
-                          <div className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
-                            <Image src={classItem.imageUrl} alt={classItem.title} fill className="object-cover" />
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Class</TableHead>
+                      <TableHead>Schedule</TableHead>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Capacity</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClasses.map((classItem) => (
+                      <TableRow key={classItem.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {classItem.imageUrl ? (
+                              <div className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
+                                <Image src={classItem.imageUrl} alt={classItem.title} fill className="object-cover" />
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                <ImageIcon className="h-5 w-5 text-gray-400" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium">{classItem.title}</p>
+                              {classItem.isRecurring && (
+                                <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">Recurring</span>
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0">
-                            <ImageIcon className="h-5 w-5 text-gray-400" />
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-medium">{classItem.title}</p>
-                          {classItem.isRecurring && (
-                            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">Recurring</span>
+                        </TableCell>
+                        <TableCell className="text-sm">{formatScheduleColumn(classItem)}</TableCell>
+                        <TableCell className="text-sm">{formatTimeSlotsColumn(classItem)}</TableCell>
+                        <TableCell>
+                          {classItem.capacity === null || classItem.capacity === undefined
+                            ? <span className="text-muted-foreground text-xs">Unlimited</span>
+                            : `${classItem.spotsBooked}/${classItem.capacity}`}
+                        </TableCell>
+                        <TableCell>
+                          {formatPrice(classItem.pricePaise)}
+                          <span className="text-xs text-muted-foreground">
+                            {classItem.pricingType === "PER_MONTH" ? "/mo" : "/session"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {classItem.isExpired && !classItem.active ? (
+                            <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600">Expired</Badge>
+                          ) : (
+                            <Badge variant={classItem.active ? "default" : "secondary"}>{classItem.active ? "Active" : "Inactive"}</Badge>
                           )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate({ id: classItem.id, active: !classItem.active })} title={classItem.active ? "Deactivate" : "Activate"}>
+                              {classItem.active ? <ToggleRight className="h-4 w-4 text-green-600" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(classItem)}><Edit className="h-4 w-4" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card Layout */}
+              <div className="md:hidden divide-y">
+                {filteredClasses.map((classItem) => (
+                  <div key={classItem.id} className="p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      {classItem.imageUrl ? (
+                        <div className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image src={classItem.imageUrl} alt={classItem.title} fill className="object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <ImageIcon className="h-6 w-6 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm truncate">{classItem.title}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {classItem.isRecurring && (
+                                <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">Recurring</span>
+                              )}
+                              {classItem.isExpired && !classItem.active ? (
+                                <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 text-[10px] h-5">Expired</Badge>
+                              ) : (
+                                <Badge variant={classItem.active ? "default" : "secondary"} className="text-[10px] h-5">{classItem.active ? "Active" : "Inactive"}</Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-0.5 shrink-0">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggleActiveMutation.mutate({ id: classItem.id, active: !classItem.active })}>
+                              {classItem.active ? <ToggleRight className="h-4 w-4 text-green-600" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEdit(classItem)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm">{formatScheduleColumn(classItem)}</TableCell>
-                    <TableCell className="text-sm">{formatTimeSlotsColumn(classItem)}</TableCell>
-                    <TableCell>
-                      {classItem.capacity === null || classItem.capacity === undefined
-                        ? <span className="text-muted-foreground text-xs">Unlimited</span>
-                        : `${classItem.spotsBooked}/${classItem.capacity}`}
-                    </TableCell>
-                    <TableCell>
-                      {formatPrice(classItem.pricePaise)}
-                      <span className="text-xs text-muted-foreground">
-                        {classItem.pricingType === "PER_MONTH" ? "/mo" : "/session"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {classItem.isExpired && !classItem.active ? (
-                        <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600">Expired</Badge>
-                      ) : (
-                        <Badge variant={classItem.active ? "default" : "secondary"}>{classItem.active ? "Active" : "Inactive"}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate({ id: classItem.id, active: !classItem.active })} title={classItem.active ? "Deactivate" : "Activate"}>
-                          {classItem.active ? <ToggleRight className="h-4 w-4 text-green-600" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(classItem)}><Edit className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-muted-foreground pl-0.5">
+                      <div><span className="font-medium text-foreground">Schedule:</span> {formatScheduleColumn(classItem)}</div>
+                      <div><span className="font-medium text-foreground">Time:</span> {formatTimeSlotsColumn(classItem)}</div>
+                      <div><span className="font-medium text-foreground">Capacity:</span> {classItem.capacity == null ? "Unlimited" : `${classItem.spotsBooked}/${classItem.capacity}`}</div>
+                      <div><span className="font-medium text-foreground">Price:</span> {formatPrice(classItem.pricePaise)}{classItem.pricingType === "PER_MONTH" ? "/mo" : "/session"}</div>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
