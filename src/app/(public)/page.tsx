@@ -353,7 +353,7 @@ export default function HomePage() {
 
         <div className="container px-4 flex justify-center">
           <div className="relative w-full max-w-[1414px]">
-            <div className="relative px-4 sm:px-6 md:px-12 lg:px-16 py-8 md:py-16 lg:py-20">
+            <div className="relative px-4 sm:px-6 md:px-12 lg:px-16 pt-8 md:pt-16 lg:pt-20 pb-0">
              
               <div className="max-w-[760px] space-y-8 mb-10 md:mb-14">
                 {/* Vision */}
@@ -388,7 +388,7 @@ export default function HomePage() {
 
               {/* Image card */}
               <div className="relative z-10 w-full max-w-[762px]">
-                <div className="relative overflow-hidden rounded-t-[24px] md:rounded-t-[40px] shadow-xl aspect-[762/455] group cursor-pointer transition-shadow duration-500 mb-3 hover:shadow-2xl">
+                <div className="relative overflow-hidden rounded-t-[24px] md:rounded-t-[40px] shadow-xl aspect-[3/4] sm:aspect-[4/3] md:aspect-[762/455] group cursor-pointer transition-shadow duration-500 hover:shadow-2xl">
                   <img
                     src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/whoWeAre.png"
                     alt="Who we are"
@@ -396,17 +396,17 @@ export default function HomePage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
-                  <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8">
-                    <h2 className="text-xl md:text-2xl font-semibold text-white mb-2">
+                  <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-6 md:p-8">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-white mb-2">
                       Who We Are
                     </h2>
-                    <p className="text-white/90 text-xs md:text-sm leading-relaxed max-w-md">
+                    <p className="text-white/90 text-xs sm:text-sm leading-relaxed max-w-md">
                       We are a cultural and community centre based in
                       Secunderabad. Founded in 2012, we bring together art,
                       wellness, learning and environmental awareness in one
                       shared space.
                     </p>
-                    <p className="text-white/90 text-xs md:text-sm leading-relaxed max-w-md">
+                    <p className="text-white/90 text-xs sm:text-sm leading-relaxed max-w-md">
                       We host dance music workshops conversations markets and
                       gatherings that encourage creative expression and
                       conscious living.
@@ -422,7 +422,7 @@ export default function HomePage() {
       {/* Our Offerings Section */}
       <section
         ref={offeringsSection.ref as React.RefObject<HTMLElement>}
-        className={`relative bg-[#FFE5EC] rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10 transition-all duration-1000 ease-out ${
+        className={`relative bg-[#FFE5EC] rounded-t-[24px] md:rounded-t-[40px] -mt-2 md:-mt-4 z-10 transition-all duration-1000 ease-out ${
           offeringsSection.isInView
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-12"

@@ -19,6 +19,12 @@ import type { Event } from "@/types";
 // Video URL from Supabase Storage
 const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/classicaldance.mp4";
 
+const COLLABORATOR_IMAGES = [
+  "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventImg-2.png",
+  "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/event_new_image_2.png",
+  "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/event_page_new.png",
+];
+
 // Custom hook for intersection observer animations
 const useInView = (threshold = 0.1) => {
   const ref = useRef<HTMLElement>(null);
@@ -418,11 +424,10 @@ export default function EventsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [collaboratorImgIndex, setCollaboratorImgIndex] = useState(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const eventsSection = useInView(0.1);
-  const communitySection = useInView(0.1);
-  const visitSection = useInView(0.1);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["events"],
@@ -445,6 +450,13 @@ export default function EventsPage() {
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCollaboratorImgIndex((prev) => (prev + 1) % COLLABORATOR_IMAGES.length);
+    }, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   const form = useForm<BookingFormData>({
@@ -761,14 +773,18 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              {/* RIGHT IMAGE */}
+              {/* RIGHT IMAGE CAROUSEL */}
               <div className="relative flex justify-center md:justify-end">
                 <div className="relative w-full max-w-[520px] h-[300px] md:h-[380px] rounded-[28px] md:rounded-[36px] overflow-hidden">
-                  <img
-                    src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventImg-2.png"
-                    alt="collaborators"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
+                  {COLLABORATOR_IMAGES.map((src, i) => (
+                    <img
+                      key={src + i}
+                      src={src}
+                      alt={`collaborators ${i + 1}`}
+                      className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
+                      style={{ opacity: collaboratorImgIndex === i ? 1 : 0 }}
+                    />
+                  ))}
                   <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
                 </div>
               </div>
@@ -777,100 +793,6 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* Community and Culture Section */}
-      <section
-        ref={communitySection.ref as React.RefObject<HTMLElement>}
-        className="bg-white py-10 sm:py-12 md:py-16 lg:py-20"
-      >
-        <div className="container md:px-32 px-4 sm:px-6">
-          <div
-            className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-            style={{
-              opacity: communitySection.isInView ? 1 : 0,
-              transform: communitySection.isInView
-                ? "translateY(0)"
-                : "translateY(30px)",
-            }}
-          >
-            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">
-              Community and Culture
-            </h2>
-            <p
-              className="text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
-              style={{
-                opacity: communitySection.isInView ? 1 : 0,
-                transform: communitySection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transitionDelay: "200ms",
-              }}
-            >
-              We support local makers, organic markets, children-focused spaces
-              and environmental initiatives. Everything we do is built around
-              people&apos;s craft and care for nature.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Visit Us Section */}
-      <section
-        ref={visitSection.ref as React.RefObject<HTMLElement>}
-        className="bg-white pb-12 sm:pb-16 md:pb-20 lg:pb-24"
-      >
-        <div className="container md:px-32 px-4 sm:px-6">
-          <div
-            className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-            style={{
-              opacity: visitSection.isInView ? 1 : 0,
-              transform: visitSection.isInView
-                ? "translateY(0)"
-                : "translateY(30px)",
-            }}
-          >
-            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 sm:mb-3">
-              Visit Us{" "}
-              <span className="inline-block mb-2 mx-1">
-                <img
-                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
-                  alt="visit"
-                  className="lg:w-5 lg:h-8 md:w-4 md:h-7 w-3 h-5 mb-1 inline-block"
-                />
-              </span>{" "}
-              Also
-            </h2>
-            <p
-              className="text-xs sm:text-sm md:text-base text-gray-600 font-light md:mb-8 mb-5 sm:mb-6 transition-all duration-700"
-              style={{
-                opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transitionDelay: "150ms",
-              }}
-            >
-              Come for a class, host an event or spend time in the space.
-            </p>
-            <div
-              style={{
-                opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transition: "all 0.7s ease-out",
-                transitionDelay: "300ms",
-              }}
-            >
-              <MagneticButton
-                className="w-full sm:w-auto px-5 sm:px-6 py-3.5 sm:py-3 bg-[#C23536] hover:bg-[#a33a2d] text-white text-xs sm:text-sm font-medium rounded-3xl transition-all duration-200 hover:shadow-xl hover:shadow-gray-800/30 flex items-center justify-center gap-2 group"
-                onClick={() => (window.location.href = "/contact")}
-              >
-                Contact Us
-              </MagneticButton>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Booking Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>

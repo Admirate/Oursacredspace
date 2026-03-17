@@ -488,8 +488,6 @@ export default function ClassesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const classesSection = useInView(0.1);
-  const communitySection = useInView(0.1);
-  const visitSection = useInView(0.1);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["classes"],
@@ -613,25 +611,12 @@ export default function ClassesPage() {
       {/* Classes Content Section */}
       <section
         ref={classesSection.ref as React.RefObject<HTMLElement>}
-        className={`relative bg-white rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10 transition-all duration-1000 ease-out ${
+        className={`relative bg-[#D2E3A1] rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10 transition-all duration-1000 ease-out ${
           classesSection.isInView
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-12"
         }`}
       >
-        {/* Decorative Rotating Mandala Background */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          <div className="relative w-[500px] h-[500px] md:w-[600px] md:h-[600px] animate-spin-slow">
-            <Image
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/wheel.png"
-              alt=""
-              aria-hidden="true"
-              fill
-              sizes="(max-width: 768px) 500px, 600px"
-              className="object-contain opacity-20"
-            />
-          </div>
-        </div>
 
         <div className="container relative py-12 md:py-16 lg:py-20">
           {/* Error State */}
@@ -693,99 +678,6 @@ export default function ClassesPage() {
         </div>
       </section>
 
-      {/* Community and Culture Section */}
-      <section
-        ref={communitySection.ref as React.RefObject<HTMLElement>}
-        className="bg-white py-10 sm:py-12 md:py-16 lg:py-20"
-      >
-        <div className="container px-4 sm:px-6">
-          <div
-            className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-            style={{
-              opacity: communitySection.isInView ? 1 : 0,
-              transform: communitySection.isInView
-                ? "translateY(0)"
-                : "translateY(30px)",
-            }}
-          >
-            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">
-              Community and Culture
-            </h2>
-            <p
-              className="text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
-              style={{
-                opacity: communitySection.isInView ? 1 : 0,
-                transform: communitySection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transitionDelay: "200ms",
-              }}
-            >
-              We support local makers, organic markets, children-focused spaces
-              and environmental initiatives. Everything we do is built around
-              people&apos;s craft and care for nature.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Visit Us Section */}
-      <section
-        ref={visitSection.ref as React.RefObject<HTMLElement>}
-        className="bg-white pb-12 sm:pb-16 md:pb-20 lg:pb-24"
-      >
-        <div className="container px-4 sm:px-6">
-          <div
-            className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-            style={{
-              opacity: visitSection.isInView ? 1 : 0,
-              transform: visitSection.isInView
-                ? "translateY(0)"
-                : "translateY(30px)",
-            }}
-          >
-            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 sm:mb-3">
-              Visit Us{" "}
-              <span className=" inline-block mb-2 mx-1">
-                <img
-                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
-                  alt="visit"
-                  className="md:w-6 md:h-8 w-3 h-5 mb-1 inline-block"
-                />
-              </span>{" "}
-              Also
-            </h2>
-            <p
-              className="text-xs sm:text-sm md:text-base text-gray-600 font-light mb-5 sm:mb-6 transition-all duration-700"
-              style={{
-                opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transitionDelay: "150ms",
-              }}
-            >
-              Come for a class, host an event or spend time in the space.
-            </p>
-            <div
-              style={{
-                opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transition: "all 0.7s ease-out",
-                transitionDelay: "300ms",
-              }}
-            >
-              <Link href="/contact">
-                <Button className="group bg-[#c44536] hover:bg-[#a33a2d] text-white rounded-full px-6 md:px-8 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-[#c44536]/25 active:scale-95 relative overflow-hidden">
-                  Contact Us
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Booking Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>

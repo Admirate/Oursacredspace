@@ -227,8 +227,6 @@ export default function ContactPage() {
   const contentSection = useInView(0.1);
   const formSection = useInView(0.1);
   const mapSection = useInView(0.1);
-  const communitySection = useInView(0.2);
-  const visitSection = useInView(0.2);
 
   // Trigger hero animations on mount
   useEffect(() => {
@@ -318,7 +316,8 @@ export default function ContactPage() {
         {/* rounded main box */}
         <div className="w-full relative z-10 overflow-hidden">
           {/* main rounded box */}
-          <div className="px-6 md:px-12 lg:px-16 py-16 md:py-24">
+          <div className="container px-4 flex justify-center">
+          <div className="w-full max-w-[1414px] px-6 md:px-12 lg:px-16 py-16 md:py-24">
             {/* top info */}
             <div className="space-y-6 md:space-y-8 max-w-xl">
               <div>
@@ -385,13 +384,14 @@ export default function ContactPage() {
               </div>
             </div>
           </div>
+          </div>
         </div>
       </section>
 
       <section className="relative bg-[#FFE5EC] -mt-8 md:-mt-10 z-10 rounded-t-[32px] md:rounded-t-[48px] overflow-hidden">
         {/* Form */}
         <div className="bg-[#FFE5EC] py-12 md:py-16">
-          <div className="max-w-5xl mx-auto px-6 md:px-12">
+          <div className="max-w-[1414px] mx-auto px-6 md:px-12 lg:px-16">
             {/* title */}
             <h2 className="text-center text-lg md:text-xl font-medium mb-10">
               Send an Enquiry
@@ -429,105 +429,6 @@ export default function ContactPage() {
         </div>
       </section>
       
-      {/* Community and Culture Section */}
-      <section className="relative bg-white py-10 sm:py-12 md:py-16 lg:py-20">
-        <div className="container px-4 sm:px-6 relative ">
-          <img
-            src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree-1.png"
-            alt="tree"
-            className="hidden md:block absolute right-0 top-10 w-[380px] lg:w-[450px] xl:w-[520px] opacity-20 pointer-events-none select-none"
-            aria-hidden="true"
-          />
-          {/* Community and Culture */}
-          <div
-            ref={communitySection.ref as React.RefObject<HTMLDivElement>}
-            className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-            style={{
-              opacity: communitySection.isInView ? 1 : 0,
-              transform: communitySection.isInView
-                ? "translateY(0)"
-                : "translateY(30px)",
-            }}
-          >
-            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">
-              Community and Culture
-            </h2>
-
-            <p
-              className="text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
-              style={{
-                opacity: communitySection.isInView ? 1 : 0,
-                transform: communitySection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transitionDelay: "200ms",
-              }}
-            >
-              We support local makers, organic markets, children-focused spaces
-              and environmental initiatives. Everything we do is built around
-              people&apos;s craft and care for nature.
-            </p>
-          </div>
-
-          {/* spacing between two blocks */}
-          <div className="h-10 md:h-14 lg:h-16" />
-
-          {/* Visit Us */}
-          <div
-            ref={visitSection.ref as React.RefObject<HTMLDivElement>}
-            className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-            style={{
-              opacity: visitSection.isInView ? 1 : 0,
-              transform: visitSection.isInView
-                ? "translateY(0)"
-                : "translateY(30px)",
-            }}
-          >
-            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 sm:mb-3">
-              Visit Us{" "}
-              <span className="inline-block mb-2 mx-1">
-                <img
-                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
-                  alt="visit"
-                  className="lg:w-5 lg:h-8 md:w-4 md:h-7 w-3 h-5 mb-1 inline-block"
-                />
-              </span>{" "}
-              Also
-            </h2>
-
-            <p
-              className="text-xs sm:text-sm md:text-base text-gray-600 font-light mb-5 sm:mb-6 transition-all duration-700"
-              style={{
-                opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transitionDelay: "150ms",
-              }}
-            >
-              Come for a class, host an event or spend time in the space.
-            </p>
-
-            <div
-              style={{
-                opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transition: "all 0.7s ease-out",
-                transitionDelay: "300ms",
-              }}
-            >
-              <RippleButton
-                href="/contact"
-                className="inline-flex items-center justify-center w-full sm:w-auto px-5 sm:px-6 py-3 sm:py-3 bg-[#c44536] hover:bg-[#a33a2d] text-white text-xs sm:text-sm font-medium rounded-3xl transition-all duration-200 hover:shadow-lg hover:scale-105"
-              >
-                Contact Us
-              </RippleButton>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

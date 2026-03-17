@@ -115,8 +115,6 @@ export default function InitiativesPage() {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   
-  const communitySection = useInView(0.1);
-  const visitSection = useInView(0.1);
 
   useEffect(() => {
     const timer = setTimeout(() => setHeroLoaded(true), 100);
@@ -251,109 +249,6 @@ export default function InitiativesPage() {
         </div>
       </section>
 
-      {/* White Content Section with Rounded Top Corners */}
-      <section className="relative bg-white rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10">
-        {/* Community and Culture Section */}
-        <section className="relative bg-white py-10 sm:py-12 md:py-16 lg:py-20 overflow-hidden">
-          <div className="container px-4 sm:px-6 relative ">
-            <img
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree.png"
-              alt="tree"
-              className="absolute lg:-bottom-80 md:-bottom-56 bottom-[-260px] lg:right-32 md:-right-12 -right-20 w-[420px]
-            xl:w-[520px] h-auto object-contain opacity-20 pointer-events-none select-none"
-              aria-hidden="true"
-            />
-            {/* Community and Culture */}
-            <div
-              ref={communitySection.ref as React.RefObject<HTMLDivElement>}
-              className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-              style={{
-                opacity: communitySection.isInView ? 1 : 0,
-                transform: communitySection.isInView
-                  ? "translateY(0)"
-                  : "translateY(30px)",
-              }}
-            >
-              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">
-                Community and Culture
-              </h2>
-
-              <p
-                className="text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
-                style={{
-                  opacity: communitySection.isInView ? 1 : 0,
-                  transform: communitySection.isInView
-                    ? "translateY(0)"
-                    : "translateY(20px)",
-                  transitionDelay: "200ms",
-                }}
-              >
-                We support local makers, organic markets, children-focused
-                spaces and environmental initiatives. Everything we do is built
-                around people&apos;s craft and care for nature.
-              </p>
-            </div>
-
-            {/* spacing between two blocks */}
-            <div className="h-10 md:h-14 lg:h-16" />
-
-            {/* Visit Us */}
-            <div
-              ref={visitSection.ref as React.RefObject<HTMLDivElement>}
-              className="max-w-sm sm:max-w-md md:max-w-xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-              style={{
-                opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView
-                  ? "translateY(0)"
-                  : "translateY(30px)",
-              }}
-            >
-              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 sm:mb-3">
-                Visit Us{" "}
-                <span className="inline-block mb-2 mx-1">
-                  <img
-                    src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
-                    alt="visit"
-                    className="lg:w-5 lg:h-8 md:w-4 md:h-7 w-3 h-5 mb-1 inline-block"
-                  />
-                </span>{" "}
-                Also
-              </h2>
-
-              <p
-                className="text-xs sm:text-sm md:text-base text-gray-600 font-light mb-5 sm:mb-6 transition-all duration-700"
-                style={{
-                  opacity: visitSection.isInView ? 1 : 0,
-                  transform: visitSection.isInView
-                    ? "translateY(0)"
-                    : "translateY(20px)",
-                  transitionDelay: "150ms",
-                }}
-              >
-                Come for a class, host an event or spend time in the space.
-              </p>
-
-              <div
-                style={{
-                  opacity: visitSection.isInView ? 1 : 0,
-                  transform: visitSection.isInView
-                    ? "translateY(0)"
-                    : "translateY(20px)",
-                  transition: "all 0.7s ease-out",
-                  transitionDelay: "300ms",
-                }}
-              >
-                <RippleButton
-                  href="contact"
-                  className="inline-flex items-center justify-center w-full sm:w-auto px-5 sm:px-6 py-3 sm:py-3 bg-[#c44536] hover:bg-[#a33a2d] text-white text-xs sm:text-sm font-medium rounded-3xl transition-all duration-200 hover:shadow-lg hover:scale-105"
-                >
-                  Contact Us
-                </RippleButton>
-              </div>
-            </div>
-          </div>
-        </section>
-      </section>
     </div>
   );
 }

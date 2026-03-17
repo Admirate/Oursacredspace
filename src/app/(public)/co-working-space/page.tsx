@@ -158,8 +158,6 @@ const MagneticButton = ({
 export default function CoWorkingSpacePage() {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const communitySection = useInView(0.1);
-  const visitSection = useInView(0.1);
 
   // Trigger hero animations on mount
   useEffect(() => {
@@ -310,100 +308,6 @@ export default function CoWorkingSpacePage() {
         </div>
       </section>
 
-      {/* Community and Culture Section */}
-      <section
-        ref={communitySection.ref as React.RefObject<HTMLElement>}
-        className="bg-white py-8 xs:py-10 sm:py-12 md:py-16 lg:py-20 rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 relative z-10"
-      >
-        <div className="container px-4 xs:px-5 sm:px-6">
-          <div
-            className="max-w-[280px] xs:max-w-sm sm:max-w-md md:max-w-xl lg:max-w-2xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-            style={{
-              opacity: communitySection.isInView ? 1 : 0,
-              transform: communitySection.isInView
-                ? "translateY(0)"
-                : "translateY(30px)",
-            }}
-          >
-            <h2 className="text-base xs:text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-2 xs:mb-3 sm:mb-4">
-              Community and Culture
-            </h2>
-            <p
-              className="text-[11px] xs:text-xs sm:text-sm md:text-base text-gray-600 font-light leading-relaxed transition-all duration-700"
-              style={{
-                opacity: communitySection.isInView ? 1 : 0,
-                transform: communitySection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transitionDelay: "200ms",
-              }}
-            >
-              We support local makers, organic markets, children-focused spaces
-              and environmental initiatives. Everything we do is built around
-              people&apos;s craft and care for nature.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Visit Us Section */}
-      <section
-        ref={visitSection.ref as React.RefObject<HTMLElement>}
-        className="bg-white pb-10 xs:pb-12 sm:pb-16 md:pb-20 lg:pb-24"
-      >
-        <div className="container px-4 xs:px-5 sm:px-6">
-          <div
-            className="max-w-[280px] xs:max-w-sm sm:max-w-md md:max-w-xl lg:max-w-2xl mx-auto text-center md:text-left md:mx-0 transition-all duration-700"
-            style={{
-              opacity: visitSection.isInView ? 1 : 0,
-              transform: visitSection.isInView
-                ? "translateY(0)"
-                : "translateY(30px)",
-            }}
-          >
-            <h2 className="text-base xs:text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-1.5 xs:mb-2 sm:mb-3">
-              Visit Us{" "}
-              <span className="inline-block mb-2 mx-1">
-                <img
-                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visit.png"
-                  alt="visit"
-                  className="lg:w-5 lg:h-8 md:w-4 md:h-7 w-3 h-5 mb-1 inline-block"
-                />
-              </span>{" "}
-              Also
-            </h2>
-            <p
-              className="text-[11px] xs:text-xs sm:text-sm md:text-base text-gray-600 font-light mb-4 xs:mb-5 sm:mb-6 transition-all duration-700"
-              style={{
-                opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transitionDelay: "150ms",
-              }}
-            >
-              Come for a class, host an event or spend time in the space.
-            </p>
-            <div
-              style={{
-                opacity: visitSection.isInView ? 1 : 0,
-                transform: visitSection.isInView
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                transition: "all 0.7s ease-out",
-                transitionDelay: "300ms",
-              }}
-            >
-              <MagneticButton
-                className="w-full xs:w-auto px-4 xs:px-5 sm:px-6 py-2 xs:py-2.5 sm:py-3 bg-[#C23536] hover:bg-[#a33a2d] text-white text-[11px] xs:text-xs sm:text-sm font-medium rounded-3xl transition-all duration-200 hover:shadow-xl hover:shadow-sacred-burgundy/30 flex items-center justify-center gap-2 group"
-                onClick={() => (window.location.href = "/contact")}
-              >
-                Contact Us
-                 </MagneticButton>
-            </div>
-          </div>
-        </div>
-       </section>
     </div>
   );
 }
