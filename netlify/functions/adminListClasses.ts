@@ -25,12 +25,29 @@ export const handler: Handler = async (event) => {
 
   try {
     const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    // Auto-deactivate classes whose time has passed
+    // Auto-deactivate non-recurring classes whose time has passed,
+    // but only if they have NO endsAt set (or endsAt has also passed).
     await prisma.classSession.updateMany({
       where: {
         active: true,
-        startsAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        isRecurring: false,
+        startsAt: { lt: oneDayAgo },
+        OR: [
+          { endsAt: null },
+          { endsAt: { lt: now } },
+        ],
+      },
+      data: { active: false },
+    });
+
+    // Auto-deactivate recurring classes only when endsAt is set and has passed
+    await prisma.classSession.updateMany({
+      where: {
+        active: true,
+        isRecurring: true,
+        endsAt: { not: null, lt: now },
       },
       data: { active: false },
     });
@@ -45,7 +62,7 @@ export const handler: Handler = async (event) => {
     });
 
     const classesWithExpiry = classes.map((c) => {
-      const endTime = new Date(c.startsAt.getTime() + c.duration * 60 * 1000);
+      const endTime = c.endsAt || new Date(c.startsAt.getTime() + c.duration * 60 * 1000);
       return { ...c, isExpired: endTime < now };
     });
 

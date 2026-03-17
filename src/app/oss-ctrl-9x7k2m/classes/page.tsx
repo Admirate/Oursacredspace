@@ -167,6 +167,8 @@ const classFormSchema = z.object({
   description: z.string().optional(),
   startsAt: z.date().optional(),
   startsAtTime: z.string().optional(),
+  endsAt: z.date().optional(),
+  endsAtTime: z.string().optional(),
   duration: z.coerce.number().min(15, "Min 15 minutes"),
   capacity: z.coerce.number().min(0).optional().or(z.literal("")),
   pricePaise: z.coerce.number().min(0, "Price must be 0 or more"),
@@ -261,11 +263,20 @@ export default function AdminClassesPage() {
       startsAtISO = startsAt.toISOString();
     }
 
+    let endsAtISO: string | null = null;
+    if (data.endsAt) {
+      const [eH, eM] = (data.endsAtTime || "23:59").split(":").map(Number);
+      const endsAt = new Date(data.endsAt);
+      endsAt.setHours(eH, eM, 0, 0);
+      endsAtISO = endsAt.toISOString();
+    }
+
     const classData: any = {
       title: data.title,
       description: data.description || null,
       imageUrl: imageUrl,
       startsAt: startsAtISO,
+      endsAt: endsAtISO,
       duration: data.duration,
       capacity: unlimitedCapacity ? null : (data.capacity === "" ? null : Number(data.capacity)),
       pricePaise: data.pricePaise * 100,
@@ -290,11 +301,14 @@ export default function AdminClassesPage() {
     setRecurrenceDays(classItem.recurrenceDays || []);
     setTimeSlots((classItem.timeSlots as TimeSlot[]) || []);
     const startsAt = new Date(classItem.startsAt);
+    const endsAt = classItem.endsAt ? new Date(classItem.endsAt) : undefined;
     form.reset({
       title: classItem.title,
       description: classItem.description || "",
       startsAt: startsAt,
       startsAtTime: `${startsAt.getHours().toString().padStart(2, "0")}:${startsAt.getMinutes().toString().padStart(2, "0")}`,
+      endsAt: endsAt,
+      endsAtTime: endsAt ? `${endsAt.getHours().toString().padStart(2, "0")}:${endsAt.getMinutes().toString().padStart(2, "0")}` : undefined,
       duration: classItem.duration,
       capacity: classItem.capacity ?? "",
       pricePaise: classItem.pricePaise / 100,
@@ -547,6 +561,58 @@ export default function AdminClassesPage() {
                   )} />
                 )}
 
+                {/* End Date / Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="endsAt"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>End Date (optional)</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? format(field.value, "PPP") : "Pick end date"}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endsAtTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Time</FormLabel>
+                        <FormControl>
+                          <Input type="time" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 {/* Submit */}
                 <div className="flex gap-3 pt-4">
                   <Button type="button" variant="outline" className="flex-1" onClick={handleDialogClose}>Cancel</Button>
@@ -672,7 +738,14 @@ export default function AdminClassesPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">{formatScheduleColumn(classItem)}</TableCell>
+                        <TableCell className="text-sm">
+                          <div>{formatScheduleColumn(classItem)}</div>
+                          {classItem.endsAt && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              Ends: {new Date(classItem.endsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-sm">{formatTimeSlotsColumn(classItem)}</TableCell>
                         <TableCell>
                           {classItem.capacity === null || classItem.capacity === undefined
@@ -751,6 +824,9 @@ export default function AdminClassesPage() {
                       <div><span className="font-medium text-foreground">Time:</span> {formatTimeSlotsColumn(classItem)}</div>
                       <div><span className="font-medium text-foreground">Capacity:</span> {classItem.capacity == null ? "Unlimited" : `${classItem.spotsBooked}/${classItem.capacity}`}</div>
                       <div><span className="font-medium text-foreground">Price:</span> {formatPrice(classItem.pricePaise)}{classItem.pricingType === "PER_MONTH" ? "/mo" : "/session"}</div>
+                      {classItem.endsAt && (
+                        <div className="col-span-2"><span className="font-medium text-foreground">Ends:</span> {new Date(classItem.endsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
+                      )}
                     </div>
                   </div>
                 ))}

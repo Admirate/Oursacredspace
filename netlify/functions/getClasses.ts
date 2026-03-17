@@ -34,8 +34,9 @@ export const handler: Handler = async (event) => {
             active: true,
             deletedAt: null,
             OR: [
-              { isRecurring: true },
+              { isRecurring: true, OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] },
               { startsAt: { gte: new Date() } },
+              { endsAt: { gte: new Date() } },
             ],
           },
       orderBy: { startsAt: "asc" },
