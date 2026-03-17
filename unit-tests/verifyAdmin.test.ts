@@ -52,6 +52,7 @@ describe("verifyAdminSession", () => {
   it("returns invalid and cleans up when session is expired", async () => {
     const token = "b".repeat(64);
     (prisma.adminSession.findUnique as jest.Mock).mockResolvedValue({
+      id: "session-expired-1",
       token,
       email: "admin@test.com",
       expiresAt: new Date(Date.now() - 1000),
@@ -62,7 +63,7 @@ describe("verifyAdminSession", () => {
     expect(result.isValid).toBe(false);
     expect(result.error).toBe("Session expired");
     expect(prisma.adminSession.delete).toHaveBeenCalledWith({
-      where: { token },
+      where: { id: "session-expired-1" },
     });
   });
 
