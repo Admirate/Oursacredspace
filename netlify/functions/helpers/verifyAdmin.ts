@@ -1,6 +1,6 @@
 import { HandlerEvent } from "@netlify/functions";
 import { prisma } from "./prisma";
-import { getSecureAdminHeaders, hashToken } from "./security";
+import { getSecureAdminHeaders, hashToken, logSecurityEvent } from "./security";
 
 export interface AdminVerifyResult {
   isValid: boolean;
@@ -35,6 +35,26 @@ export const verifyAdminSession = async (
   event: HandlerEvent
 ): Promise<AdminVerifyResult> => {
   try {
+    const method = event.httpMethod.toUpperCase();
+
+    // SECURITY: CSRF double-submit cookie check for all state-changing requests
+    if (method !== "GET" && method !== "OPTIONS") {
+      const csrfHeader = event.headers["x-csrf-token"];
+      const csrfCookie = event.headers.cookie
+        ?.split(";")
+        .find((c) => c.trim().startsWith("csrf_token="))
+        ?.split("=")[1]
+        ?.trim();
+
+      if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
+        logSecurityEvent("AUTH_FAILURE", {
+          ip: event.headers["x-forwarded-for"] || "unknown",
+          reason: "csrf_mismatch",
+        });
+        return { isValid: false, error: "CSRF validation failed" };
+      }
+    }
+
     const token = parseAdminToken(event.headers.cookie);
 
     if (!token) {

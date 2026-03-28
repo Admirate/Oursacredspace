@@ -32,6 +32,7 @@ export const handler: Handler = async (event) => {
     await prisma.classSession.updateMany({
       where: {
         active: true,
+        deletedAt: null,
         isRecurring: false,
         startsAt: { lt: oneDayAgo },
         OR: [
@@ -46,6 +47,7 @@ export const handler: Handler = async (event) => {
     await prisma.classSession.updateMany({
       where: {
         active: true,
+        deletedAt: null,
         isRecurring: true,
         endsAt: { not: null, lt: now },
       },
@@ -53,6 +55,7 @@ export const handler: Handler = async (event) => {
     });
 
     const classes = await prisma.classSession.findMany({
+      where: { deletedAt: null },
       orderBy: { startsAt: "desc" },
       include: {
         _count: {

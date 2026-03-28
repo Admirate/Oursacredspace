@@ -83,6 +83,8 @@ OSS/
 ├── src/
 │   ├── app/                   # Next.js App Router
 │   │   ├── layout.tsx         # Root layout (providers, fonts, metadata)
+│   │   ├── error.tsx          # Root error boundary — wraps html+body (client)
+│   │   ├── not-found.tsx      # Global 404 page (brand-styled)
 │   │   ├── globals.css        # Global styles + CSS animations
 │   │   ├── sitemap.ts         # Dynamic sitemap generator
 │   │   ├── robots.ts          # Robots.txt config
@@ -100,7 +102,8 @@ OSS/
 │   │   │   ├── visit/page.tsx
 │   │   │   ├── contact/page.tsx
 │   │   │   ├── success/page.tsx       # Post-booking confirmation
-│   │   │   └── verify/page.tsx        # QR pass verification
+│   │   │   ├── verify/page.tsx        # QR pass verification
+│   │   │   └── error.tsx              # Public route error boundary (client)
 │   │   └── oss-ctrl-9x7k2m/   # Admin dashboard (obfuscated route)
 │   │       ├── layout.tsx     # Admin layout (sidebar, auth guard)
 │   │       ├── page.tsx       # Dashboard home
@@ -110,14 +113,14 @@ OSS/
 │   │       ├── events/page.tsx
 │   │       └── space/page.tsx
 │   ├── components/
-│   │   ├── shared/            # Header, Footer, OptimizedImage, OptimizedVideo, LoadingSpinner
+│   │   ├── shared/            # Header, Footer, OptimizedImage, OptimizedVideo, LoadingSpinner, ErrorBoundary
 │   │   ├── providers/         # QueryProvider (React Query), LenisProvider (smooth scroll)
 │   │   └── ui/                # ~21 shadcn/ui primitives (button, card, dialog, form, table, etc.)
 │   ├── hooks/                 # useBooking, usePayment, use-toast, useLenis
 │   ├── lib/                   # api.ts, constants.ts, assets.ts, utils.ts, supabase.ts, validators.ts
 │   └── types/                 # TypeScript type definitions (index.ts)
 ├── netlify/
-│   └── functions/             # 21 serverless functions
+│   └── functions/             # 23 serverless functions
 │       ├── helpers/           # 7 shared helper modules
 │       │   ├── prisma.ts
 │       │   ├── security.ts
@@ -144,6 +147,8 @@ OSS/
 │       ├── adminCreateEvent.ts
 │       ├── adminUpdateClass.ts
 │       ├── adminUpdateEvent.ts
+│       ├── adminDeleteClass.ts
+│       ├── adminDeleteEvent.ts
 │       ├── adminUpdateSpaceRequest.ts
 │       ├── adminCheckinPass.ts
 │       └── adminUploadImage.ts
@@ -394,8 +399,10 @@ On `payment.captured`:
 | `adminListEvents` | GET | List events with pass/check-in counts |
 | `adminCreateClass` | POST | Create class session |
 | `adminUpdateClass` | PUT | Update class session |
+| `adminDeleteClass` | DELETE | Soft-delete a class session (`deletedAt = now()`, `active = false`) |
 | `adminCreateEvent` | POST | Create event |
 | `adminUpdateEvent` | PUT | Update event |
+| `adminDeleteEvent` | DELETE | Soft-delete an event (`deletedAt = now()`, `active = false`) |
 | `adminListPasses` | GET | List event passes (optionally by eventId) |
 | `adminCheckinPass` | POST | Check in an attendee by passId |
 | `adminListSpaceRequests` | GET | List space requests (optionally by status) |
@@ -534,6 +541,7 @@ Core security utilities:
 | `OptimizedImage.tsx` | Next.js Image wrapper with optimizations |
 | `OptimizedVideo.tsx` | Video element wrapper |
 | `LoadingSpinner.tsx` | Spinner UI |
+| `ErrorBoundary.tsx` | Class-based React error boundary. Accepts `children` and optional `fallback` prop. Shows a default inline retry UI if no fallback provided. Use to wrap individual sections/widgets. |
 | `index.ts` | Barrel exports |
 
 ### UI (`src/components/ui/`)
@@ -585,11 +593,11 @@ Located at `src/lib/`:
 ### `api.ts`
 - `apiFetch<T>(endpoint, options)` — Base fetch helper with JSON, query params, error handling
 - `api` object — Public API methods: `createBooking`, `createRazorpayOrder`, `getBooking`, `getClasses`, `getEvents`, `verifyPass`
-- `adminApi` object — Admin API methods: `login`, `logout`, `listBookings`, `listClasses`, `createClass`, `updateClass`, `listEvents`, `createEvent`, `updateEvent`, `listPasses`, `checkinPass`, `listSpaceRequests`, `updateSpaceRequest`, `uploadImage`
+- `adminApi` object — Admin API methods: `login`, `logout`, `listBookings`, `listClasses`, `createClass`, `updateClass`, `deleteClass`, `listEvents`, `createEvent`, `updateEvent`, `deleteEvent`, `listPasses`, `checkinPass`, `listSpaceRequests`, `updateSpaceRequest`, `uploadImage`
 - Admin calls use `credentials: "include"` for cookie auth
 
 ### `constants.ts`
-- `API_ENDPOINTS` — All 15 function endpoint paths
+- `API_ENDPOINTS` — All 17 function endpoint paths (includes `ADMIN_DELETE_CLASS`, `ADMIN_DELETE_EVENT`)
 - `RAZORPAY_CONFIG` — Payment gateway display config
 - `BOOKING_STATUS_LABELS` / `BOOKING_STATUS_COLORS` — UI label/color maps
 - `SPACE_STATUS_LABELS` / `SPACE_STATUS_COLORS` — Space request status UI maps
@@ -1423,3 +1431,163 @@ npx prisma generate
 - `src/app/oss-ctrl-9x7k2m/login/page.tsx` — post-login redirect → `ADMIN_ROUTE_PREFIX`
 - `src/lib/constants.ts` — added `ADMIN_ROUTE_PREFIX`, updated `ADMIN_NAV_ITEMS`
 - `src/app/robots.ts` — disallow rule uses `ADMIN_ROUTE_PREFIX`
+
+---
+
+#### Optimistic UI for Class Toggle + Delete Functionality
+
+**Changes:**
+
+##### 1. Optimistic Toggle (Classes Page)
+
+**Problem:** The active/inactive toggle button in the admin classes dashboard felt slow — the UI only updated after two full network round-trips (API call + re-fetch of class list).
+
+**Solution:** Added React Query optimistic update pattern to `toggleActiveMutation` in `src/app/oss-ctrl-9x7k2m/classes/page.tsx`:
+- `onMutate` — cancels in-flight queries, snapshots the cache, **instantly flips the toggle** in the UI before the API call returns
+- `onError` — rolls back the cache to the snapshot if the API call fails
+- `onSuccess` — only shows toast (no refetch)
+- `onSettled` — triggers a background `invalidateQueries` to sync the true DB state (invisible to user since UI is already correct)
+
+The toggle now flips **instantly on click** (~0ms perceived). Same pattern was applied to `toggleActiveMutation` in the events page.
+
+##### 2. Delete Class / Delete Event
+
+**New Netlify Functions:**
+- `netlify/functions/adminDeleteClass.ts` — DELETE method, admin-authenticated, soft-deletes a class (`deletedAt = now()`, `active = false`). Returns `{ success: true }` on success.
+- `netlify/functions/adminDeleteEvent.ts` — Same for events.
+
+**API Layer:**
+- `src/lib/constants.ts` — Added `ADMIN_DELETE_CLASS` and `ADMIN_DELETE_EVENT` endpoint constants
+- `src/lib/api.ts` — Added `adminApi.deleteClass(id)` and `adminApi.deleteEvent(id)` (DELETE method, `credentials: "include"`)
+
+**Frontend:**
+- Both `classes/page.tsx` and `events/page.tsx` — Added red `Trash2` icon button in every row (desktop table + mobile card)
+- Clicking the button opens an `AlertDialog` confirmation dialog before deleting
+- The delete mutation uses **optimistic update**: row disappears instantly from the list; rolls back on API failure
+- Imported `AlertDialog` and all sub-components from `@/components/ui/alert-dialog` on both pages
+
+##### 3. Bug Fix: Soft-Deleted Records Reappearing
+
+**Problem:** After deleting a class or event, it disappeared (optimistic update) but then reappeared ~1 second later after the background `invalidateQueries` refetch. The soft-deleted record (with `deletedAt` set) was being returned by the list functions.
+
+**Root Cause:** `adminListClasses.ts` and `adminListEvents.ts` both called `prisma.classSession.findMany()` / `prisma.event.findMany()` with no `deletedAt` filter.
+
+**Fix:** Added `where: { deletedAt: null }` to all queries in both files:
+- `adminListClasses.ts` — `findMany` and both `updateMany` auto-deactivate calls
+- `adminListEvents.ts` — `findMany` and the `updateMany` auto-deactivate call
+
+**Files changed (8 files):**
+- `netlify/functions/adminDeleteClass.ts` — NEW
+- `netlify/functions/adminDeleteEvent.ts` — NEW
+- `netlify/functions/adminListClasses.ts` — added `deletedAt: null` filter to all queries
+- `netlify/functions/adminListEvents.ts` — added `deletedAt: null` filter to all queries
+- `src/lib/constants.ts` — added `ADMIN_DELETE_CLASS`, `ADMIN_DELETE_EVENT`
+- `src/lib/api.ts` — added `adminApi.deleteClass()`, `adminApi.deleteEvent()`
+- `src/app/oss-ctrl-9x7k2m/classes/page.tsx` — optimistic toggle, delete mutation + AlertDialog
+- `src/app/oss-ctrl-9x7k2m/events/page.tsx` — delete mutation + AlertDialog
+
+---
+
+#### Error Handling: error.tsx, not-found.tsx, ErrorBoundary
+
+**Problem:** Any unhandled JS error crashed the entire page with a blank white screen. 404s showed the default Next.js error page with no brand styling.
+
+**Solution:** Added Next.js App Router error/404 conventions plus a reusable React error boundary:
+
+**`src/app/not-found.tsx`**
+- Global 404 page, brand-styled (sacred-cream background, sacred-burgundy heading, sacred-green buttons)
+- Two actions: "Back to Home" link + "Go Back" button (calls `window.history.back()`)
+- No layout wrapper needed — renders standalone
+
+**`src/app/error.tsx`** (root — must wrap `<html><body>`)
+- Catches errors that escape the root layout entirely
+- Shows error `digest` (Netlify error ID) for support reference
+- "Try Again" button calls `reset()` (React re-renders the subtree), "Back to Home" link
+
+**`src/app/(public)/error.tsx`**
+- Catches errors in public route pages (events, classes, booking flows, etc.)
+- Renders inside the existing Header/Footer layout
+- Shows "Try Again" and "Go Home" actions
+
+**`src/app/oss-ctrl-9x7k2m/error.tsx`**
+- Catches errors in admin dashboard pages
+- Shows full error message in dev mode (`process.env.NODE_ENV === "development"`) for debugging
+- "Try Again" and "Dashboard" link actions
+- Uses `ADMIN_ROUTE_PREFIX` constant for the dashboard link
+
+**`src/components/shared/ErrorBoundary.tsx`**
+- Class-based React component (required for `componentDidCatch`)
+- Props: `children: ReactNode`, `fallback?: ReactNode`
+- Default fallback: inline red-tinted box with "Retry" button
+- Use to wrap individual sections/data-fetching widgets that should fail independently
+- Usage: `<ErrorBoundary><SomeWidget /></ErrorBoundary>` or `<ErrorBoundary fallback={<p>Custom fallback</p>}>`
+
+**Files changed (6 files):**
+- `src/app/not-found.tsx` — NEW
+- `src/app/error.tsx` — NEW
+- `src/app/(public)/error.tsx` — NEW
+- `src/app/oss-ctrl-9x7k2m/error.tsx` — NEW
+- `src/components/shared/ErrorBoundary.tsx` — NEW
+- `src/components/shared/index.ts` — exported `ErrorBoundary`
+
+---
+
+#### Security Hardening: bcrypt, DB Rate Limiting, CSRF, Field Projection
+
+##### 1. bcrypt Password Hashing
+
+**Problem:** `ADMIN_PASSWORD` was stored and compared as plaintext. If the `.env` or Netlify env vars were ever leaked, the password was directly exposed.
+
+**Solution:** Admin password is now stored as a bcrypt hash (`ADMIN_PASSWORD_HASH`, cost factor 12). Login compares the submitted password against the hash using `bcrypt.compare()` — irreversible even if the hash leaks.
+
+- Installed: `bcryptjs` (pure JS, no native bindings — works in Netlify Functions)
+- To generate hash: `node -e "require('bcryptjs').hash('yourpassword', 12).then(console.log)"`
+- **Action required:** Set `ADMIN_PASSWORD_HASH=<hash>` in `.env` and Netlify env vars. Remove `ADMIN_PASSWORD`.
+
+##### 2. DB-Based Distributed Rate Limiting
+
+**Problem:** The existing `isRateLimited()` used an in-memory `Map`. Each Netlify Function container has its own isolated memory, so an attacker with multiple concurrent requests could bypass the limit entirely by hitting different containers.
+
+**Solution:** Login rate limiting now uses PostgreSQL via Prisma. A new `RateLimitEntry` model (`rate_limit_entries` table) stores per-IP request timestamps. The sliding window check and count happen in the DB, which is shared across all containers.
+
+- New file: `netlify/functions/helpers/dbRateLimit.ts` — `isDbRateLimited(key, maxRequests, windowMs)`
+- Cleanup of expired entries fires-and-forgets after each request (no added latency)
+- In-memory rate limiting still exists for all other endpoints (still useful for single-container burst protection)
+- **Action required:** Run this SQL in Supabase SQL Editor:
+  ```sql
+  CREATE TABLE IF NOT EXISTS rate_limit_entries (
+    id TEXT PRIMARY KEY,
+    key TEXT NOT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS rate_limit_entries_key_created_at_idx ON rate_limit_entries (key, created_at);
+  ```
+
+##### 3. CSRF Double-Submit Cookie
+
+**Problem:** Admin mutations relied solely on `SameSite=Strict` cookie for CSRF protection. While sufficient for modern browsers, it offers no defense-in-depth.
+
+**Solution:** Implemented the double-submit cookie pattern:
+1. On login, `adminAuth.ts` generates a random 32-char hex `csrf_token` and sets it as a **non-HttpOnly** cookie (so frontend JS can read it). Both cookies expire together.
+2. `src/lib/api.ts` — new `adminApiFetch` wrapper automatically reads `csrf_token` from `document.cookie` and sends it as the `X-CSRF-Token` header on every admin mutation (POST/PUT/DELETE).
+3. `netlify/functions/helpers/verifyAdmin.ts` — `verifyAdminSession()` validates the header matches the cookie for all non-GET requests. Mismatch logs `AUTH_FAILURE` and returns 401.
+4. Logout clears both `admin_token` and `csrf_token` cookies.
+- All `adminApi` methods were refactored to use `adminApiFetch` (removes duplicated `credentials: "include"` from every call).
+- Also fixed a pre-existing bug: `adminApi.logout()` was sending `POST` but the handler expected `DELETE`. Now uses `DELETE`.
+
+##### 4. Field Projection on Admin List Endpoints
+
+**Problem:** `adminListBookings` returned full Prisma records including `deletedAt`, `version`, `metadata`, `cancelledAt`, `cancelReason`, `updatedAt` — internal fields the frontend never uses.
+
+**Solution:** Switched from `include` to `select` in `adminListBookings.ts`. Only these fields are now returned: `id`, `type`, `status`, `customerName`, `customerPhone`, `customerEmail`, `amountPaise`, `currency`, `createdAt`, plus selective relation fields (`classSession.title`, `event.title`, `spaceRequest.status`, `payments.status/razorpayPaymentId`, `eventPass.passId/checkInStatus`).
+
+Stripped from responses: `deletedAt`, `version`, `metadata`, `cancelledAt`, `cancelReason`, `updatedAt`, `classSessionId`, `eventId`, `spaceRequestId`.
+
+**Files changed (8 files):**
+- `netlify/functions/adminAuth.ts` — bcrypt compare, DB rate limit, CSRF cookies on login/logout, `multiValueHeaders` for multiple Set-Cookie
+- `netlify/functions/helpers/dbRateLimit.ts` — NEW: DB-based sliding window rate limiter
+- `netlify/functions/helpers/verifyAdmin.ts` — CSRF double-submit validation for non-GET requests
+- `netlify/functions/adminListBookings.ts` — `select` projection stripping internal fields
+- `prisma/schema.prisma` — added `RateLimitEntry` model
+- `src/lib/api.ts` — added `getCsrfToken()`, `adminApiFetch` wrapper; all `adminApi` methods use it; fixed logout method to DELETE
+- `package.json` — added `bcryptjs` + `@types/bcryptjs` dependencies

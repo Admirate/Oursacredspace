@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
   Repeat,
   Search,
+  Trash2,
 } from "lucide-react";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Form,
   FormControl,
@@ -243,14 +255,53 @@ export default function AdminClassesPage() {
     },
   });
 
-  const toggleActiveMutation = useMutation({
-    mutationFn: ({ id, active }: { id: string; active: boolean }) => adminApi.updateClass(id, { active }),
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminApi.deleteClass(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["admin", "classes"] });
+      const previousData = queryClient.getQueryData(["admin", "classes"]);
+      queryClient.setQueryData(["admin", "classes"], (old: any) => {
+        if (!old?.data) return old;
+        return { ...old, data: old.data.filter((c: any) => c.id !== id) };
+      });
+      return { previousData };
+    },
     onSuccess: () => {
-      toast({ title: "Class status updated" });
+      toast({ title: "Class deleted" });
+    },
+    onError: (error: Error, _id, context: any) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["admin", "classes"], context.previousData);
+      }
+      toast({ title: "Failed to delete class", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "classes"] });
     },
-    onError: (error: Error) => {
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) => adminApi.updateClass(id, { active }),
+    onMutate: async ({ id, active }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin", "classes"] });
+      const previousData = queryClient.getQueryData(["admin", "classes"]);
+      queryClient.setQueryData(["admin", "classes"], (old: any) => {
+        if (!old?.data) return old;
+        return { ...old, data: old.data.map((c: any) => c.id === id ? { ...c, active } : c) };
+      });
+      return { previousData };
+    },
+    onSuccess: () => {
+      toast({ title: "Class status updated" });
+    },
+    onError: (error: Error, _variables, context: any) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["admin", "classes"], context.previousData);
+      }
       toast({ title: "Failed to update status", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "classes"] });
     },
   });
 
@@ -771,6 +822,21 @@ export default function AdminClassesPage() {
                               {classItem.active ? <ToggleRight className="h-4 w-4 text-green-600" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => handleEdit(classItem)}><Edit className="h-4 w-4" /></Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" title="Delete class"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete class?</AlertDialogTitle>
+                                  <AlertDialogDescription>This will permanently delete &ldquo;{classItem.title}&rdquo;. Existing bookings are unaffected.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteMutation.mutate(classItem.id)}>Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -815,6 +881,21 @@ export default function AdminClassesPage() {
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEdit(classItem)}>
                               <Edit className="h-4 w-4" />
                             </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete class?</AlertDialogTitle>
+                                  <AlertDialogDescription>This will permanently delete &ldquo;{classItem.title}&rdquo;. Existing bookings are unaffected.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteMutation.mutate(classItem.id)}>Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </div>
                       </div>

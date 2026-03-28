@@ -1,16 +1,16 @@
 import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { prisma } from "./helpers/prisma";
+import { isDbRateLimited } from "./helpers/dbRateLimit";
 import { 
   getClientIP, 
   hashToken,
-  isRateLimited, 
   logSecurityEvent, 
   rateLimitResponse, 
   RATE_LIMITS,
   getSecureAdminHeaders,
-  timingSafeCompare
 } from "./helpers/security";
 
 const loginSchema = z.object({
@@ -40,24 +40,16 @@ const isAllowedAdmin = (email: string): boolean => {
 };
 
 /**
- * SECURITY: Verify password using timing-safe comparison
- * 
- * For production with multiple admins, consider using bcrypt:
- * 1. Store hashed password in env: ADMIN_PASSWORD_HASH
- * 2. Use: await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH)
- * 
- * Current implementation uses timing-safe comparison to prevent timing attacks.
+ * SECURITY: Verify password against bcrypt hash stored in ADMIN_PASSWORD_HASH env var.
+ * To generate a hash: node -e "require('bcryptjs').hash('yourpassword', 12).then(console.log)"
  */
-const verifyPassword = (password: string): boolean => {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) {
-    console.error("SECURITY: ADMIN_PASSWORD env var is not set!");
+const verifyPassword = async (password: string): Promise<boolean> => {
+  const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
+  if (!adminPasswordHash) {
+    console.error("SECURITY: ADMIN_PASSWORD_HASH env var is not set!");
     return false;
   }
-  
-  // SECURITY: Use timing-safe comparison to prevent timing attacks
-  // This takes constant time regardless of where strings differ
-  return timingSafeCompare(password, adminPassword);
+  return bcrypt.compare(password, adminPasswordHash);
 };
 
 export const handler: Handler = async (event) => {
@@ -79,15 +71,17 @@ export const handler: Handler = async (event) => {
       await prisma.adminSession.deleteMany({ where: { hashedToken: hashed } });
     }
 
-    // SECURITY: Clear cookie with same flags (SameSite=Strict for CSRF protection)
     const isProduction = process.env.NODE_ENV === "production";
-    const cookieFlags = `Path=/; HttpOnly; SameSite=Strict; Max-Age=0${isProduction ? "; Secure" : ""}`;
+    const secureSuffix = isProduction ? "; Secure" : "";
     
     return {
       statusCode: 200,
-      headers: {
-        ...headers,
-        "Set-Cookie": `admin_token=; ${cookieFlags}`,
+      headers,
+      multiValueHeaders: {
+        "Set-Cookie": [
+          `admin_token=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secureSuffix}`,
+          `csrf_token=; Path=/; SameSite=Strict; Max-Age=0${secureSuffix}`,
+        ],
       },
       body: JSON.stringify({ success: true }),
     };
@@ -95,9 +89,9 @@ export const handler: Handler = async (event) => {
 
   // Handle login
   if (event.httpMethod === "POST") {
-    // SECURITY: Rate limit login attempts to prevent brute force
+    // SECURITY: DB-based rate limit — works across all serverless container instances
     const clientIP = getClientIP(event);
-    if (isRateLimited(`login:${clientIP}`, RATE_LIMITS.LOGIN.maxRequests, RATE_LIMITS.LOGIN.windowMs)) {
+    if (await isDbRateLimited(`login:${clientIP}`, RATE_LIMITS.LOGIN.maxRequests, RATE_LIMITS.LOGIN.windowMs)) {
       logSecurityEvent("RATE_LIMIT", { ip: clientIP, endpoint: "adminAuth" });
       return rateLimitResponse();
     }
@@ -119,8 +113,8 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      // Verify password
-      if (!verifyPassword(password)) {
+      // Verify password (bcrypt compare against ADMIN_PASSWORD_HASH)
+      if (!(await verifyPassword(password))) {
         logSecurityEvent("AUTH_FAILURE", { ip: clientIP, email, reason: "invalid_password" });
         return {
           statusCode: 401,
@@ -152,15 +146,18 @@ export const handler: Handler = async (event) => {
         },
       });
 
-      // SECURITY: Set Secure flag in production, SameSite=Strict for CSRF protection
       const isProduction = process.env.NODE_ENV === "production";
-      const cookieFlags = `Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${isProduction ? "; Secure" : ""}`;
+      const secureSuffix = isProduction ? "; Secure" : "";
+      const csrfToken = crypto.randomBytes(16).toString("hex");
       
       return {
         statusCode: 200,
-        headers: {
-          ...headers,
-          "Set-Cookie": `admin_token=${token}; ${cookieFlags}`,
+        headers,
+        multiValueHeaders: {
+          "Set-Cookie": [
+            `admin_token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${secureSuffix}`,
+            `csrf_token=${csrfToken}; Path=/; SameSite=Strict; Max-Age=86400${secureSuffix}`,
+          ],
         },
         body: JSON.stringify({
           success: true,
