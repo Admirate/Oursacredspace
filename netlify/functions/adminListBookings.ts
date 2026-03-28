@@ -117,7 +117,16 @@ export const handler: Handler = async (event) => {
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          customerName: true,
+          customerPhone: true,
+          customerEmail: true,
+          amountPaise: true,
+          currency: true,
+          createdAt: true,
           classSession: { select: { title: true } },
           event: { select: { title: true } },
           spaceRequest: { select: { status: true } },

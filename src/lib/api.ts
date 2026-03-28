@@ -105,6 +105,31 @@ export const api = {
     }),
 };
 
+// === Admin API fetch wrapper (auto-injects CSRF token for mutations) ===
+
+const getCsrfToken = (): string | null => {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+const adminApiFetch = async <T>(
+  endpoint: string,
+  options: FetchOptions = {}
+): Promise<T> => {
+  const method = (options.method || "GET").toUpperCase();
+  const csrfHeaders: Record<string, string> = {};
+  if (method !== "GET" && method !== "OPTIONS") {
+    const csrf = getCsrfToken();
+    if (csrf) csrfHeaders["X-CSRF-Token"] = csrf;
+  }
+  return apiFetch<T>(endpoint, {
+    ...options,
+    credentials: "include",
+    headers: { ...csrfHeaders, ...(options.headers as Record<string, string> || {}) },
+  });
+};
+
 // === Admin API ===
 
 export const adminApi = {
@@ -120,117 +145,94 @@ export const adminApi = {
     ),
 
   logout: () =>
-    apiFetch<{ success: boolean }>(API_ENDPOINTS.ADMIN_LOGOUT, {
-      method: "POST",
-      credentials: "include",
+    adminApiFetch<{ success: boolean }>(API_ENDPOINTS.ADMIN_LOGOUT, {
+      method: "DELETE",
     }),
 
   // Bookings
   listBookings: (params?: AdminListBookingsRequest) =>
-    apiFetch<AdminListBookingsResponse>(API_ENDPOINTS.ADMIN_LIST_BOOKINGS, {
+    adminApiFetch<AdminListBookingsResponse>(API_ENDPOINTS.ADMIN_LIST_BOOKINGS, {
       params: params as Record<string, string | number | undefined>,
-      credentials: "include",
     }),
 
   // Classes
   listClasses: () =>
-    apiFetch<{ success: boolean; data: ClassSession[] }>(
-      API_ENDPOINTS.ADMIN_LIST_CLASSES,
-      { credentials: "include" }
+    adminApiFetch<{ success: boolean; data: ClassSession[] }>(
+      API_ENDPOINTS.ADMIN_LIST_CLASSES
     ),
 
   createClass: (data: Omit<ClassSession, "id" | "createdAt" | "updatedAt" | "spotsBooked">) =>
-    apiFetch<{ success: boolean; data: ClassSession }>(
+    adminApiFetch<{ success: boolean; data: ClassSession }>(
       API_ENDPOINTS.ADMIN_CREATE_CLASS,
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-        credentials: "include",
-      }
+      { method: "POST", body: JSON.stringify(data) }
     ),
 
   updateClass: (id: string, data: Partial<ClassSession>) =>
-    apiFetch<{ success: boolean; data: ClassSession }>(
+    adminApiFetch<{ success: boolean; data: ClassSession }>(
       API_ENDPOINTS.ADMIN_UPDATE_CLASS,
-      {
-        method: "PUT",
-        body: JSON.stringify({ id, ...data }),
-        credentials: "include",
-      }
+      { method: "PUT", body: JSON.stringify({ id, ...data }) }
+    ),
+
+  deleteClass: (id: string) =>
+    adminApiFetch<{ success: boolean }>(
+      API_ENDPOINTS.ADMIN_DELETE_CLASS,
+      { method: "DELETE", body: JSON.stringify({ id }) }
     ),
 
   // Events
   listEvents: () =>
-    apiFetch<{ success: boolean; data: Event[] }>(
-      API_ENDPOINTS.ADMIN_LIST_EVENTS,
-      { credentials: "include" }
+    adminApiFetch<{ success: boolean; data: Event[] }>(
+      API_ENDPOINTS.ADMIN_LIST_EVENTS
     ),
 
   createEvent: (data: Omit<Event, "id" | "createdAt" | "updatedAt">) =>
-    apiFetch<{ success: boolean; data: Event }>(
+    adminApiFetch<{ success: boolean; data: Event }>(
       API_ENDPOINTS.ADMIN_CREATE_EVENT,
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-        credentials: "include",
-      }
+      { method: "POST", body: JSON.stringify(data) }
     ),
 
   updateEvent: (id: string, data: Partial<Event>) =>
-    apiFetch<{ success: boolean; data: Event }>(
+    adminApiFetch<{ success: boolean; data: Event }>(
       API_ENDPOINTS.ADMIN_UPDATE_EVENT,
-      {
-        method: "PUT",
-        body: JSON.stringify({ id, ...data }),
-        credentials: "include",
-      }
+      { method: "PUT", body: JSON.stringify({ id, ...data }) }
+    ),
+
+  deleteEvent: (id: string) =>
+    adminApiFetch<{ success: boolean }>(
+      API_ENDPOINTS.ADMIN_DELETE_EVENT,
+      { method: "DELETE", body: JSON.stringify({ id }) }
     ),
 
   // Passes
   listPasses: (eventId?: string) =>
-    apiFetch<{ success: boolean; data: EventPass[] }>(
+    adminApiFetch<{ success: boolean; data: EventPass[] }>(
       API_ENDPOINTS.ADMIN_LIST_PASSES,
-      {
-        params: { eventId },
-        credentials: "include",
-      }
+      { params: { eventId } }
     ),
 
   checkinPass: (data: AdminCheckinPassRequest) =>
-    apiFetch<AdminCheckinPassResponse>(API_ENDPOINTS.ADMIN_CHECKIN_PASS, {
+    adminApiFetch<AdminCheckinPassResponse>(API_ENDPOINTS.ADMIN_CHECKIN_PASS, {
       method: "POST",
       body: JSON.stringify(data),
-      credentials: "include",
     }),
 
   // Space Requests
   listSpaceRequests: (status?: string) =>
-    apiFetch<{ success: boolean; data: SpaceRequest[] }>(
+    adminApiFetch<{ success: boolean; data: SpaceRequest[] }>(
       API_ENDPOINTS.ADMIN_LIST_SPACE_REQUESTS,
-      {
-        params: { status },
-        credentials: "include",
-      }
+      { params: { status } }
     ),
 
   updateSpaceRequest: (data: AdminUpdateSpaceRequestRequest) =>
-    apiFetch<{ success: boolean; data: SpaceRequest }>(
+    adminApiFetch<{ success: boolean; data: SpaceRequest }>(
       API_ENDPOINTS.ADMIN_UPDATE_SPACE_REQUEST,
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-        credentials: "include",
-      }
+      { method: "POST", body: JSON.stringify(data) }
     ),
 
   // Image Upload
   uploadImage: (image: string, fileName: string, folder: string = "classes") =>
-    apiFetch<{ success: boolean; data: { url: string; path: string } }>(
+    adminApiFetch<{ success: boolean; data: { url: string; path: string } }>(
       API_ENDPOINTS.ADMIN_UPLOAD_IMAGE,
-      {
-        method: "POST",
-        body: JSON.stringify({ image, fileName, folder }),
-        credentials: "include",
-      }
+      { method: "POST", body: JSON.stringify({ image, fileName, folder }) }
     ),
 };
