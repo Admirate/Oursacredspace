@@ -57,10 +57,25 @@ export const handler: Handler = async (event) => {
     const classes = await prisma.classSession.findMany({
       where: { deletedAt: null },
       orderBy: { startsAt: "desc" },
-      include: {
-        _count: {
-          select: { bookings: true },
-        },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        imageUrl: true,
+        instructor: true,
+        location: true,
+        startsAt: true,
+        endsAt: true,
+        duration: true,
+        capacity: true,
+        isRecurring: true,
+        recurrenceDays: true,
+        timeSlots: true,
+        pricingType: true,
+        pricePaise: true,
+        active: true,
+        createdAt: true,
+        _count: { select: { bookings: true } },
       },
     });
 

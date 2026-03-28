@@ -39,7 +39,18 @@ export const handler: Handler = async (event) => {
     const events = await prisma.event.findMany({
       where: { deletedAt: null },
       orderBy: { startsAt: "desc" },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        imageUrl: true,
+        venue: true,
+        startsAt: true,
+        endsAt: true,
+        pricePaise: true,
+        capacity: true,
+        active: true,
+        createdAt: true,
         _count: {
           select: { 
             bookings: true,
@@ -47,9 +58,7 @@ export const handler: Handler = async (event) => {
           },
         },
         eventPasses: {
-          select: {
-            checkInStatus: true,
-          },
+          select: { checkInStatus: true },
         },
       },
     });

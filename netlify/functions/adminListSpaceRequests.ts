@@ -34,7 +34,18 @@ export const handler: Handler = async (event) => {
     const spaceRequests = await prisma.spaceRequest.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      include: {
+      select: {
+        id: true,
+        customerName: true,
+        customerPhone: true,
+        customerEmail: true,
+        preferredSlots: true,
+        scheduledSlot: true,
+        notes: true,
+        purpose: true,
+        status: true,
+        adminNotes: true,
+        createdAt: true,
         booking: {
           select: { id: true, status: true },
         },
