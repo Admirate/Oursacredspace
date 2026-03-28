@@ -22,6 +22,8 @@ import {
   X,
   Image as ImageIcon,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -182,6 +184,8 @@ const formatDateRange = (startsAt: string, endsAt?: string | null): string => {
   return `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
 };
 
+const PAGE_SIZE = 20;
+
 type EventStatusFilter = "all" | "active" | "inactive" | "expired";
 
 export default function AdminEventsPage() {
@@ -193,6 +197,7 @@ export default function AdminEventsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<EventStatusFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -379,6 +384,10 @@ export default function AdminEventsPage() {
 
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedEvents = filteredEvents.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const eventStatusCounts = {
     all: allEvents.length,
@@ -659,7 +668,7 @@ export default function AdminEventsPage() {
               {(["all", "active", "expired", "inactive"] as EventStatusFilter[]).map((status) => (
                 <button
                   key={status}
-                  onClick={() => setStatusFilter(status)}
+                  onClick={() => { setStatusFilter(status); setCurrentPage(1); }}
                   className={cn(
                     "px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-full border transition-colors capitalize whitespace-nowrap",
                     statusFilter === status
@@ -713,7 +722,7 @@ export default function AdminEventsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredEvents.map((event) => (
+                        {paginatedEvents.map((event) => (
                           <TableRow key={event.id}>
                             <TableCell>
                               <div className="flex items-center gap-3">
@@ -781,7 +790,7 @@ export default function AdminEventsPage() {
 
                   {/* Mobile Card Layout */}
                   <div className="md:hidden divide-y">
-                    {filteredEvents.map((event) => (
+                    {paginatedEvents.map((event) => (
                       <div key={event.id} className="p-4 space-y-3">
                         <div className="flex items-start gap-3">
                           {event.imageUrl ? (
@@ -843,6 +852,20 @@ export default function AdminEventsPage() {
                       </div>
                     ))}
                   </div>
+                  {filteredEvents.length > PAGE_SIZE && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-muted-foreground">
+                      <span>{(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredEvents.length)} of {filteredEvents.length}</span>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" disabled={safePage <= 1} onClick={() => setCurrentPage(safePage - 1)}>
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="px-2">{safePage} / {totalPages}</span>
+                        <Button variant="ghost" size="sm" disabled={safePage >= totalPages} onClick={() => setCurrentPage(safePage + 1)}>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </CardContent>

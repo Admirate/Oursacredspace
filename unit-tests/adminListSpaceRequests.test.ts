@@ -120,12 +120,12 @@ describe("adminListSpaceRequests handler", () => {
 
   // ── Includes ──
 
-  it("includes booking relation", async () => {
+  it("includes booking relation via select", async () => {
     await handler(makeEvent(), {} as any);
     const args = (prisma.spaceRequest.findMany as jest.Mock).mock.calls[0][0];
-    expect(args.include.booking).toBeDefined();
-    expect(args.include.booking.select.id).toBe(true);
-    expect(args.include.booking.select.status).toBe(true);
+    expect(args.select.booking).toBeDefined();
+    expect(args.select.booking.select.id).toBe(true);
+    expect(args.select.booking.select.status).toBe(true);
   });
 
   // ── Error handling ──

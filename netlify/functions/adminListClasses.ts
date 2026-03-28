@@ -27,6 +27,11 @@ export const handler: Handler = async (event) => {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
+    const rawPage = parseInt(event.queryStringParameters?.page || "1", 10);
+    const rawLimit = parseInt(event.queryStringParameters?.limit || "0", 10);
+    const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
+    const limit = isNaN(rawLimit) || rawLimit < 1 ? 0 : rawLimit; // 0 = no limit
+
     // Auto-deactivate non-recurring classes whose time has passed,
     // but only if they have NO endsAt set (or endsAt has also passed).
     await prisma.classSession.updateMany({
@@ -54,9 +59,12 @@ export const handler: Handler = async (event) => {
       data: { active: false },
     });
 
+    const total = await prisma.classSession.count({ where: { deletedAt: null } });
+
     const classes = await prisma.classSession.findMany({
       where: { deletedAt: null },
       orderBy: { startsAt: "desc" },
+      ...(limit > 0 && { skip: (page - 1) * limit, take: limit }),
       select: {
         id: true,
         title: true,
@@ -90,6 +98,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({
         success: true,
         data: classesWithExpiry,
+        pagination: { total, page, limit: limit || total, hasMore: limit > 0 ? page * limit < total : false },
       }),
     };
   } catch (error) {

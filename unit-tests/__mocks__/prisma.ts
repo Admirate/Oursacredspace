@@ -1,4 +1,4 @@
-const mockPrisma = {
+const mockPrisma: Record<string, any> = {
   adminSession: {
     findUnique: jest.fn(),
     create: jest.fn(),
@@ -11,6 +11,7 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
+    count: jest.fn(),
   },
   event: {
     findUnique: jest.fn(),
@@ -18,6 +19,7 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
+    count: jest.fn(),
   },
   booking: {
     findUnique: jest.fn(),
@@ -44,6 +46,9 @@ const mockPrisma = {
     update: jest.fn(),
   },
   notificationLog: {
+    create: jest.fn(),
+  },
+  statusHistory: {
     create: jest.fn(),
   },
   $transaction: jest.fn((fn: any) => fn(mockPrisma)),

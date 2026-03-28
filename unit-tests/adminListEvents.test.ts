@@ -45,7 +45,10 @@ const makeEventRecord = (overrides: any = {}) => ({
 });
 
 describe("adminListEvents handler", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (prisma.event.count as jest.Mock).mockResolvedValue(0);
+  });
 
   it("returns 204 for OPTIONS", async () => {
     const res = await handler(makeEvent({ httpMethod: "OPTIONS" }), {} as any);
@@ -174,6 +177,7 @@ describe("adminListEvents handler", () => {
     expect(prisma.event.updateMany).toHaveBeenCalledWith({
       where: {
         active: true,
+        deletedAt: null,
         startsAt: { lt: expect.any(Date) },
       },
       data: { active: false },

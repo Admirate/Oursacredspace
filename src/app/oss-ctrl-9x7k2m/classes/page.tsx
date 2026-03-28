@@ -18,6 +18,8 @@ import {
   Repeat,
   Search,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
@@ -192,6 +194,8 @@ type ClassFormData = z.infer<typeof classFormSchema>;
 
 // ─── Page Component ──────────────────────────────────────
 
+const PAGE_SIZE = 20;
+
 type StatusFilter = "all" | "active" | "inactive" | "expired";
 type TypeFilter = "all" | "recurring" | "one-time";
 
@@ -206,6 +210,7 @@ export default function AdminClassesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -412,6 +417,10 @@ export default function AdminClassesPage() {
 
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredClasses.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedClasses = filteredClasses.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const statusCounts = {
     all: allClasses.length,
@@ -684,7 +693,7 @@ export default function AdminClassesPage() {
           <Input
             placeholder="Search by title, description, instructor, or location..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             className="pl-10 pr-10 text-sm sm:text-base"
           />
           {searchQuery && (
@@ -701,7 +710,7 @@ export default function AdminClassesPage() {
             {(["all", "active", "expired", "inactive"] as StatusFilter[]).map((status) => (
               <button
                 key={status}
-                onClick={() => setStatusFilter(status)}
+                onClick={() => { setStatusFilter(status); setCurrentPage(1); }}
                 className={cn(
                   "px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-full border transition-colors capitalize whitespace-nowrap",
                   statusFilter === status
@@ -719,7 +728,7 @@ export default function AdminClassesPage() {
             {(["all", "recurring", "one-time"] as TypeFilter[]).map((type) => (
               <button
                 key={type}
-                onClick={() => setTypeFilter(type)}
+                onClick={() => { setTypeFilter(type); setCurrentPage(1); }}
                 className={cn(
                   "px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-full border transition-colors whitespace-nowrap",
                   typeFilter === type
@@ -768,7 +777,7 @@ export default function AdminClassesPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredClasses.map((classItem) => (
+                    {paginatedClasses.map((classItem) => (
                       <TableRow key={classItem.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -847,7 +856,7 @@ export default function AdminClassesPage() {
 
               {/* Mobile Card Layout */}
               <div className="md:hidden divide-y">
-                {filteredClasses.map((classItem) => (
+                {paginatedClasses.map((classItem) => (
                   <div key={classItem.id} className="p-4 space-y-3">
                     <div className="flex items-start gap-3">
                       {classItem.imageUrl ? (
@@ -912,6 +921,20 @@ export default function AdminClassesPage() {
                   </div>
                 ))}
               </div>
+              {filteredClasses.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-muted-foreground">
+                  <span>{(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredClasses.length)} of {filteredClasses.length}</span>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" disabled={safePage <= 1} onClick={() => setCurrentPage(safePage - 1)}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="px-2">{safePage} / {totalPages}</span>
+                    <Button variant="ghost" size="sm" disabled={safePage >= totalPages} onClick={() => setCurrentPage(safePage + 1)}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </CardContent>

@@ -3,6 +3,12 @@ import { HandlerEvent } from "@netlify/functions";
 jest.mock("../netlify/functions/helpers/prisma", () =>
   require("./__mocks__/prisma")
 );
+jest.mock("bcryptjs", () => ({
+  compare: jest.fn().mockImplementation((plain: string, _hash: string) =>
+    Promise.resolve(plain === "testpassword123")
+  ),
+  hash: jest.fn().mockResolvedValue("$2a$12$hashedvalue"),
+}));
 
 import { handler } from "../netlify/functions/adminAuth";
 import { prisma } from "./__mocks__/prisma";
@@ -31,7 +37,7 @@ describe("adminAuth handler", () => {
     process.env = {
       ...originalEnv,
       ADMIN_ALLOWED_EMAILS: "admin@test.com,superadmin@test.com",
-      ADMIN_PASSWORD: "testpassword123",
+      ADMIN_PASSWORD_HASH: "$2a$12$hashedvalue",
     };
   });
 
@@ -85,9 +91,11 @@ describe("adminAuth handler", () => {
     const body = JSON.parse(response!.body!);
     expect(body.success).toBe(true);
     expect(body.data.email).toBe("admin@test.com");
-    expect(response!.headers!["Set-Cookie"]).toContain("admin_token=");
-    expect(response!.headers!["Set-Cookie"]).toContain("HttpOnly");
-    expect(response!.headers!["Set-Cookie"]).toContain("SameSite=Strict");
+    const cookies = response!.multiValueHeaders!["Set-Cookie"] as string[];
+    expect(cookies).toBeDefined();
+    expect(cookies.join(";")).toContain("admin_token=");
+    expect(cookies.join(";")).toContain("HttpOnly");
+    expect(cookies.join(";")).toContain("SameSite=Strict");
   });
 
   it("deletes previous sessions on login", async () => {
@@ -178,7 +186,8 @@ describe("adminAuth handler", () => {
     });
     const response = await handler(event, {} as any);
     expect(response!.statusCode).toBe(200);
-    expect(response!.headers!["Set-Cookie"]).toContain("Max-Age=0");
+    const cookies = response!.multiValueHeaders!["Set-Cookie"] as string[];
+    expect(cookies.join(";")).toContain("Max-Age=0");
   });
 
   // ── 405 ──
