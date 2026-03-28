@@ -21,6 +21,7 @@ import {
   Search,
   X,
   Image as ImageIcon,
+  Trash2,
 } from "lucide-react";
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -254,6 +256,31 @@ export default function AdminEventsPage() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to update status", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminApi.deleteEvent(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["admin", "events"] });
+      const previousData = queryClient.getQueryData(["admin", "events"]);
+      queryClient.setQueryData(["admin", "events"], (old: any) => {
+        if (!old?.data) return old;
+        return { ...old, data: old.data.filter((e: any) => e.id !== id) };
+      });
+      return { previousData };
+    },
+    onSuccess: () => {
+      toast({ title: "Event deleted" });
+    },
+    onError: (error: Error, _id, context: any) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["admin", "events"], context.previousData);
+      }
+      toast({ title: "Failed to delete event", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "events"] });
     },
   });
 
@@ -729,6 +756,21 @@ export default function AdminEventsPage() {
                                 <Button variant="ghost" size="sm" onClick={() => handleEdit(event)}>
                                   <Edit className="h-4 w-4" />
                                 </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" title="Delete event"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete event?</AlertDialogTitle>
+                                      <AlertDialogDescription>This will permanently delete &ldquo;{event.title}&rdquo;. Existing bookings and passes are unaffected.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteMutation.mutate(event.id)}>Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -773,6 +815,21 @@ export default function AdminEventsPage() {
                                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEdit(event)}>
                                   <Edit className="h-4 w-4" />
                                 </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete event?</AlertDialogTitle>
+                                      <AlertDialogDescription>This will permanently delete &ldquo;{event.title}&rdquo;. Existing bookings and passes are unaffected.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteMutation.mutate(event.id)}>Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
                             </div>
                           </div>

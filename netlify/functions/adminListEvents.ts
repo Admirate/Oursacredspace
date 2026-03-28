@@ -30,12 +30,14 @@ export const handler: Handler = async (event) => {
     await prisma.event.updateMany({
       where: {
         active: true,
+        deletedAt: null,
         startsAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
       },
       data: { active: false },
     });
 
     const events = await prisma.event.findMany({
+      where: { deletedAt: null },
       orderBy: { startsAt: "desc" },
       include: {
         _count: {
