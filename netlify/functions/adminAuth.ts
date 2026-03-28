@@ -4,6 +4,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "./helpers/prisma";
 import { isDbRateLimited } from "./helpers/dbRateLimit";
+import { withSentry } from "./helpers/logger";
 import { 
   getClientIP, 
   hashToken,
@@ -52,7 +53,7 @@ const verifyPassword = async (password: string): Promise<boolean> => {
   return bcrypt.compare(password, adminPasswordHash);
 };
 
-export const handler: Handler = async (event) => {
+const _handler: Handler = async (event) => {
   const headers = getHeaders(event);
   
   if (event.httpMethod === "OPTIONS") {
@@ -234,3 +235,5 @@ export const handler: Handler = async (event) => {
     body: JSON.stringify({ success: false, error: "Method not allowed" }),
   };
 };
+
+export const handler = withSentry("adminAuth", _handler);

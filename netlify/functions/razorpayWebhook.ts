@@ -5,6 +5,7 @@ import { BookingStatus, PaymentStatus, BookingType } from "@prisma/client";
 import { generateQRBuffer } from "./helpers/generateQR";
 import { uploadQrToSupabase } from "./helpers/uploadQrToSupabase";
 import { generateSecureId, logSecurityEvent } from "./helpers/security";
+import { logger, withSentry } from "./helpers/logger";
 // TODO: Uncomment when WhatsApp is configured
 // import { sendEventConfirmation, sendClassConfirmation } from "./helpers/sendWhatsApp";
 
@@ -42,7 +43,7 @@ const verifySignature = (body: string, signature: string, secret: string): boole
   }
 };
 
-export const handler: Handler = async (event) => {
+const _handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -58,7 +59,7 @@ export const handler: Handler = async (event) => {
 
     // SECURITY: Verify webhook signature to prevent spoofing
     if (!webhookSecret) {
-      console.error("SECURITY: RAZORPAY_WEBHOOK_SECRET env var is not set!");
+      logger.error("RAZORPAY_WEBHOOK_SECRET env var is not set");
       return {
         statusCode: 500,
         headers,
@@ -108,7 +109,7 @@ export const handler: Handler = async (event) => {
     });
 
     if (!payment) {
-      console.error(`Payment not found for order: ${razorpayOrderId}`);
+      logger.warn("Payment not found for order", { razorpayOrderId });
       return { statusCode: 200, headers, body: JSON.stringify({ received: true }) };
     }
 
@@ -116,22 +117,24 @@ export const handler: Handler = async (event) => {
 
     // SECURITY: Idempotency check using webhookEventId (more reliable than paymentId)
     if (payment.webhookEventId && payment.webhookEventId === webhookEventId) {
-      console.log(`Webhook already processed: ${webhookEventId}`);
+      logger.info("Webhook already processed (idempotent)", { webhookEventId });
       return { statusCode: 200, headers, body: JSON.stringify({ received: true }) };
     }
 
     // SECURITY: Also check razorpayPaymentId for backwards compatibility
     if (payment.razorpayPaymentId === razorpayPaymentId) {
-      console.log(`Payment already processed: ${razorpayPaymentId}`);
+      logger.info("Payment already processed", { razorpayPaymentId });
       return { statusCode: 200, headers, body: JSON.stringify({ received: true }) };
     }
 
     // SECURITY: Validate payment amount matches expected amount
     if (webhookAmount !== payment.amountPaise) {
-      console.error("SECURITY: Amount mismatch!", {
+      logger.payment("anomaly", {
+        type: "amount_mismatch",
         expected: payment.amountPaise,
         received: webhookAmount,
         orderId: razorpayOrderId,
+        bookingId: booking.id,
       });
       logSecurityEvent("SUSPICIOUS_REQUEST", {
         type: "amount_mismatch",
@@ -148,9 +151,11 @@ export const handler: Handler = async (event) => {
 
     // SECURITY: Validate currency matches
     if (webhookCurrency && webhookCurrency.toUpperCase() !== payment.currency.toUpperCase()) {
-      console.error("SECURITY: Currency mismatch!", {
+      logger.payment("anomaly", {
+        type: "currency_mismatch",
         expected: payment.currency,
         received: webhookCurrency,
+        orderId: razorpayOrderId,
       });
       return { 
         statusCode: 400, 
@@ -161,14 +166,14 @@ export const handler: Handler = async (event) => {
 
     // SECURITY: Validate booking status before processing
     if (booking.status !== BookingStatus.PENDING_PAYMENT) {
-      console.warn(`Booking ${booking.id} is not pending payment, status: ${booking.status}`);
+      logger.warn("Booking not in PENDING_PAYMENT state", { bookingId: booking.id, status: booking.status });
       // Return 200 to prevent retries, but don't process
       return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: true }) };
     }
 
     // SECURITY: Validate payment status before updating
     if (payment.status !== PaymentStatus.CREATED) {
-      console.warn(`Payment ${payment.id} already processed, status: ${payment.status}`);
+      logger.warn("Payment already processed", { paymentId: payment.id, status: payment.status });
       return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: true }) };
     }
 
@@ -222,7 +227,7 @@ export const handler: Handler = async (event) => {
 
       // If transaction was skipped (already processed), return early
       if (result.skipped) {
-        console.log(`Payment already processed: ${result.reason}`);
+        logger.info("Payment transaction skipped", { reason: result.reason });
         return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: true }) };
       }
 
@@ -239,8 +244,7 @@ export const handler: Handler = async (event) => {
         try {
           qrImageUrl = await uploadQrToSupabase(qrBuffer, booking.eventId, passId);
         } catch (uploadError) {
-          console.error("QR upload failed:", uploadError);
-          // Use a placeholder URL for development
+          logger.error("QR upload failed", uploadError, { passId, bookingId: booking.id });
           qrImageUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/api/qr/${passId}`;
         }
 
@@ -305,6 +309,7 @@ export const handler: Handler = async (event) => {
 
     // Handle payment failed
     if (eventType === "payment.failed") {
+      logger.payment("failed", { orderId: razorpayOrderId, bookingId: booking.id, razorpayPaymentId });
       // SECURITY: Use transaction for atomicity
       await prisma.$transaction(async (tx) => {
         await tx.payment.update({
@@ -342,28 +347,18 @@ export const handler: Handler = async (event) => {
 
     return { statusCode: 200, headers, body: JSON.stringify({ received: true }) };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Webhook error:", errorMessage);
-    
+    const errorMessage = error instanceof Error ? error.message : "";
+    logger.error("razorpayWebhook unhandled error", error);
+
     // SECURITY: Return 500 for transient errors to allow Razorpay retries
     // Return 200 only for permanent failures (parsing errors, etc.)
-    const isTransientError = errorMessage.includes("connection") || 
+    const isTransientError = errorMessage.includes("connection") ||
                              errorMessage.includes("timeout") ||
                              errorMessage.includes("ECONNREFUSED");
-    
+
     if (isTransientError) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: "Temporary error, please retry" }),
-      };
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "Temporary error, please retry" }) };
     }
-    
-    // Permanent failure - return 200 to prevent infinite retries
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ received: true, error: "Processing error" }),
-    };
+    return { statusCode: 200, headers, body: JSON.stringify({ received: true, error: "Processing error" }) };
   }
 };
