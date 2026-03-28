@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { BookingType, BookingStatus } from "@prisma/client";
 import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
+import { withSentry } from "./helpers/logger";
 
 // Validation schema with strict limits
 const createBookingSchema = z.object({
@@ -31,7 +32,7 @@ const createBookingSchema = z.object({
   purpose: z.string().max(500).trim().optional(),
 });
 
-export const handler: Handler = async (event) => {
+const _handler: Handler = async (event) => {
   // SECURITY: Use origin-validated CORS headers
   const headers = getPublicHeaders(event, "POST, OPTIONS");
 
@@ -342,3 +343,5 @@ export const handler: Handler = async (event) => {
     };
   }
 };
+
+export const handler = withSentry("createBooking", _handler);

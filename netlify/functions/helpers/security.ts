@@ -312,12 +312,16 @@ export const rateLimitResponse = () => ({
 });
 
 /**
- * Log security event (for monitoring)
+ * Log security event — outputs structured JSON and forwards to Sentry if SENTRY_DSN is set.
  */
 export const logSecurityEvent = (
   type: "AUTH_FAILURE" | "RATE_LIMIT" | "INVALID_SIGNATURE" | "SUSPICIOUS_REQUEST",
   details: Record<string, unknown>
 ): void => {
-  // In production, send to logging service (e.g., DataDog, Sentry)
-  console.warn(`[SECURITY] ${type}:`, JSON.stringify(details));
+  // Lazy import to avoid circular dependency issues at module load time
+  import("./logger").then(({ logger }) => {
+    logger.security(type, details);
+  }).catch(() => {
+    console.error(JSON.stringify({ level: "security", message: type, ...details, timestamp: new Date().toISOString() }));
+  });
 };
