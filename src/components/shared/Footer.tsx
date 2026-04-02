@@ -137,6 +137,15 @@ export const Footer = () => {
                   Initiatives
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/sitemap.xml"
+                  className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors inline-block"
+                  tabIndex={0}
+                >
+                  Sitemap
+                </Link>
+              </li>
             </ul>
           </div>
 
