@@ -2,7 +2,7 @@ import { MetadataRoute } from "next";
 import { ADMIN_ROUTE_PREFIX } from "@/lib/constants";
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://oursacredspace.netlify.app";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.oursacredspace.in";
 
   return {
     rules: [

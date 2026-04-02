@@ -31,14 +31,26 @@ export const metadata: Metadata = {
     "Mumbai",
   ],
   authors: [{ name: "OSS Space" }],
+  icons: {
+    icon: "/oss_logo.png",
+    apple: "/oss_logo.png",
+  },
   openGraph: {
     type: "website",
     locale: "en_IN",
-    url: "https://ossspace.com",
-    siteName: "OSS Space",
-    title: "OSS Space | Classes, Events & Creative Spaces",
+    url: "https://www.oursacredspace.in",
+    siteName: "Our Sacred Space",
+    title: "Our Sacred Space | Classes, Events & Creative Spaces",
     description:
-      "Book classes, get event passes, and reserve creative spaces at OSS.",
+      "Book classes, get event passes, and reserve creative spaces at Our Sacred Space.",
+    images: [
+      {
+        url: "/oss_logo.png",
+        width: 1200,
+        height: 630,
+        alt: "Our Sacred Space",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",

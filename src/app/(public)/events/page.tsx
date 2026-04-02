@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+import { WHATSAPP_CONTACT_NUMBER } from "@/lib/constants";
 import type { Event } from "@/types";
 
 // Video URL from Supabase Storage
@@ -395,12 +396,14 @@ const EventCard = ({
                 onBook(event);
               }}
             >
-              {isPast ? "Event Ended" : isSoldOut ? "Sold Out" : (
+              {/* TODO: Re-enable when booking goes live */}
+              {/* {isPast ? "Event Ended" : isSoldOut ? "Sold Out" : (
                 <>
                   Get Pass
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </>
-              )}
+              )} */}
+              {isPast ? "Event Ended" : isSoldOut ? "Sold Out" : "Enquire on WhatsApp"}
             </RippleButton>
           </div>
         </div>
@@ -490,8 +493,11 @@ export default function EventsPage() {
   });
 
   const handleBook = (event: Event) => {
-    setSelectedEvent(event);
-    setIsDialogOpen(true);
+    // TODO: Re-enable when booking goes live
+    // setSelectedEvent(event);
+    // setIsDialogOpen(true);
+    const message = encodeURIComponent(`Hi! I'm interested in the "${event.title}" event. Could you share more details?`);
+    window.open(`https://wa.me/${WHATSAPP_CONTACT_NUMBER}?text=${message}`, "_blank");
   };
 
   const handleSubmit = (formData: BookingFormData) => {

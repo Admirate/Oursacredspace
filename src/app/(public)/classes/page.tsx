@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+import { WHATSAPP_CONTACT_NUMBER } from "@/lib/constants";
 import type { ClassSession } from "@/types";
 import Link from "next/link";
 
@@ -456,12 +457,14 @@ const ClassCard = ({
                 onBook(classItem);
               }}
             >
-              {isPast ? "Class Ended" : isFull ? "Fully Booked" : (
+              {/* TODO: Re-enable when booking goes live */}
+              {/* {isPast ? "Class Ended" : isFull ? "Fully Booked" : (
                 <>
                   Book Now
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </>
-              )}
+              )} */}
+              {isPast ? "Class Ended" : isFull ? "Fully Booked" : "Enquire on WhatsApp"}
             </RippleButton>
           </div>
         </div>
@@ -544,8 +547,11 @@ export default function ClassesPage() {
   });
 
   const handleBook = (classItem: ClassSession) => {
-    setSelectedClass(classItem);
-    setIsDialogOpen(true);
+    // TODO: Re-enable when booking goes live
+    // setSelectedClass(classItem);
+    // setIsDialogOpen(true);
+    const message = encodeURIComponent(`Hi! I'm interested in the "${classItem.title}" class. Could you share more details?`);
+    window.open(`https://wa.me/${WHATSAPP_CONTACT_NUMBER}?text=${message}`, "_blank");
   };
 
   const handleSubmit = (formData: BookingFormData) => {

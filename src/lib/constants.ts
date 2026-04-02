@@ -139,6 +139,10 @@ export const POLLING_INTERVAL = 2000; // 2 seconds
 export const POLLING_MAX_ATTEMPTS = 15; // 30 seconds total
 export const POLLING_TIMEOUT = 30000; // 30 seconds
 
+// === WhatsApp Contact ===
+
+export const WHATSAPP_CONTACT_NUMBER = "919030613344"; // +91 90306 13344
+
 // === WhatsApp Templates (for reference) ===
 
 export const WHATSAPP_TEMPLATES = {

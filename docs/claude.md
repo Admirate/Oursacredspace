@@ -79,6 +79,7 @@ OSS/
 │   ├── migration-v2.sql       # V2 migration: constraints, triggers, views, indexes
 │   └── rls-policies.sql       # Row Level Security policies
 ├── public/
+│   ├── oss_logo.png            # Brand logo (favicon + OG image)
 │   └── placeholder.svg        # Placeholder image
 ├── src/
 │   ├── app/                   # Next.js App Router
@@ -91,16 +92,16 @@ OSS/
 │   │   ├── (public)/          # Public route group
 │   │   │   ├── layout.tsx     # Header + Footer wrapper
 │   │   │   ├── page.tsx       # Home page
-│   │   │   ├── events/page.tsx
-│   │   │   ├── classes/page.tsx
-│   │   │   ├── workshops/page.tsx
-│   │   │   ├── book-space/page.tsx
-│   │   │   ├── co-working-space/page.tsx
-│   │   │   ├── space-enquiry/page.tsx
-│   │   │   ├── community/page.tsx
-│   │   │   ├── initiatives/page.tsx
-│   │   │   ├── visit/page.tsx
-│   │   │   ├── contact/page.tsx
+│   │   │   ├── events/page.tsx + layout.tsx (metadata)
+│   │   │   ├── classes/page.tsx + layout.tsx (metadata)
+│   │   │   ├── workshops/page.tsx + layout.tsx (metadata)
+│   │   │   ├── book-space/page.tsx + layout.tsx (metadata)
+│   │   │   ├── co-working-space/page.tsx + layout.tsx (metadata)
+│   │   │   ├── space-enquiry/page.tsx + layout.tsx (metadata)
+│   │   │   ├── community/page.tsx + layout.tsx (metadata)
+│   │   │   ├── initiatives/page.tsx + layout.tsx (metadata)
+│   │   │   ├── visit/page.tsx + layout.tsx (metadata)
+│   │   │   ├── contact/page.tsx + layout.tsx (metadata)
 │   │   │   ├── success/page.tsx       # Post-booking confirmation
 │   │   │   ├── verify/page.tsx        # QR pass verification
 │   │   │   └── error.tsx              # Public route error boundary (client)
@@ -481,8 +482,13 @@ Core security utilities:
 ### Root Layout (`src/app/layout.tsx`)
 - Wraps app in `QueryProvider` (React Query) → `LenisProvider` (smooth scroll) → `Toaster`
 - Font: Plus Jakarta Sans (variable `--font-jakarta`)
-- Metadata: Title template `%s | OSS Space`, Open Graph, Twitter Card, SEO keywords
+- Metadata: Title template `%s | OSS Space`, Open Graph (url: `https://www.oursacredspace.in`), Twitter Card, SEO keywords
+- Favicon + Apple Touch Icon: `/oss_logo.png`
+- OG Image: `/oss_logo.png` with dimensions and alt text
 - Disables Netlify RUM to prevent ad-blocker console errors
+
+### Per-Page Metadata (SEO)
+Each public route has its own `layout.tsx` that exports unique `title` and `description` metadata. The root layout's `title.template: "%s | OSS Space"` auto-appends the site name. Routes with per-page metadata: `/classes`, `/events`, `/workshops`, `/co-working-space`, `/community`, `/initiatives`, `/visit`, `/contact`, `/book-space`, `/space-enquiry`.
 
 ### Public Layout (`src/app/(public)/layout.tsx`)
 - Wraps public pages with `Header` + `Footer`
@@ -598,6 +604,7 @@ Located at `src/lib/`:
 
 ### `constants.ts`
 - `API_ENDPOINTS` — All 17 function endpoint paths (includes `ADMIN_DELETE_CLASS`, `ADMIN_DELETE_EVENT`)
+- `WHATSAPP_CONTACT_NUMBER` — Client's WhatsApp number for public-facing CTAs (`919030613344`)
 - `RAZORPAY_CONFIG` — Payment gateway display config
 - `BOOKING_STATUS_LABELS` / `BOOKING_STATUS_COLORS` — UI label/color maps
 - `SPACE_STATUS_LABELS` / `SPACE_STATUS_COLORS` — Space request status UI maps
@@ -802,24 +809,32 @@ Frontend                          Backend                           Razorpay
 
 ## 19. User Flows
 
-### Class Booking
+### Class Booking (TEMPORARILY DISABLED — WhatsApp redirect)
+> **Current state:** Booking dialog and form are commented out. "Enquire on WhatsApp" button opens `wa.me` with a pre-filled message containing the class title. Original code has `// TODO: Re-enable when booking goes live` markers.
+
 1. `/classes` → `useClasses()` fetches from `getClasses`
-2. User selects class → booking dialog opens
-3. Fills name, phone, email → `createBooking(type: CLASS, classSessionId)`
-4. Redirected to payment → Razorpay checkout
-5. On success → `/success?bookingId=...` polls until CONFIRMED
+2. ~~User selects class → booking dialog opens~~
+3. User clicks "Enquire on WhatsApp" → opens WhatsApp with pre-filled message
+4. ~~Fills name, phone, email → `createBooking(type: CLASS, classSessionId)`~~
+5. ~~Redirected to payment → Razorpay checkout~~
+6. ~~On success → `/success?bookingId=...` polls until CONFIRMED~~
 
-### Event Booking
+### Event Booking (TEMPORARILY DISABLED — WhatsApp redirect)
+> **Current state:** Same as classes. Booking dialog commented out, replaced with WhatsApp redirect.
+
 1. `/events` → `useEvents()` fetches from `getEvents`
-2. User selects event → booking dialog opens
-3. Fills name, phone, email → `createBooking(type: EVENT, eventId)`
-4. Redirected to payment → Razorpay checkout
-5. On success → `/success?bookingId=...` shows event pass with QR code
+2. ~~User selects event → booking dialog opens~~
+3. User clicks "Enquire on WhatsApp" → opens WhatsApp with pre-filled message
+4. ~~Fills name, phone, email → `createBooking(type: EVENT, eventId)`~~
+5. ~~Redirected to payment → Razorpay checkout~~
+6. ~~On success → `/success?bookingId=...` shows event pass with QR code~~
 
-### Space Request
-1. `/space-enquiry` → user fills form
-2. `createBooking(type: SPACE, preferredSlots, purpose, notes)`
-3. SpaceRequest created in DB (status: REQUESTED, no payment)
+### Space Request (TEMPORARILY DISABLED — WhatsApp redirect)
+> **Current state:** Full form commented out. Replaced with a WhatsApp CTA card. Sidebar info cards (features, availability, pricing) remain visible. Original code has `// TODO: Re-enable when booking goes live` markers.
+
+1. `/space-enquiry` → shows WhatsApp CTA card instead of form
+2. User clicks "Enquire on WhatsApp" → opens WhatsApp with pre-filled message
+3. ~~`createBooking(type: SPACE, preferredSlots, purpose, notes)`~~
 4. Admin reviews at `{ADMIN_ROUTE_PREFIX}/space` → updates status via `adminUpdateSpaceRequest`
 5. Status workflow: REQUESTED → APPROVED_CALL_SCHEDULED → CONFIRMED / DECLINED / etc.
 
@@ -890,12 +905,14 @@ Frontend                          Backend                           Razorpay
 
 | Issue | Details |
 |-------|---------|
-| No tests | No test files exist (no `*.test.*`, `*.spec.*`, `__tests__/`) |
+| Booking flows disabled | Classes, events, and space enquiry booking forms are temporarily commented out, replaced with WhatsApp redirects. Search for `// TODO: Re-enable when booking goes live` to restore. |
+| Razorpay partially mocked | `createRazorpayOrder` uses mock order IDs; real API call is commented out |
+| WhatsApp notifications not active | `sendWhatsApp.ts` is scaffolded but never called in flows. `NotificationLog` entries created with `PENDING` status. |
+| Payment flow not live | Full flow exists but Razorpay keys not configured for production. Re-enable booking first. |
 | No CI/CD | No GitHub Actions or pipeline config |
 | No `.env.example` | Referenced in README but file doesn't exist |
-| Razorpay partially mocked | `createRazorpayOrder` uses mock order IDs; real API call is commented out |
-| WhatsApp not active | `sendWhatsApp.ts` is scaffolded but never called in flows |
-| Rate limiting is per-container | In-memory store; not shared across serverless instances |
+| Rate limiting is per-container | In-memory store for public endpoints; DB-based for auth (cross-container) |
+| Hardcoded admin email | `admin@ossspace.com` in check-in mutation (`oss-ctrl-9x7k2m/events/page.tsx`). Should use logged-in admin email. |
 | README says Next.js 14 | Project actually uses Next.js 16 |
 
 ---
@@ -1591,3 +1608,89 @@ Stripped from responses: `deletedAt`, `version`, `metadata`, `cancelledAt`, `can
 - `prisma/schema.prisma` — added `RateLimitEntry` model
 - `src/lib/api.ts` — added `getCsrfToken()`, `adminApiFetch` wrapper; all `adminApi` methods use it; fixed logout method to DELETE
 - `package.json` — added `bcryptjs` + `@types/bcryptjs` dependencies
+
+---
+
+### 2026-04-03
+
+#### Pre-Launch: Disable Booking Flows, WhatsApp Redirects, SEO & Domain Config
+
+**Objective:** Prepare the site for launch at `www.oursacredspace.in` without payment, WhatsApp notifications, or booking features. All booking code is commented out (not removed) with `// TODO: Re-enable when booking goes live` markers for easy re-enablement.
+
+##### 1. WhatsApp Contact Number
+
+Added `WHATSAPP_CONTACT_NUMBER = "919030613344"` to `src/lib/constants.ts` — centralized for all public-facing CTA buttons.
+
+##### 2. Classes Page — WhatsApp Redirect (`src/app/(public)/classes/page.tsx`)
+
+- Imported `WHATSAPP_CONTACT_NUMBER`
+- `handleBook()` — commented out `setSelectedClass` + `setIsDialogOpen`; replaced with `window.open(wa.me/...)` with pre-filled message including class title
+- Button text changed from "Book Now" → "Enquire on WhatsApp" (original text commented out)
+
+##### 3. Events Page — WhatsApp Redirect (`src/app/(public)/events/page.tsx`)
+
+- Same pattern as classes
+- `handleBook()` — commented out `setSelectedEvent` + `setIsDialogOpen`; replaced with WhatsApp redirect
+- Button text changed from "Get Pass" → "Enquire on WhatsApp"
+
+##### 4. Space Enquiry Page — Form Replaced (`src/app/(public)/space-enquiry/page.tsx`)
+
+- Imported `WHATSAPP_CONTACT_NUMBER`, commented out `api` import
+- Entire form (`useForm`, `bookingMutation`, `handleSubmit`, success state) commented out
+- Replaced with a WhatsApp CTA card: green checkmark icon, descriptive text, "Enquire on WhatsApp" button
+- Sidebar info cards (space features, availability, pricing) remain visible
+- `handleWhatsAppEnquiry()` — opens `wa.me` with pre-filled message about space booking
+
+##### 5. Domain & OpenGraph Configuration
+
+- `src/app/layout.tsx` — Updated `openGraph.url` from `https://ossspace.com` → `https://www.oursacredspace.in`; updated `siteName` to "Our Sacred Space"; added `icons` (favicon + apple touch icon → `/oss_logo.png`); added `openGraph.images` array with `/oss_logo.png`
+- `src/app/sitemap.ts` — Updated fallback URL from `https://oursacredspace.netlify.app` → `https://www.oursacredspace.in`
+- `src/app/robots.ts` — Same fallback URL update
+
+##### 6. Per-Page SEO Metadata
+
+Created `layout.tsx` files in each of the 10 public route directories. Each exports unique `title` and `description` metadata + OpenGraph overrides. The root layout's `title.template: "%s | OSS Space"` auto-appends the site name.
+
+| Route | Title |
+|-------|-------|
+| `/classes` | Classes |
+| `/events` | Events |
+| `/workshops` | Workshops |
+| `/co-working-space` | Co-Working Space |
+| `/community` | Community |
+| `/initiatives` | Initiatives |
+| `/visit` | Visit Us |
+| `/contact` | Contact |
+| `/book-space` | Book a Space |
+| `/space-enquiry` | Space Enquiry |
+
+##### 7. Favicon & OG Image
+
+- Placed `oss_logo.png` in `public/`
+- Referenced in root layout metadata as `icon`, `apple` (touch icon), and `openGraph.images`
+
+**Files changed (16 files):**
+- `src/lib/constants.ts` — added `WHATSAPP_CONTACT_NUMBER`
+- `src/app/(public)/classes/page.tsx` — WhatsApp redirect, commented out booking dialog
+- `src/app/(public)/events/page.tsx` — WhatsApp redirect, commented out booking dialog
+- `src/app/(public)/space-enquiry/page.tsx` — form commented out, WhatsApp CTA card added
+- `src/app/layout.tsx` — favicon, OG image, domain URL, site name updates
+- `src/app/sitemap.ts` — fallback URL → `www.oursacredspace.in`
+- `src/app/robots.ts` — fallback URL → `www.oursacredspace.in`
+- `src/app/(public)/classes/layout.tsx` — NEW: per-page metadata
+- `src/app/(public)/events/layout.tsx` — NEW: per-page metadata
+- `src/app/(public)/workshops/layout.tsx` — NEW: per-page metadata
+- `src/app/(public)/co-working-space/layout.tsx` — NEW: per-page metadata
+- `src/app/(public)/community/layout.tsx` — NEW: per-page metadata
+- `src/app/(public)/initiatives/layout.tsx` — NEW: per-page metadata
+- `src/app/(public)/visit/layout.tsx` — NEW: per-page metadata
+- `src/app/(public)/contact/layout.tsx` — NEW: per-page metadata
+- `src/app/(public)/book-space/layout.tsx` — NEW: per-page metadata
+- `src/app/(public)/space-enquiry/layout.tsx` — NEW: per-page metadata
+
+**Deployment checklist (Netlify dashboard):**
+- Set `NEXT_PUBLIC_APP_URL` = `https://www.oursacredspace.in`
+- Set `APP_BASE_URL` = `https://www.oursacredspace.in`
+- Set `ADMIN_PASSWORD_HASH` (generate via `node -e "require('bcryptjs').hash('password', 12).then(console.log)"`)
+- Set `ADMIN_ALLOWED_EMAILS` (comma-separated)
+- Connect domain `www.oursacredspace.in` + update DNS at registrar
