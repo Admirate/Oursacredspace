@@ -1694,3 +1694,48 @@ Created `layout.tsx` files in each of the 10 public route directories. Each expo
 - Set `ADMIN_PASSWORD_HASH` (generate via `node -e "require('bcryptjs').hash('password', 12).then(console.log)"`)
 - Set `ADMIN_ALLOWED_EMAILS` (comma-separated)
 - Connect domain `www.oursacredspace.in` + update DNS at registrar
+
+---
+
+#### E2E Tests: Playwright Smoke Test Suite
+
+**Purpose:** Pre-deploy validation — verify all public pages render, navigation works, and WhatsApp CTA redirects produce correct URLs.
+
+**Setup:**
+- Installed `@playwright/test` + Chromium browser
+- Config: `playwright.config.ts` — runs against `http://localhost:8888` (Netlify Dev), auto-starts server
+- Test directory: `e2e-tests/`
+- NPM scripts: `test:e2e` (headless), `test:e2e:ui` (interactive UI mode)
+
+**Test Files (57 tests total):**
+
+| File | Tests | What it covers |
+|------|-------|----------------|
+| `e2e-tests/smoke.spec.ts` | 28 | All 11 public pages return 200; no critical console errors; unique `<title>` per page; `<title>` contains "OSS Space"; 404 page renders custom not-found; `/success` and `/verify` load gracefully without params; `robots.txt` blocks admin; `sitemap.xml` accessible; OG meta tags present |
+| `e2e-tests/navigation.spec.ts` | 21 | All 10 header nav links route correctly; logo links to home; 4 footer explore links + 3 footer support links navigate correctly; social links (Instagram/Facebook/YouTube) have correct external URLs + `target="_blank"`; phone `tel:` href; email `mailto:` href |
+| `e2e-tests/whatsapp-cta.spec.ts` | 8 | Classes/Events/Space pages show "Enquire on WhatsApp" buttons; clicking produces correct `wa.me/{WHATSAPP_CONTACT_NUMBER}?text=...` URL with page-specific message |
+
+**Key implementation details:**
+- WhatsApp CTA tests intercept `window.open` via `page.evaluate()` instead of relying on popup events (wa.me redirects break popup detection)
+- Classes/Events button clicks use `{ force: true }` to bypass hover overlay elements that intercept pointer events
+- Footer link tests scroll footer into view before clicking (home page is ~31KB)
+- Console error filter excludes Netlify RUM, favicon, and external resource 404s (non-critical in dev)
+
+**Bug found during testing:** Stale `.next` cache caused ALL sub-routes to return 404 (only `/` worked). Clearing `.next` and restarting the dev server fixed it. Not a code bug — a local dev environment issue.
+
+**How to run:**
+```bash
+# Ensure dev server is running (or let Playwright auto-start it)
+npm run test:e2e
+
+# Interactive UI mode (for debugging)
+npm run test:e2e:ui
+```
+
+**Files changed (5 new, 2 modified):**
+- `playwright.config.ts` — NEW: Playwright configuration
+- `e2e-tests/smoke.spec.ts` — NEW: page load + SEO smoke tests
+- `e2e-tests/navigation.spec.ts` — NEW: header/footer navigation tests
+- `e2e-tests/whatsapp-cta.spec.ts` — NEW: WhatsApp CTA redirect tests
+- `package.json` — added `@playwright/test` dev dep + `test:e2e`/`test:e2e:ui` scripts
+- `.gitignore` — added Playwright artifact directories

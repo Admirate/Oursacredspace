@@ -20,6 +20,10 @@ pnpm-lock.yaml
 # ===========================================
 /coverage
 *.lcov
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
 
 # ===========================================
 # ENVIRONMENT VARIABLES
