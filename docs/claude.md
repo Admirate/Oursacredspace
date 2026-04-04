@@ -74,12 +74,13 @@
 ```
 OSS/
 ├── prisma/
-│   ├── schema.prisma          # Database schema (9 models, 8 enums)
+│   ├── schema.prisma          # Database schema (10 models, 8 enums)
 │   ├── seed.ts                # Database seeding script
 │   ├── migration-v2.sql       # V2 migration: constraints, triggers, views, indexes
 │   └── rls-policies.sql       # Row Level Security policies
 ├── public/
 │   ├── oss_logo.png            # Brand logo (favicon + OG image)
+│   ├── __forms.html            # Hidden Netlify Forms definition (build-time detection)
 │   └── placeholder.svg        # Placeholder image
 ├── src/
 │   ├── app/                   # Next.js App Router
@@ -121,7 +122,7 @@ OSS/
 │   ├── lib/                   # api.ts, constants.ts, assets.ts, utils.ts, supabase.ts, validators.ts
 │   └── types/                 # TypeScript type definitions (index.ts)
 ├── netlify/
-│   └── functions/             # 23 serverless functions
+│   └── functions/             # 24 serverless functions
 │       ├── helpers/           # 7 shared helper modules
 │       │   ├── prisma.ts
 │       │   ├── security.ts
@@ -137,6 +138,7 @@ OSS/
 │       ├── createRazorpayOrder.ts
 │       ├── razorpayWebhook.ts
 │       ├── verifyPass.ts
+│       ├── createEnquiry.ts
 │       ├── devConfirmPayment.ts
 │       ├── adminAuth.ts
 │       ├── adminListBookings.ts
@@ -339,6 +341,17 @@ OSS/
 | changedBy | String | "SYSTEM" or admin email |
 | reason | String? | Reason for change |
 
+#### `ContactEnquiry` — Contact form submissions
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (CUID) | Primary key |
+| name | String | Enquirer name |
+| email | String | Enquirer email |
+| phone | String? | Optional phone number |
+| message | String | Enquiry message body |
+| createdAt | DateTime | Timestamptz |
+| Indexes | email, createdAt |
+
 #### `AdminSession` — Admin authentication sessions
 | Field | Type | Notes |
 |-------|------|-------|
@@ -367,6 +380,7 @@ All functions are at `netlify/functions/`. They're exposed under `/.netlify/func
 | `createRazorpayOrder` | POST | 5/min | Create Razorpay payment order for a booking |
 | `getBooking` | GET | 60/min | Fetch a single booking by ID (with relations) |
 | `verifyPass` | GET | 30/min | Validate an event pass by passId |
+| `createEnquiry` | POST | 5/min | Submit a contact enquiry (stores in DB) |
 
 ### Webhook
 
@@ -517,7 +531,7 @@ Each public route has its own `layout.tsx` that exports unique `title` and `desc
 | `/community` | Community | Community section |
 | `/initiatives` | Initiatives | Initiatives section |
 | `/visit` | Visit | Location & visit info |
-| `/contact` | Contact | Contact form |
+| `/contact` | Contact | Contact enquiry form → `createEnquiry` API + Netlify Forms |
 | `/success?bookingId=...` | Success | Post-booking/payment confirmation page |
 | `/verify?passId=...` | Verify | Public QR pass verification |
 
@@ -598,12 +612,12 @@ Located at `src/lib/`:
 
 ### `api.ts`
 - `apiFetch<T>(endpoint, options)` — Base fetch helper with JSON, query params, error handling
-- `api` object — Public API methods: `createBooking`, `createRazorpayOrder`, `getBooking`, `getClasses`, `getEvents`, `verifyPass`
+- `api` object — Public API methods: `createBooking`, `createRazorpayOrder`, `getBooking`, `getClasses`, `getEvents`, `verifyPass`, `createEnquiry`
 - `adminApi` object — Admin API methods: `login`, `logout`, `listBookings`, `listClasses`, `createClass`, `updateClass`, `deleteClass`, `listEvents`, `createEvent`, `updateEvent`, `deleteEvent`, `listPasses`, `checkinPass`, `listSpaceRequests`, `updateSpaceRequest`, `uploadImage`
 - Admin calls use `credentials: "include"` for cookie auth
 
 ### `constants.ts`
-- `API_ENDPOINTS` — All 17 function endpoint paths (includes `ADMIN_DELETE_CLASS`, `ADMIN_DELETE_EVENT`)
+- `API_ENDPOINTS` — All 18 function endpoint paths (includes `CREATE_ENQUIRY`) (includes `ADMIN_DELETE_CLASS`, `ADMIN_DELETE_EVENT`)
 - `WHATSAPP_CONTACT_NUMBER` — Client's WhatsApp number for public-facing CTAs (`919030613344`)
 - `RAZORPAY_CONFIG` — Payment gateway display config
 - `BOOKING_STATUS_LABELS` / `BOOKING_STATUS_COLORS` — UI label/color maps
@@ -1739,3 +1753,56 @@ npm run test:e2e:ui
 - `e2e-tests/whatsapp-cta.spec.ts` — NEW: WhatsApp CTA redirect tests
 - `package.json` — added `@playwright/test` dev dep + `test:e2e`/`test:e2e:ui` scripts
 - `.gitignore` — added Playwright artifact directories
+
+---
+
+### 2026-04-04
+
+#### Feature: Contact Enquiry Form Integration
+
+**Problem:** The contact page (`/contact`) had a form with name, email, phone, and message fields, but submission was simulated with a `setTimeout`. No data was stored and no notifications were sent.
+
+**Solution:** Full backend + frontend integration:
+
+1. **Database** — New `ContactEnquiry` model (`contact_enquiries` table) storing name, email, phone (optional), message, and createdAt. Created via raw SQL (`prisma/migrations/add_contact_enquiry.sql`) to avoid `prisma migrate dev` resetting existing data (drift detected from `db push`-based workflow). Table created with `CREATE TABLE IF NOT EXISTS` for idempotency.
+
+2. **Backend** — New `createEnquiry` Netlify Function:
+   - Zod validation (name min 2, email, phone regex `^[6-9]\d{9}$` optional, message min 10 max 2000)
+   - Rate limiting: 5 requests/minute per IP
+   - Stores validated data in `contact_enquiries` table via Prisma
+   - No email sending in the function — email handled by Netlify Forms
+
+3. **Netlify Forms** — Email notification via Netlify's built-in Forms feature:
+   - `public/__forms.html` — static HTML file with a hidden `<form name="contact" data-netlify="true">` for Netlify's build-time form detection (required for `@netlify/plugin-nextjs@5` compatibility — inline React forms cause build failures)
+   - Frontend submits to both the API (DB storage) and Netlify Forms (email notification) in parallel
+   - Netlify Forms email notification configured in Netlify dashboard → Forms → Form notifications → Email to `info@oursacredspace.in`
+
+4. **Frontend** (`src/app/(public)/contact/page.tsx`):
+   - Connected all form inputs to React Hook Form via `form.register()`
+   - Zod schema: name, email, phone (optional), message (removed `subject` field not present in UI)
+   - Input styling: focus rings (`sacred-green`), error borders (red), hover states, transition animations
+   - Phone field shows "Optional" helper text, `maxLength={10}`
+   - 5-second inline success confirmation banner (green background, CheckCircle icon) replaces toast notification
+   - Error toast on API failure
+   - Submit button with `MagneticButton` + loading spinner (`Loader2` animation)
+   - Dual submission: API call for DB → Netlify Forms POST for email (Netlify Forms failure is non-critical)
+
+5. **API layer**:
+   - `src/lib/constants.ts` — added `CREATE_ENQUIRY` endpoint
+   - `src/lib/api.ts` — added `api.createEnquiry()` method (POST, JSON body)
+
+6. **Test mock** — Updated `unit-tests/__mocks__/prisma.ts` with `contactEnquiry` model (findMany, create, count)
+
+**Netlify Forms setup (manual, in dashboard):**
+1. Site settings → Forms → Form notifications → Add notification → Email notification
+2. Form: `contact`, Email: `info@oursacredspace.in`
+
+**Files changed (8 files):**
+- `prisma/schema.prisma` — added `ContactEnquiry` model
+- `prisma/migrations/add_contact_enquiry.sql` — NEW: raw SQL to create table + indexes
+- `netlify/functions/createEnquiry.ts` — NEW: validate + store enquiry in DB
+- `src/lib/constants.ts` — added `CREATE_ENQUIRY` endpoint
+- `src/lib/api.ts` — added `api.createEnquiry()` method
+- `src/app/(public)/contact/page.tsx` — wired form to API + Netlify Forms, polished UI, 5s success banner
+- `public/__forms.html` — NEW: hidden Netlify Form for build-time detection
+- `unit-tests/__mocks__/prisma.ts` — added `contactEnquiry` mock
