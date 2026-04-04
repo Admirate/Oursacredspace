@@ -302,15 +302,6 @@ export default function ContactPage() {
 
   return (
     <div className="overflow-x-visible">
-      {/* Hidden Netlify Form for build-time detection */}
-      <form name="contact" data-netlify="true" hidden>
-        <input type="hidden" name="form-name" value="contact" />
-        <input name="name" />
-        <input name="email" />
-        <input name="phone" />
-        <textarea name="message" />
-      </form>
-
       {/* Hero Section */}
       <section className="relative bg-[#FFE5EC] py-8 md:py-10 lg:py-16">
         <div className="container px-4 flex justify-center">
