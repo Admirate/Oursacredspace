@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
   GET_CLASSES: "/.netlify/functions/getClasses",
   GET_EVENTS: "/.netlify/functions/getEvents",
   VERIFY_PASS: "/.netlify/functions/verifyPass",
+  CREATE_ENQUIRY: "/.netlify/functions/createEnquiry",
   
   // Dev Only
   DEV_CONFIRM_PAYMENT: "/.netlify/functions/devConfirmPayment",

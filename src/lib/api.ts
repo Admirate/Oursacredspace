@@ -90,6 +90,13 @@ export const api = {
   getEvents: () =>
     apiFetch<{ success: boolean; data: Event[] }>(API_ENDPOINTS.GET_EVENTS),
 
+  // Contact Enquiry
+  createEnquiry: (data: { name: string; email: string; phone?: string; message: string }) =>
+    apiFetch<{ success: boolean; data: { id: string } }>(API_ENDPOINTS.CREATE_ENQUIRY, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   // Pass Verification
   verifyPass: (passId: string) =>
     apiFetch<{

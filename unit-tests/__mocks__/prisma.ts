@@ -51,6 +51,11 @@ const mockPrisma: Record<string, any> = {
   statusHistory: {
     create: jest.fn(),
   },
+  contactEnquiry: {
+    findMany: jest.fn(),
+    create: jest.fn(),
+    count: jest.fn(),
+  },
   $transaction: jest.fn((fn: any) => fn(mockPrisma)),
 };
 

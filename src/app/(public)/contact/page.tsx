@@ -15,13 +15,15 @@ import {
   Loader2,
   Instagram,
   Facebook,
-  ArrowRight
+  ArrowRight,
+  CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
 
 // Video URL from Supabase Storage
 const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/plant.mp4";
@@ -179,7 +181,6 @@ const contactFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email"),
   phone: z.string().regex(/^[6-9]\d{9}$/, "Please enter a valid 10-digit Indian mobile number").optional().or(z.literal("")),
-  subject: z.string().min(3, "Subject must be at least 3 characters"),
   message: z.string().min(10, "Message must be at least 10 characters"),
 });
 
@@ -222,6 +223,7 @@ export default function ContactPage() {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const { toast } = useToast();
   
   const contentSection = useInView(0.1);
@@ -252,28 +254,63 @@ export default function ContactPage() {
       name: "",
       email: "",
       phone: "",
-      subject: "",
       message: "",
     },
   });
 
   const handleSubmit = async (data: ContactFormData) => {
     setIsSubmitting(true);
-    
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Message Sent!",
-      description: "We'll get back to you within 24 hours.",
-    });
-    
-    form.reset();
-    setIsSubmitting(false);
+    try {
+      // 1. Store in database via API
+      await api.createEnquiry({
+        name: data.name,
+        email: data.email,
+        phone: data.phone || undefined,
+        message: data.message,
+      });
+
+      // 2. Submit to Netlify Forms for email notification
+      try {
+        const formData = new URLSearchParams();
+        formData.append("form-name", "contact");
+        formData.append("name", data.name);
+        formData.append("email", data.email);
+        formData.append("phone", data.phone || "");
+        formData.append("message", data.message);
+        await fetch("/", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: formData.toString(),
+        });
+      } catch {
+        // Netlify Forms failure is non-critical — DB already has the enquiry
+      }
+
+      form.reset();
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 5000);
+    } catch (error) {
+      toast({
+        title: "Something went wrong",
+        description: error instanceof Error ? error.message : "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="overflow-x-visible">
+      {/* Hidden Netlify Form for build-time detection */}
+      <form name="contact" data-netlify="true" hidden>
+        <input type="hidden" name="form-name" value="contact" />
+        <input name="name" />
+        <input name="email" />
+        <input name="phone" />
+        <textarea name="message" />
+      </form>
+
       {/* Hero Section */}
       <section className="relative bg-[#FFE5EC] py-8 md:py-10 lg:py-16">
         <div className="container px-4 flex justify-center">
@@ -397,34 +434,109 @@ export default function ContactPage() {
               Send an Enquiry
             </h2>
 
-            <div className="grid md:grid-cols-[320px_1fr] gap-10 md:gap-12 items-center">
-              {/* LEFT INPUTS */}
-              <div className="space-y-5 flex flex-col items-center md:items-start">
-                <input
-                  placeholder="Enter Name"
-                  className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
-                />
+            {/* Success confirmation */}
+            {showSuccess && (
+              <div className="mb-10 flex justify-center">
+                <div className="bg-[#2d5a27]/10 border border-[#2d5a27]/30 rounded-2xl px-8 py-6 max-w-lg w-full flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#2d5a27] flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[#2d5a27] text-sm">Enquiry Sent Successfully!</p>
+                    <p className="text-xs text-black/60 mt-0.5">We&apos;ll get back to you within 24 hours.</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-                <input
-                  placeholder="Email"
-                  className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
-                />
+            <form onSubmit={form.handleSubmit(handleSubmit)}>
+              <div className="grid md:grid-cols-[320px_1fr] gap-10 md:gap-12 items-start">
+                {/* LEFT INPUTS */}
+                <div className="space-y-5 flex flex-col items-center md:items-start">
+                  <div className="w-full md:w-[240px]">
+                    <input
+                      {...form.register("name")}
+                      placeholder="Enter Name"
+                      className={`w-full rounded-full border bg-transparent px-5 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27] ${
+                        form.formState.errors.name
+                          ? "border-red-500 focus:ring-red-200"
+                          : "border-black/40 hover:border-black/70"
+                      }`}
+                    />
+                    {form.formState.errors.name && (
+                      <p className="text-red-600 text-xs mt-1.5 px-3">{form.formState.errors.name.message}</p>
+                    )}
+                  </div>
 
-                <input
-                  placeholder="Phone Number"
-                  className="w-full md:w-[240px] rounded-full border border-black/80 bg-transparent px-5 py-2.5 text-sm outline-none"
-                />
+                  <div className="w-full md:w-[240px]">
+                    <input
+                      {...form.register("email")}
+                      placeholder="Email"
+                      type="email"
+                      className={`w-full rounded-full border bg-transparent px-5 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27] ${
+                        form.formState.errors.email
+                          ? "border-red-500 focus:ring-red-200"
+                          : "border-black/40 hover:border-black/70"
+                      }`}
+                    />
+                    {form.formState.errors.email && (
+                      <p className="text-red-600 text-xs mt-1.5 px-3">{form.formState.errors.email.message}</p>
+                    )}
+                  </div>
+
+                  <div className="w-full md:w-[240px]">
+                    <input
+                      {...form.register("phone")}
+                      placeholder="Phone Number"
+                      type="tel"
+                      maxLength={10}
+                      className={`w-full rounded-full border bg-transparent px-5 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27] ${
+                        form.formState.errors.phone
+                          ? "border-red-500 focus:ring-red-200"
+                          : "border-black/40 hover:border-black/70"
+                      }`}
+                    />
+                    {form.formState.errors.phone && (
+                      <p className="text-red-600 text-xs mt-1.5 px-3">{form.formState.errors.phone.message}</p>
+                    )}
+                    {!form.formState.errors.phone && (
+                      <p className="text-black/40 text-[10px] mt-1 px-3">Optional</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* RIGHT MESSAGE */}
+                <div className="flex flex-col">
+                  <textarea
+                    {...form.register("message")}
+                    placeholder="Message"
+                    rows={7}
+                    className={`w-full rounded-[28px] border bg-transparent px-6 py-5 text-sm outline-none resize-none transition-colors focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27] ${
+                      form.formState.errors.message
+                        ? "border-red-500 focus:ring-red-200"
+                        : "border-black/40 hover:border-black/70"
+                    }`}
+                  />
+                  {form.formState.errors.message && (
+                    <p className="text-red-600 text-xs mt-1.5 px-3">{form.formState.errors.message.message}</p>
+                  )}
+                </div>
               </div>
 
-              {/* RIGHT MESSAGE */}
-              <div className="flex justify-center md:block">
-                <textarea
-                  placeholder="Message"
-                  rows={7}
-                  className="w-full md:w-full max-w-md md:max-w-none rounded-[28px] border border-black/80 bg-transparent px-6 py-5 text-sm outline-none resize-none"
-                ></textarea>
+              <div className="flex justify-center mt-10">
+                <MagneticButton
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-10 py-3 rounded-full bg-black text-white text-sm font-medium hover:bg-black/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>
+                  ) : (
+                    <><Send className="w-4 h-4" /> Send Enquiry</>
+                  )}
+                </MagneticButton>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       </section>
