@@ -277,7 +277,7 @@ export default function ContactPage() {
         formData.append("email", data.email);
         formData.append("phone", data.phone || "");
         formData.append("message", data.message);
-        await fetch("/", {
+        await fetch("/__forms.html", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: formData.toString(),
