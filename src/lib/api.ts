@@ -151,6 +151,14 @@ export const adminApi = {
       }
     ),
 
+  checkSession: () =>
+    apiFetch<{ success: boolean; data?: { email: string }; error?: string }>(
+      API_ENDPOINTS.ADMIN_LOGIN,
+      {
+        credentials: "include",
+      }
+    ),
+
   logout: () =>
     adminApiFetch<{ success: boolean }>(API_ENDPOINTS.ADMIN_LOGOUT, {
       method: "DELETE",

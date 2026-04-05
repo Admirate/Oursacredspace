@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -151,7 +152,6 @@ const AnimatedCounter = ({ end, duration = 2000, isVisible }: { end: number; dur
 
 export default function HomePage() {
   const [heroLoaded, setHeroLoaded] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const eventsSection = useInView(0.1);
   const whoWeAreSection = useInView(0.1);
   const offeringsSection = useInView(0.1);
@@ -163,17 +163,6 @@ export default function HomePage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Track mouse for parallax effects
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({
-        x: (e.clientX / window.innerWidth - 0.5) * 20,
-        y: (e.clientY / window.innerHeight - 0.5) * 20,
-      });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
 
   return (
     <div>
@@ -182,13 +171,13 @@ export default function HomePage() {
         <div className="container px-4 flex justify-center">
           <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-2xl w-full h-[255px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <img
+              <Image
                 src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/hero.jpg"
                 alt="Sacred space background"
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{
-                  objectPosition: "top",
-                }}
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, 1414px"
+                className="object-cover object-top"
               />
 
               <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />

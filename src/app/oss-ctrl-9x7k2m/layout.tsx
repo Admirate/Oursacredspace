@@ -100,7 +100,7 @@ export default function AdminLayout({
       }
 
       try {
-        const response = await adminApi.listBookings({ limit: 1 });
+        const response = await adminApi.checkSession();
         if (response.success) {
           setIsAuthenticated(true);
         } else {
