@@ -39,6 +39,13 @@ const sections = [
       { label: "Contact", href: "/contact" },
     ],
   },
+  {
+    title: "Legal",
+    links: [
+      { label: "Privacy Policy", href: "/privacy-policy" },
+      { label: "Terms & Conditions", href: "/terms-and-conditions" },
+    ],
+  },
 ];
 
 export default function SitemapPage() {
@@ -52,7 +59,7 @@ export default function SitemapPage() {
           A complete overview of all pages on Our Sacred Space.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10">
           {sections.map((section) => (
             <div key={section.title}>
               <h2 className="text-sm font-semibold uppercase tracking-wider text-sacred-burgundy mb-4">

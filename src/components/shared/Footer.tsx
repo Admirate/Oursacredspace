@@ -146,6 +146,24 @@ export const Footer = () => {
                   Sitemap
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/privacy-policy"
+                  className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors inline-block"
+                  tabIndex={0}
+                >
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/terms-and-conditions"
+                  className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors inline-block"
+                  tabIndex={0}
+                >
+                  Terms &amp; Conditions
+                </Link>
+              </li>
             </ul>
           </div>
 
