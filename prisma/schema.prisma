@@ -8,8 +8,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ============ ENUMS ============
@@ -47,11 +48,6 @@ enum SpaceRequestStatus {
   FOLLOW_UP_REQUIRED
 }
 
-enum CheckInStatus {
-  NOT_CHECKED_IN
-  CHECKED_IN
-}
-
 enum NotificationChannel {
   WHATSAPP
   EMAIL
@@ -74,6 +70,12 @@ model Booking {
   id              String        @id @default(cuid())
   type            BookingType
   status          BookingStatus @default(PENDING_PAYMENT)
+
+  // SECURITY (SEC-005, SEC-006): SHA-256 hash of a high-entropy per-booking
+  // access token. The raw token is returned to the client once at creation
+  // time and required on getBooking / createRazorpayOrder. Prevents IDOR/PII
+  // exposure by guessing or enumerating booking IDs.
+  accessTokenHash String?       @unique @map("access_token_hash")
 
   customerName    String        @map("customer_name")
   customerPhone   String        @map("customer_phone")
@@ -98,7 +100,6 @@ model Booking {
   spaceRequest    SpaceRequest? @relation(fields: [spaceRequestId], references: [id], onDelete: Restrict)
 
   payments        Payment[]
-  eventPass       EventPass?
   notifications   NotificationLog[]
   statusHistory   StatusHistory[]
 
@@ -116,6 +117,10 @@ model Booking {
   @@index([deletedAt])
   @@index([eventId])
   @@index([classSessionId])
+  @@index([classSessionId, status, deletedAt])
+  @@index([eventId, status, deletedAt])
+  @@index([classSessionId, customerEmail, status])
+  @@index([eventId, customerEmail, status])
   @@map("bookings")
 }
 
@@ -143,9 +148,9 @@ model Payment {
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  @@index([razorpayOrderId])
   @@index([status])
   @@index([bookingId])
+  @@index([bookingId, status, createdAt(sort: Desc)])
   @@map("payments")
 }
 
@@ -197,7 +202,6 @@ model Event {
   active      Boolean     @default(true)
 
   bookings    Booking[]
-  eventPasses EventPass[]
 
   createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -210,30 +214,6 @@ model Event {
   @@map("events")
 }
 
-model EventPass {
-  id            String        @id @default(cuid())
-  bookingId     String        @unique @map("booking_id")
-  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-
-  eventId       String        @map("event_id")
-  event         Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  passId        String        @unique @map("pass_id")
-  qrImageUrl    String        @map("qr_image_url")
-
-  checkInStatus CheckInStatus @default(NOT_CHECKED_IN) @map("check_in_status")
-  checkInTime   DateTime?     @map("check_in_time") @db.Timestamptz(3)
-  checkedInBy   String?       @map("checked_in_by")
-
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-
-  @@index([passId])
-  @@index([eventId])
-  @@index([checkInStatus])
-  @@index([eventId, checkInStatus])
-  @@map("event_passes")
-}
 
 model SpaceRequest {
   id              String             @id @default(cuid())
@@ -333,8 +313,10 @@ model RateLimitEntry {
 model AdminSession {
   id             String   @id @default(cuid())
   email          String   @unique
-  token          String   @unique
-  hashedToken    String?  @unique @map("hashed_token")
+  // SECURITY: Only the SHA-256 hash of the token is persisted. The raw token
+  // exists only in the user's HttpOnly cookie. A DB breach therefore cannot
+  // produce usable session tokens (SEC-003).
+  hashedToken    String   @unique @map("hashed_token")
 
   ipAddress      String?  @map("ip_address")
   userAgent      String?  @map("user_agent")
@@ -344,8 +326,6 @@ model AdminSession {
 
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  @@index([token])
-  @@index([hashedToken])
   @@index([expiresAt])
   @@map("admin_sessions")
 }

@@ -31,9 +31,15 @@ export const handler: Handler = async (event) => {
       ? { status: status as SpaceRequestStatus }
       : {};
 
-    const spaceRequests = await prisma.spaceRequest.findMany({
+    const page = Math.max(1, parseInt(event.queryStringParameters?.page || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(event.queryStringParameters?.limit || "20", 10) || 20));
+
+    const [spaceRequests, total] = await Promise.all([
+      prisma.spaceRequest.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
       select: {
         id: true,
         customerName: true,
@@ -50,7 +56,9 @@ export const handler: Handler = async (event) => {
           select: { id: true, status: true },
         },
       },
-    });
+    }),
+      prisma.spaceRequest.count({ where }),
+    ]);
 
     return {
       statusCode: 200,
@@ -58,6 +66,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({
         success: true,
         data: spaceRequests,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }),
     };
   } catch (error) {

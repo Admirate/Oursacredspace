@@ -24,7 +24,6 @@ export type SpaceRequestStatus =
   | "CONFIRMED"
   | "CANCELLED";
 
-export type CheckInStatus = "NOT_CHECKED_IN" | "CHECKED_IN";
 
 // === Core Types ===
 
@@ -49,7 +48,6 @@ export interface Booking {
   event?: Event | null;
   spaceRequest?: SpaceRequest | null;
   payments?: Payment[];
-  eventPass?: EventPass | null;
 
   createdAt: string;
   updatedAt: string;
@@ -126,20 +124,6 @@ export interface Event {
   deletedAt?: string | null;
 }
 
-export interface EventPass {
-  id: string;
-  bookingId: string;
-  booking?: Booking;
-  eventId: string;
-  event?: Event;
-  passId: string;
-  qrImageUrl: string;
-  checkInStatus: CheckInStatus;
-  checkInTime?: string | null;
-  checkedInBy?: string | null;
-  createdAt: string;
-  updatedAt?: string;
-}
 
 export interface SpaceRequest {
   id: string;
@@ -201,6 +185,12 @@ export interface CreateBookingResponse {
   success: boolean;
   data: {
     bookingId: string;
+    /**
+     * SECURITY (SEC-005, SEC-006): One-time access token returned at
+     * booking creation. Must be passed to getBooking and
+     * createRazorpayOrder to access the booking's PII / payment.
+     */
+    accessToken: string;
     type: BookingType;
     amount: number;
     requiresPayment: boolean;
@@ -210,6 +200,8 @@ export interface CreateBookingResponse {
 
 export interface CreateRazorpayOrderRequest {
   bookingId: string;
+  /** SECURITY (SEC-006): Per-booking access token returned by createBooking. */
+  accessToken: string;
 }
 
 export interface CreateRazorpayOrderResponse {
@@ -238,6 +230,7 @@ export interface GetBookingResponse {
 export interface AdminListBookingsRequest {
   type?: BookingType;
   status?: string;
+  search?: string;
   page?: number;
   limit?: number;
   startDate?: string;
@@ -261,22 +254,6 @@ export interface AdminUpdateSpaceRequestRequest {
   adminNotes?: string;
 }
 
-export interface AdminCheckinPassRequest {
-  passId: string;
-  adminEmail: string;
-}
-
-export interface AdminCheckinPassResponse {
-  success: boolean;
-  data?: {
-    passId: string;
-    attendeeName: string;
-    eventTitle: string;
-    checkInTime: string;
-    alreadyCheckedIn: boolean;
-  };
-  error?: string;
-}
 
 // === Razorpay Types ===
 

@@ -45,7 +45,6 @@ const mockBooking = {
   event: null,
   spaceRequest: null,
   payments: [],
-  eventPass: null,
 };
 
 describe("adminListBookings handler", () => {

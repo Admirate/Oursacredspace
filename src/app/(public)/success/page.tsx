@@ -13,15 +13,19 @@ import {
   MapPin, 
   Mail, 
   Phone,
-  Download,
   Home,
-  Ticket
+  Ticket,
+  XCircle,
+  RefreshCw
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { usePayment } from "@/hooks/usePayment";
 import { api } from "@/lib/api";
+import { POLLING_INTERVAL } from "@/lib/constants";
 
 const formatPrice = (paise: number): string => {
   return new Intl.NumberFormat("en-IN", {
@@ -54,8 +58,12 @@ const getStatusBadge = (status: string) => {
       return <Badge className="bg-green-500">Confirmed</Badge>;
     case "PENDING_PAYMENT":
       return <Badge variant="outline" className="border-yellow-500 text-yellow-600">Pending Payment</Badge>;
+    case "PAYMENT_FAILED":
+      return <Badge variant="destructive">Payment Failed</Badge>;
     case "CANCELLED":
       return <Badge variant="destructive">Cancelled</Badge>;
+    case "EXPIRED":
+      return <Badge variant="outline" className="border-gray-400 text-gray-500">Expired</Badge>;
     case "REQUESTED":
       return <Badge variant="secondary">Request Submitted</Badge>;
     default:
@@ -63,32 +71,53 @@ const getStatusBadge = (status: string) => {
   }
 };
 
+const SUCCESS_POLL_MAX = 60;
+
 function SuccessPageContent() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("bookingId");
-  const [showPaymentSection, setShowPaymentSection] = useState(false);
+  // SECURITY (SEC-005): The success page now requires the per-booking
+  // access token returned by createBooking. Without it the backend returns
+  // 404 and we render the "Booking Not Found" state.
+  const accessToken = searchParams.get("token");
+  const [pollCount, setPollCount] = useState(0);
+  const pollTimedOut = pollCount >= SUCCESS_POLL_MAX;
+  const { toast } = useToast();
+
+  const { initiatePayment, isLoading: isPaymentLoading } = usePayment({
+    onError: (err) => {
+      toast({
+        title: "Payment Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["booking", bookingId],
-    queryFn: () => api.getBooking(bookingId!),
-    enabled: !!bookingId,
+    queryKey: ["booking", bookingId, accessToken],
+    queryFn: () => api.getBooking(bookingId!, accessToken!),
+    // SECURITY (SEC-005): both bookingId AND accessToken must be present
+    // before we attempt to fetch.
+    enabled: !!bookingId && !!accessToken,
+    retry: 3,
     refetchInterval: (query) => {
-      // Poll every 5 seconds while pending payment
       const status = query.state.data?.data?.status;
-      return status === "PENDING_PAYMENT" ? 5000 : false;
+      if (status === "PENDING_PAYMENT" && pollCount < SUCCESS_POLL_MAX) {
+        setPollCount((prev) => prev + 1);
+        return POLLING_INTERVAL;
+      }
+      return false;
     },
   });
 
   const booking = data?.data;
 
-  useEffect(() => {
-    if (booking?.status === "PENDING_PAYMENT") {
-      setShowPaymentSection(true);
-    }
-  }, [booking?.status]);
-
-  // No booking ID provided
-  if (!bookingId) {
+  // No booking ID or no access token -> render the same "missing reference"
+  // state. We deliberately do not distinguish between the two: a leaked
+  // booking ID without a token must not produce a different UI than no ID
+  // at all.
+  if (!bookingId || !accessToken) {
     return (
       <div className="container py-12">
         <div className="max-w-lg mx-auto text-center">
@@ -121,15 +150,20 @@ function SuccessPageContent() {
     );
   }
 
-  // Error state
+  // Error state — distinguish transient vs permanent
   if (error || !booking) {
+    const isNetworkError = error?.message?.includes("connect") || error?.message?.includes("timed out");
     return (
       <div className="container py-12">
         <div className="max-w-lg mx-auto text-center">
           <AlertCircle className="h-16 w-16 mx-auto text-destructive mb-4" />
-          <h1 className="text-2xl font-bold mb-4">Booking Not Found</h1>
+          <h1 className="text-2xl font-bold mb-4">
+            {isNetworkError ? "Connection Error" : "Booking Not Found"}
+          </h1>
           <p className="text-muted-foreground mb-8">
-            We couldn't find this booking. It may have expired or the link is invalid.
+            {isNetworkError
+              ? "We couldn\u2019t reach the server. Please check your connection and try again."
+              : "We couldn\u2019t find this booking. It may have expired or the link is invalid."}
           </p>
           <div className="flex gap-4 justify-center">
             <Button variant="outline" onClick={() => refetch()}>
@@ -151,6 +185,8 @@ function SuccessPageContent() {
   const isConfirmed = booking.status === "CONFIRMED";
   const isPending = booking.status === "PENDING_PAYMENT";
   const isRequested = booking.status === "REQUESTED";
+  const isFailed = booking.status === "PAYMENT_FAILED";
+  const isExpired = booking.status === "EXPIRED";
 
   return (
     <div className="container py-12">
@@ -180,6 +216,26 @@ function SuccessPageContent() {
                 Your booking is reserved. Please complete payment to confirm.
               </p>
             </>
+          ) : isFailed ? (
+            <>
+              <div className="h-20 w-20 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-6">
+                <XCircle className="h-10 w-10 text-red-600" />
+              </div>
+              <h1 className="text-3xl font-bold mb-2">Payment Failed</h1>
+              <p className="text-muted-foreground">
+                Your payment could not be processed. Please try again or use a different payment method.
+              </p>
+            </>
+          ) : isExpired ? (
+            <>
+              <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="h-10 w-10 text-gray-500" />
+              </div>
+              <h1 className="text-3xl font-bold mb-2">Booking Expired</h1>
+              <p className="text-muted-foreground">
+                This booking has expired. Please create a new booking.
+              </p>
+            </>
           ) : isRequested ? (
             <>
               <div className="h-20 w-20 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-6">
@@ -187,7 +243,7 @@ function SuccessPageContent() {
               </div>
               <h1 className="text-3xl font-bold mb-2">Request Submitted!</h1>
               <p className="text-muted-foreground">
-                We'll review your request and contact you within 24 hours.
+                We&apos;ll review your request and contact you within 24 hours.
               </p>
             </>
           ) : (
@@ -302,45 +358,8 @@ function SuccessPageContent() {
           </CardContent>
         </Card>
 
-        {/* Event Pass QR */}
-        {isEvent && isConfirmed && booking.eventPass && (
-          <Card className="mb-6 border-primary">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Ticket className="h-5 w-5" />
-                Your Event Pass
-              </CardTitle>
-              <CardDescription>
-                Pass ID: {booking.eventPass.passId}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center">
-              {booking.eventPass.qrImageUrl && (
-                <div className="bg-white p-4 rounded-lg inline-block mb-4">
-                  <img
-                    src={booking.eventPass.qrImageUrl}
-                    alt="Event Pass QR Code"
-                    className="w-48 h-48 mx-auto"
-                  />
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground mb-4">
-                Show this QR code at the venue for entry
-              </p>
-              {booking.eventPass.qrImageUrl && (
-                <Button variant="outline" asChild>
-                  <a href={booking.eventPass.qrImageUrl} download={`pass-${booking.eventPass.passId}.png`}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Pass
-                  </a>
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Payment Section (for pending payments) */}
-        {isPending && showPaymentSection && (
+        {isPending && (
           <Card className="mb-6 border-yellow-500">
             <CardHeader>
               <CardTitle>Complete Payment</CardTitle>
@@ -349,18 +368,76 @@ function SuccessPageContent() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-yellow-800">
-                  <strong>Note:</strong> Payment integration is being set up. 
-                  For now, please contact us to complete your booking.
-                </p>
-              </div>
-              <Button className="w-full" disabled>
-                Pay {booking.amountPaise ? formatPrice(booking.amountPaise) : ""}
+              {pollTimedOut && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Verification is taking longer than usual.</strong> If you&apos;ve already paid,
+                    your booking will be confirmed shortly. You can refresh this page to check.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => {
+                      setPollCount(0);
+                      refetch();
+                    }}
+                  >
+                    <RefreshCw className="mr-2 h-3 w-3" />
+                    Refresh Status
+                  </Button>
+                </div>
+              )}
+              {!pollTimedOut && !isPaymentLoading && (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Checking payment status...
+                </div>
+              )}
+              <Button
+                className="w-full"
+                disabled={isPaymentLoading || !accessToken}
+                onClick={() => initiatePayment(booking.id, accessToken!)}
+              >
+                {isPaymentLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Opening Payment...
+                  </>
+                ) : (
+                  `Pay ${booking.amountPaise ? formatPrice(booking.amountPaise) : ""}`
+                )}
               </Button>
               <p className="text-xs text-center text-muted-foreground mt-2">
                 Secure payment via Razorpay (UPI, Cards, Net Banking)
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Retry Payment (for failed payments) */}
+        {isFailed && (
+          <Card className="mb-6 border-red-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <XCircle className="h-5 w-5 text-red-500" />
+                Payment Failed
+              </CardTitle>
+              <CardDescription>
+                Don&apos;t worry, no money was deducted. You can try again.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  const returnUrl = isClass ? "/classes" : "/events";
+                  window.location.href = returnUrl;
+                }}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Book Again
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -431,6 +508,24 @@ function SuccessPageContent() {
                     <span>Booking expires if not paid within 30 minutes</span>
                   </li>
                 </>
+              )}
+              {isFailed && (
+                <>
+                  <li className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-500 mt-0.5" />
+                    <span>No money was deducted from your account</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <RefreshCw className="h-4 w-4 text-red-500 mt-0.5" />
+                    <span>You can create a new booking and try again</span>
+                  </li>
+                </>
+              )}
+              {isExpired && (
+                <li className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-gray-500 mt-0.5" />
+                  <span>Please create a new booking to proceed</span>
+                </li>
               )}
             </ul>
           </CardContent>

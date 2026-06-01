@@ -1,11 +1,29 @@
 import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
-import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
+import {
+  getClientIP,
+  isRateLimited,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getPublicHeaders,
+  hashToken,
+} from "./helpers/security";
+import { withSentry } from "./helpers/logger";
 
 // SECURITY: ID format validation (supports CUID and UUID)
 const ID_REGEX = /^[a-z0-9]{20,30}$|^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export const handler: Handler = async (event) => {
+// SECURITY (SEC-005): Access token format check. base64url-encoded 32 bytes
+// produces 43 chars from [A-Za-z0-9_-]. Reject obviously malformed inputs
+// before any DB work to keep the unauthenticated surface small.
+const ACCESS_TOKEN_REGEX = /^[A-Za-z0-9_-]{40,64}$/;
+
+const NOT_FOUND_BODY = JSON.stringify({
+  success: false,
+  error: "Booking not found",
+});
+
+const _handler: Handler = async (event) => {
   // SECURITY: Use origin-validated CORS headers
   const headers = getPublicHeaders(event, "GET, OPTIONS");
 
@@ -29,6 +47,12 @@ export const handler: Handler = async (event) => {
 
   try {
     const bookingId = event.queryStringParameters?.bookingId;
+    // SECURITY (SEC-005): Access token is REQUIRED. Without it, this endpoint
+    // returns 404 even for valid booking IDs so that booking ID enumeration
+    // cannot reveal customer PII (customerName / email / phone) or expose
+    // whether a given booking ID exists.
+    const accessToken =
+      event.queryStringParameters?.token ?? event.queryStringParameters?.accessToken;
 
     if (!bookingId) {
       return {
@@ -47,26 +71,45 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        classSession: true,
-        event: true,
-        spaceRequest: true,
-        eventPass: true,
-        payments: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
+    // SECURITY: Reject requests without a well-formed token with the same
+    // generic 404 used for token mismatches, so callers cannot distinguish
+    // "missing token" from "wrong token" or "wrong booking".
+    if (!accessToken || !ACCESS_TOKEN_REGEX.test(accessToken)) {
+      return { statusCode: 404, headers, body: NOT_FOUND_BODY };
+    }
+
+    const accessTokenHash = hashToken(accessToken);
+
+    // SECURITY: Match BOTH id and accessTokenHash. findFirst is used because
+    // we need a compound match; both fields must agree before any row is
+    // returned. Wrong booking ID, wrong token, or a legacy row without a
+    // hash all collapse into the same 404 response.
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, accessTokenHash },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        customerName: true,
+        customerEmail: true,
+        customerPhone: true,
+        amountPaise: true,
+        currency: true,
+        createdAt: true,
+        classSession: {
+          select: { title: true, startsAt: true, duration: true, location: true },
+        },
+        event: {
+          select: { title: true, startsAt: true, venue: true, endsAt: true },
+        },
+        spaceRequest: {
+          select: { purpose: true, status: true, scheduledSlot: true },
         },
       },
     });
 
     if (!booking) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, error: "Booking not found" }),
-      };
+      return { statusCode: 404, headers, body: NOT_FOUND_BODY };
     }
 
     return {
@@ -85,8 +128,10 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({
         success: false,
-        error: "Failed to fetch booking",
+        error: "Failed to fetch booking. Please try again.",
       }),
     };
   }
 };
+
+export const handler = withSentry("getBooking", _handler);

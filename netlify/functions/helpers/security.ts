@@ -297,13 +297,17 @@ export const getPublicHeaders = (event: HandlerEvent, methods: string = "GET, PO
 });
 
 /**
- * Create rate limit exceeded response
+ * Create rate limit exceeded response.
+ * Includes permissive CORS so the browser can read the error body
+ * instead of surfacing an opaque network failure.
  */
 export const rateLimitResponse = () => ({
   statusCode: 429,
   headers: {
     "Content-Type": "application/json",
     "Retry-After": "60",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
   },
   body: JSON.stringify({
     success: false,

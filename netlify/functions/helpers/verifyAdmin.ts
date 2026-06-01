@@ -64,6 +64,7 @@ export const verifyAdminSession = async (
     const hashedTokenValue = hashToken(token);
     const session = await prisma.adminSession.findUnique({
       where: { hashedToken: hashedTokenValue },
+      select: { id: true, email: true, expiresAt: true },
     });
 
     if (!session) {

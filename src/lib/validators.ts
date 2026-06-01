@@ -81,12 +81,6 @@ export const adminUpdateSpaceRequestSchema = z.object({
   adminNotes: z.string().max(500).optional(),
 });
 
-export const adminCheckinPassSchema = z.object({
-  passId: z
-    .string()
-    .min(1, "Pass ID is required")
-    .regex(/^OSS-EV-[A-Z0-9]{8}$/, "Invalid pass ID format"),
-});
 
 export const adminCreateClassSessionSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters").max(100),
@@ -115,6 +109,5 @@ export type CreateEventBookingInput = z.infer<typeof createEventBookingSchema>;
 export type CreateSpaceBookingInput = z.infer<typeof createSpaceBookingSchema>;
 export type AdminLoginInput = z.infer<typeof adminLoginSchema>;
 export type AdminUpdateSpaceRequestInput = z.infer<typeof adminUpdateSpaceRequestSchema>;
-export type AdminCheckinPassInput = z.infer<typeof adminCheckinPassSchema>;
 export type AdminCreateClassSessionInput = z.infer<typeof adminCreateClassSessionSchema>;
 export type AdminCreateEventInput = z.infer<typeof adminCreateEventSchema>;

@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { WHATSAPP_CONTACT_NUMBER } from "@/lib/constants";
+import { usePayment } from "@/hooks/usePayment";
 import type { ClassSession } from "@/types";
 import Link from "next/link";
 
@@ -457,14 +457,12 @@ const ClassCard = ({
                 onBook(classItem);
               }}
             >
-              {/* TODO: Re-enable when booking goes live */}
-              {/* {isPast ? "Class Ended" : isFull ? "Fully Booked" : (
+              {isPast ? "Class Ended" : isFull ? "Fully Booked" : (
                 <>
                   Book Now
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </>
-              )} */}
-              {isPast ? "Class Ended" : isFull ? "Fully Booked" : "Enquire on WhatsApp"}
+              )}
             </RippleButton>
           </div>
         </div>
@@ -488,6 +486,7 @@ export default function ClassesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const classesSection = useInView(0.1);
@@ -495,6 +494,16 @@ export default function ClassesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["classes"],
     queryFn: api.getClasses,
+  });
+
+  const { initiatePayment, isLoading: isPaymentLoading, error: paymentError } = usePayment({
+    onError: (err) => {
+      toast({
+        title: "Payment Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Trigger hero animations on mount
@@ -527,17 +536,25 @@ export default function ClassesPage() {
   const bookingMutation = useMutation({
     mutationFn: api.createBooking,
     onSuccess: (response) => {
-      toast({
-        title: "Booking Created!",
-        description: "Redirecting to payment...",
-      });
       queryClient.invalidateQueries({ queryKey: ["classes"] });
       setIsDialogOpen(false);
       form.reset();
-      // Redirect to success or payment page
-      window.location.href = `/success?bookingId=${response.data.bookingId}`;
+      if (response.data.requiresPayment) {
+        toast({ title: "Booking Created!", description: "Opening payment..." });
+        // SECURITY (SEC-006): pass the one-time accessToken alongside the
+        // bookingId so createRazorpayOrder and the /success page can fetch
+        // the booking.
+        initiatePayment(response.data.bookingId, response.data.accessToken);
+      } else {
+        setIsSubmitting(false);
+        toast({ title: "Booking Created!", description: "Your booking has been submitted." });
+        window.location.href = `/success?bookingId=${encodeURIComponent(
+          response.data.bookingId
+        )}&token=${encodeURIComponent(response.data.accessToken)}`;
+      }
     },
     onError: (error: Error) => {
+      setIsSubmitting(false);
       toast({
         title: "Booking Failed",
         description: error.message,
@@ -547,15 +564,13 @@ export default function ClassesPage() {
   });
 
   const handleBook = (classItem: ClassSession) => {
-    // TODO: Re-enable when booking goes live
-    // setSelectedClass(classItem);
-    // setIsDialogOpen(true);
-    const message = encodeURIComponent(`Hi! I'm interested in the "${classItem.title}" class. Could you share more details?`);
-    window.open(`https://wa.me/${WHATSAPP_CONTACT_NUMBER}?text=${message}`, "_blank");
+    setSelectedClass(classItem);
+    setIsDialogOpen(true);
   };
 
   const handleSubmit = (formData: BookingFormData) => {
-    if (!selectedClass) return;
+    if (!selectedClass || isSubmitting) return;
+    setIsSubmitting(true);
 
     bookingMutation.mutate({
       type: "CLASS",
@@ -569,6 +584,7 @@ export default function ClassesPage() {
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setSelectedClass(null);
+    setIsSubmitting(false);
     form.reset();
   };
 
@@ -781,15 +797,15 @@ export default function ClassesPage() {
                 <Button
                   type="submit"
                   className="flex-1"
-                  disabled={bookingMutation.isPending}
+                  disabled={isSubmitting}
                 >
-                  {bookingMutation.isPending ? (
+                  {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Booking...
+                      {isPaymentLoading ? "Opening Payment..." : "Booking..."}
                     </>
                   ) : (
-                    "Confirm Booking"
+                    "Confirm & Pay"
                   )}
                 </Button>
               </div>

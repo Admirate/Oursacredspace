@@ -39,6 +39,7 @@ export const handler: Handler = async (event) => {
             ],
           },
       orderBy: { startsAt: "asc" },
+      take: 100,
       include: {
         _count: {
           select: {

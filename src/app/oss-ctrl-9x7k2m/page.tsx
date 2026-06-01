@@ -29,54 +29,41 @@ const formatPrice = (paise: number): string => {
 };
 
 export default function AdminDashboardPage() {
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ["admin", "dashboardStats"],
+    queryFn: () => adminApi.dashboardStats(),
+  });
+
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
-    queryKey: ["admin", "bookings"],
+    queryKey: ["admin", "recentBookings"],
     queryFn: () => adminApi.listBookings({ limit: 5 }),
   });
 
-  const { data: classesData, isLoading: classesLoading } = useQuery({
-    queryKey: ["admin", "classes"],
-    queryFn: () => adminApi.listClasses(),
-  });
-
-  const { data: eventsData, isLoading: eventsLoading } = useQuery({
-    queryKey: ["admin", "events"],
-    queryFn: () => adminApi.listEvents(),
-  });
-
   const { data: spaceData, isLoading: spaceLoading } = useQuery({
-    queryKey: ["admin", "spaceRequests"],
-    queryFn: () => adminApi.listSpaceRequests(),
+    queryKey: ["admin", "pendingSpaceRequests"],
+    queryFn: () => adminApi.listSpaceRequests("REQUESTED"),
   });
 
-  const isLoading = bookingsLoading || classesLoading || eventsLoading || spaceLoading;
+  const isLoading = statsLoading;
 
-  // Get bookings array from response
+  const stats_data = statsData?.data;
+  const totalBookings = stats_data?.totalBookings ?? 0;
+  const confirmedBookings = stats_data?.confirmedBookings ?? 0;
+  const pendingBookings = stats_data?.pendingBookings ?? 0;
+  const totalClasses = stats_data?.totalClasses ?? 0;
+  const activeClasses = stats_data?.activeClasses ?? 0;
+  const totalEvents = stats_data?.totalEvents ?? 0;
+  const activeEvents = stats_data?.activeEvents ?? 0;
+  const pendingSpaceRequests = stats_data?.pendingSpaceRequests ?? 0;
+  const totalRevenue = stats_data?.totalRevenue ?? 0;
+
   const bookingsResponse = bookingsData?.data as any;
   const bookings: any[] = Array.isArray(bookingsResponse) 
     ? bookingsResponse 
     : bookingsResponse?.bookings || [];
-  const classes: any[] = classesData?.data || [];
-  const events: any[] = eventsData?.data || [];
-  const spaceRequests: any[] = spaceData?.data || [];
-
-  // Calculate stats
-  const totalBookings = bookings.length;
-  const confirmedBookings = bookings.filter(b => b.status === "CONFIRMED").length;
-  const pendingBookings = bookings.filter(b => b.status === "PENDING_PAYMENT").length;
-  
-  const totalClasses = classes.length;
-  const activeClasses = classes.filter(c => c.active).length;
-  
-  const totalEvents = events.length;
-  const activeEvents = events.filter(e => e.active).length;
-  
-  const pendingSpaceRequests = spaceRequests.filter(s => s.status === "REQUESTED").length;
-
-  // Calculate revenue
-  const totalRevenue = bookings
-    .filter(b => b.status === "CONFIRMED")
-    .reduce((sum, b) => sum + (b.amountPaise || 0), 0);
+  const spaceRequests: any[] = Array.isArray(spaceData?.data)
+    ? spaceData.data
+    : (spaceData?.data as any)?.data || [];
 
   const stats = [
     {
@@ -266,10 +253,9 @@ export default function AdminDashboardPage() {
                   <div key={i} className="h-14 sm:h-16 bg-muted animate-pulse rounded-lg" />
                 ))}
               </div>
-            ) : spaceRequests.filter(s => s.status === "REQUESTED").length > 0 ? (
+            ) : spaceRequests.length > 0 ? (
               <div className="space-y-2 sm:space-y-3">
                 {spaceRequests
-                  .filter(s => s.status === "REQUESTED")
                   .slice(0, 5)
                   .map((request) => (
                     <div
@@ -277,7 +263,7 @@ export default function AdminDashboardPage() {
                       className="flex items-start sm:items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/50"
                     >
                       <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                        <p className="font-medium text-sm sm:text-base truncate">{request.booking?.customerName || "Unknown"}</p>
+                        <p className="font-medium text-sm sm:text-base truncate">{request.customerName || request.booking?.customerName || "Unknown"}</p>
                         <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
                           {request.purpose}
                         </p>

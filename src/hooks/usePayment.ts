@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 import { api } from "@/lib/api";
 import { RAZORPAY_CONFIG } from "@/lib/constants";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types";
@@ -19,6 +20,7 @@ interface PaymentState {
 
 export const usePayment = (options: UsePaymentOptions = {}) => {
   const router = useRouter();
+  const inFlightRef = useRef(false);
   const [state, setState] = useState<PaymentState>({
     isLoading: false,
     isCreatingOrder: false,
@@ -32,6 +34,14 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
         return;
       }
 
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      );
+      if (existingScript) {
+        existingScript.onload = () => resolve(true);
+        return;
+      }
+
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
@@ -41,7 +51,12 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
   }, []);
 
   const initiatePayment = useCallback(
-    async (bookingId: string) => {
+    // SECURITY (SEC-006): accessToken from createBooking is now required
+    // to create a Razorpay order and to fetch the booking on the success
+    // page. Callers MUST pass the token returned by createBooking.
+    async (bookingId: string, accessToken: string) => {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
@@ -53,7 +68,7 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
 
         // Create Razorpay order
         setState((prev) => ({ ...prev, isCreatingOrder: true }));
-        const orderResponse = await api.createRazorpayOrder({ bookingId });
+        const orderResponse = await api.createRazorpayOrder({ bookingId, accessToken });
 
         if (!orderResponse.success || !orderResponse.data) {
           throw new Error(orderResponse.error || "Failed to create payment order");
@@ -79,26 +94,45 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
           },
           theme: RAZORPAY_CONFIG.theme,
           handler: (response: RazorpaySuccessResponse) => {
-            // Payment successful - redirect to success page
+            inFlightRef.current = false;
             options.onSuccess?.(response);
-            router.push(`/success?bookingId=${bookingId}`);
+            // SECURITY (SEC-005): The access token must travel with the
+            // booking ID to the success page, otherwise getBooking will
+            // 404. encodeURIComponent guards against any URL-special chars
+            // in the base64url token (none today, but defence-in-depth).
+            router.push(
+              `/success?bookingId=${encodeURIComponent(bookingId)}&token=${encodeURIComponent(accessToken)}`
+            );
           },
           modal: {
             ondismiss: () => {
+              inFlightRef.current = false;
               setState((prev) => ({
                 ...prev,
                 isLoading: false,
                 error: "Payment cancelled",
               }));
+              options.onError?.(new Error("Payment cancelled. You can retry from the booking page."));
             },
           },
         };
 
         const razorpay = new window.Razorpay(razorpayOptions);
+        razorpay.on("payment.failed", (resp: { error?: { description?: string; reason?: string; code?: string } }) => {
+          const desc = resp?.error?.description || "Payment failed";
+          Sentry.captureMessage("Razorpay payment.failed", {
+            level: "warning",
+            extra: { bookingId, reason: resp?.error?.reason, code: resp?.error?.code },
+          });
+          setState((prev) => ({ ...prev, error: desc }));
+          options.onError?.(new Error(desc));
+        });
         razorpay.open();
       } catch (error) {
+        inFlightRef.current = false;
         const errorMessage =
           error instanceof Error ? error.message : "Payment failed. Please try again.";
+        Sentry.captureException(error, { tags: { flow: "payment" } });
         setState((prev) => ({
           ...prev,
           isLoading: false,

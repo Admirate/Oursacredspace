@@ -12,8 +12,7 @@ import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { BookingStatus, PaymentStatus, BookingType } from "@prisma/client";
-import { generateQRBuffer } from "./helpers/generateQR";
-import { generateSecureId, logSecurityEvent, timingSafeCompare } from "./helpers/security";
+import { logSecurityEvent, timingSafeCompare } from "./helpers/security";
 
 const confirmSchema = z.object({
   bookingId: z.string().min(1).max(30),
@@ -23,12 +22,6 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-/**
- * SECURITY: Generate unique pass ID using cryptographically secure random bytes
- */
-const generatePassId = (): string => {
-  return `OSS-EV-${generateSecureId(8, "ABCDEFGHJKLMNPQRSTUVWXYZ23456789")}`;
-};
 
 export const handler: Handler = async (event) => {
   /**
@@ -78,10 +71,17 @@ export const handler: Handler = async (event) => {
     const body = JSON.parse(event.body || "{}");
     const { bookingId } = confirmSchema.parse(body);
 
-    // Get booking with payment
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { payments: { orderBy: { createdAt: "desc" }, take: 1 } },
+      select: {
+        id: true,
+        status: true,
+        payments: {
+          select: { id: true },
+          orderBy: { createdAt: "desc" as const },
+          take: 1,
+        },
+      },
     });
 
     if (!booking) {
@@ -115,81 +115,30 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Update payment
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        razorpayPaymentId: `pay_dev_${Date.now()}`,
-        status: PaymentStatus.PAID,
-        webhookEventId: `evt_dev_${Date.now()}`,
-      },
-    });
-
-    // Update booking
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: { status: BookingStatus.CONFIRMED },
-    });
-
-    // Record status change
-    await prisma.statusHistory.create({
-      data: {
-        bookingId: booking.id,
-        fromStatus: BookingStatus.PENDING_PAYMENT,
-        toStatus: BookingStatus.CONFIRMED,
-        changedBy: "SYSTEM",
-        reason: "DEV MODE: Payment simulated",
-      },
-    });
-
-    let passId: string | undefined;
-    let qrImageUrl: string | undefined;
-
-    // Handle EVENT booking
-    if (booking.type === BookingType.EVENT && booking.eventId) {
-      passId = generatePassId();
-      const verifyUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/verify?passId=${passId}`;
-
-      // Generate QR (store as base64 for dev)
-      const qrBuffer = await generateQRBuffer(verifyUrl);
-      qrImageUrl = `data:image/png;base64,${qrBuffer.toString("base64")}`;
-
-      // Create EventPass
-      await prisma.eventPass.create({
+    const now = Date.now();
+    await prisma.$transaction([
+      prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          razorpayPaymentId: `pay_dev_${now}`,
+          status: PaymentStatus.PAID,
+          webhookEventId: `evt_dev_${now}`,
+        },
+      }),
+      prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: BookingStatus.CONFIRMED },
+      }),
+      prisma.statusHistory.create({
         data: {
           bookingId: booking.id,
-          eventId: booking.eventId,
-          passId,
-          qrImageUrl,
+          fromStatus: BookingStatus.PENDING_PAYMENT,
+          toStatus: BookingStatus.CONFIRMED,
+          changedBy: "SYSTEM",
+          reason: "DEV MODE: Payment simulated",
         },
-      });
-
-      // Log notification (placeholder)
-      await prisma.notificationLog.create({
-        data: {
-          bookingId: booking.id,
-          channel: "WHATSAPP",
-          templateName: "booking_event_confirmed",
-          to: booking.customerPhone,
-          status: "PENDING",
-        },
-      });
-    }
-
-    // Handle CLASS booking
-    if (booking.type === BookingType.CLASS && booking.classSessionId) {
-      // Inventory ledger: availability derived from booking count, no counter update needed
-
-      await prisma.notificationLog.create({
-        data: {
-          bookingId: booking.id,
-          channel: "WHATSAPP",
-          templateName: "booking_class_confirmed",
-          to: booking.customerPhone,
-          status: "PENDING",
-        },
-      });
-    }
+      }),
+    ]);
 
     return {
       statusCode: 200,
@@ -199,8 +148,6 @@ export const handler: Handler = async (event) => {
         data: {
           bookingId: booking.id,
           status: "CONFIRMED",
-          passId,
-          qrImageUrl,
           message: "DEV MODE: Payment confirmed successfully",
         },
       }),

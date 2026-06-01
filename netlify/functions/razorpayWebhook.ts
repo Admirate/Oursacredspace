@@ -2,23 +2,12 @@ import { Handler } from "@netlify/functions";
 import crypto from "crypto";
 import { prisma } from "./helpers/prisma";
 import { BookingStatus, PaymentStatus, BookingType } from "@prisma/client";
-import { generateQRBuffer } from "./helpers/generateQR";
-import { uploadQrToSupabase } from "./helpers/uploadQrToSupabase";
-import { generateSecureId, logSecurityEvent } from "./helpers/security";
+import { logSecurityEvent } from "./helpers/security";
 import { logger, withSentry } from "./helpers/logger";
-// TODO: Uncomment when WhatsApp is configured
-// import { sendEventConfirmation, sendClassConfirmation } from "./helpers/sendWhatsApp";
+import { sendBookingConfirmation } from "./helpers/notifications";
 
 const headers = {
   "Content-Type": "application/json",
-};
-
-/**
- * SECURITY: Generate unique pass ID using cryptographically secure random bytes
- * Using crypto.randomBytes instead of Math.random() for unpredictability
- */
-const generatePassId = (): string => {
-  return `OSS-EV-${generateSecureId(8, "ABCDEFGHJKLMNPQRSTUVWXYZ23456789")}`;
 };
 
 /**
@@ -80,16 +69,25 @@ const _handler: Handler = async (event) => {
       };
     }
 
-    const payload = JSON.parse(webhookBody);
-    const eventType = payload.event;
-    const webhookEventId = payload.event_id;
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(webhookBody);
+    } catch {
+      logger.error("Webhook body JSON parse failed", new Error("Invalid JSON"), {
+        bodyLength: webhookBody.length,
+      });
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "Invalid payload" }) };
+    }
+    const eventType = payload.event as string | undefined;
+    const webhookEventId = payload.event_id as string | undefined;
 
     // Only handle payment events
     if (!eventType?.startsWith("payment.")) {
       return { statusCode: 200, headers, body: JSON.stringify({ received: true }) };
     }
 
-    const paymentEntity = payload.payload?.payment?.entity;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const paymentEntity = (payload as any).payload?.payment?.entity;
     if (!paymentEntity) {
       return { statusCode: 200, headers, body: JSON.stringify({ received: true }) };
     }
@@ -105,7 +103,14 @@ const _handler: Handler = async (event) => {
     // Find payment by order ID
     const payment = await prisma.payment.findUnique({
       where: { razorpayOrderId },
-      include: { booking: true },
+      include: {
+        booking: {
+          include: {
+            classSession: { select: { title: true, startsAt: true, venue: true, duration: true } },
+            event: { select: { title: true, startsAt: true, venue: true, endsAt: true } },
+          },
+        },
+      },
     });
 
     if (!payment) {
@@ -231,72 +236,14 @@ const _handler: Handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: true }) };
       }
 
-      // === Handle EVENT booking: Generate pass + QR (outside transaction for performance) ===
-      if (booking.type === BookingType.EVENT && booking.eventId) {
-        const passId = generatePassId();
-        const verifyUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/verify?passId=${passId}`;
-
-        // Generate QR code
-        const qrBuffer = await generateQRBuffer(verifyUrl);
-
-        // Upload to Supabase (if configured)
-        let qrImageUrl = "";
-        try {
-          qrImageUrl = await uploadQrToSupabase(qrBuffer, booking.eventId, passId);
-        } catch (uploadError) {
-          logger.error("QR upload failed", uploadError, { passId, bookingId: booking.id });
-          qrImageUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/api/qr/${passId}`;
-        }
-
-        // Create EventPass
-        await prisma.eventPass.create({
-          data: {
-            bookingId: booking.id,
-            eventId: booking.eventId,
-            passId,
-            qrImageUrl,
-          },
-        });
-
-        // TODO: Send WhatsApp notification
-        // Uncomment when WhatsApp is configured:
-        /*
-        const event = await prisma.event.findUnique({ where: { id: booking.eventId } });
-        if (event) {
-          await sendEventConfirmation({
-            to: booking.customerPhone,
-            name: booking.customerName,
-            eventTitle: event.title,
-            datetime: event.startsAt.toISOString(),
-            venue: event.venue,
-            passId,
-            qrImageUrl,
-          });
-        }
-        */
-
-        // Log notification (placeholder)
-        await prisma.notificationLog.create({
-          data: {
-            bookingId: booking.id,
-            channel: "WHATSAPP",
-            templateName: "booking_event_confirmed",
-            to: booking.customerPhone,
-            status: "PENDING",
-          },
-        });
-      }
-
-      // Log notification for CLASS booking (outside transaction)
-      if (booking.type === BookingType.CLASS && booking.classSessionId) {
-        await prisma.notificationLog.create({
-          data: {
-            bookingId: booking.id,
-            channel: "WHATSAPP",
-            templateName: "booking_class_confirmed",
-            to: booking.customerPhone,
-            status: "PENDING",
-          },
+      // === Send confirmation notifications (email + WhatsApp) ===
+      // Notifications are best-effort; booking is already confirmed at this point.
+      try {
+        await sendBookingConfirmation(booking);
+      } catch (notifError) {
+        logger.error("Notification sending failed after payment confirmed", notifError, {
+          bookingId: booking.id,
+          customerEmail: booking.customerEmail,
         });
       }
 
@@ -310,8 +257,31 @@ const _handler: Handler = async (event) => {
     // Handle payment failed
     if (eventType === "payment.failed") {
       logger.payment("failed", { orderId: razorpayOrderId, bookingId: booking.id, razorpayPaymentId });
-      // SECURITY: Use transaction for atomicity
+      // SECURITY: Use transaction for atomicity; re-check status to prevent
+      // overwriting a CONFIRMED booking from a stale failure webhook
       await prisma.$transaction(async (tx) => {
+        const currentBooking = await tx.booking.findUnique({
+          where: { id: booking.id },
+          select: { status: true },
+        });
+
+        const currentPayment = await tx.payment.findUnique({
+          where: { id: payment.id },
+          select: { status: true },
+        });
+
+        // Only mark failed if booking is still pending and payment hasn't been processed
+        if (
+          currentBooking?.status !== BookingStatus.PENDING_PAYMENT ||
+          currentPayment?.status !== PaymentStatus.CREATED
+        ) {
+          logger.info("Skipping payment.failed — booking/payment already processed", {
+            bookingStatus: currentBooking?.status,
+            paymentStatus: currentPayment?.status,
+          });
+          return;
+        }
+
         await tx.payment.update({
           where: { id: payment.id },
           data: {
@@ -362,3 +332,5 @@ const _handler: Handler = async (event) => {
     return { statusCode: 200, headers, body: JSON.stringify({ received: true, error: "Processing error" }) };
   }
 };
+
+export const handler = withSentry("razorpayWebhook", _handler);

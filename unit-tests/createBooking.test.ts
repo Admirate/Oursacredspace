@@ -17,6 +17,9 @@ jest.mock("../netlify/functions/helpers/security", () => ({
     body: JSON.stringify({ success: false, error: "Too many requests" }),
   }),
   getPublicHeaders: jest.fn().mockReturnValue({ "Content-Type": "application/json" }),
+  // SECURITY (SEC-005/006): createBooking now hashes a per-booking access
+  // token using hashToken; tests need a deterministic stand-in.
+  hashToken: jest.fn((t: string) => `hash:${t}`),
   RATE_LIMITS: {
     BOOKING_CREATE: { maxRequests: 10, windowMs: 60000 },
   },
@@ -233,6 +236,39 @@ describe("createBooking handler", () => {
     expect(body.success).toBe(true);
     expect(body.data.bookingId).toBe("bkg-new-001");
     expect(body.data.requiresPayment).toBe(true);
+    // SEC-005/006: response must include a per-booking access token so the
+    // client can fetch the booking and create a payment order.
+    expect(typeof body.data.accessToken).toBe("string");
+    expect(body.data.accessToken.length).toBeGreaterThanOrEqual(40);
+  });
+
+  // SEC-004: Duplicate-check must not leak an existing bookingId. It must
+  // return a 409 with a generic message regardless of whether email-only
+  // matches. The new logic also requires phone to match before treating a
+  // request as a duplicate.
+  it("returns 409 without leaking bookingId when an active duplicate exists", async () => {
+    (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+    (prisma.booking.count as jest.Mock).mockResolvedValue(0);
+    (prisma.booking.findFirst as jest.Mock).mockResolvedValue({ id: "bkg-existing-001" });
+
+    const response = await handler(
+      makeEvent({ body: JSON.stringify(validClassBody) }),
+      {} as any
+    );
+
+    expect(response!.statusCode).toBe(409);
+    const body = JSON.parse(response!.body!);
+    expect(body.success).toBe(false);
+    expect(body.error).toMatch(/already exists/i);
+    expect(JSON.stringify(body)).not.toContain("bkg-existing-001");
+    // The duplicate query must include BOTH customerEmail AND customerPhone.
+    const findFirstCall = (prisma.booking.findFirst as jest.Mock).mock.calls[0][0];
+    expect(findFirstCall.where).toEqual(
+      expect.objectContaining({
+        customerEmail: "arjun@example.com",
+        customerPhone: "+919876543210",
+      })
+    );
   });
 
   it("allows booking when class has unlimited capacity (null)", async () => {
