@@ -41,7 +41,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { adminApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { Event, EventPass } from "@/types";
+import type { Event } from "@/types";
 
 const eventFormSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters"),
@@ -191,8 +191,6 @@ type EventStatusFilter = "all" | "active" | "inactive" | "expired";
 export default function AdminEventsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [selectedEventForPasses, setSelectedEventForPasses] = useState<Event | null>(null);
-  const [passSearch, setPassSearch] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -206,11 +204,6 @@ export default function AdminEventsPage() {
     queryFn: () => adminApi.listEvents(),
   });
 
-  const { data: passesData, isLoading: passesLoading } = useQuery({
-    queryKey: ["admin", "passes", selectedEventForPasses?.id],
-    queryFn: () => adminApi.listPasses(selectedEventForPasses?.id),
-    enabled: !!selectedEventForPasses,
-  });
 
   const form = useForm<EventFormData>({
     resolver: zodResolver(eventFormSchema),
@@ -289,17 +282,6 @@ export default function AdminEventsPage() {
     },
   });
 
-  const checkinMutation = useMutation({
-    mutationFn: ({ passId }: { passId: string }) =>
-      adminApi.checkinPass({ passId, adminEmail: "admin@ossspace.com" }),
-    onSuccess: () => {
-      toast({ title: "Pass checked in successfully" });
-      queryClient.invalidateQueries({ queryKey: ["admin", "passes"] });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
-    },
-  });
 
   const handleSubmit = (data: EventFormData) => {
     const [hours, minutes] = data.startsAtTime.split(":").map(Number);
@@ -360,13 +342,6 @@ export default function AdminEventsPage() {
   };
 
   const allEvents: any[] = data?.data || [];
-  const passes: any[] = passesData?.data || [];
-  const filteredPasses = passes.filter((pass: any) =>
-    passSearch
-      ? pass.passId.toLowerCase().includes(passSearch.toLowerCase()) ||
-        pass.booking?.customerName?.toLowerCase().includes(passSearch.toLowerCase())
-      : true
-  );
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const filteredEvents = allEvents.filter((e) => {
@@ -640,7 +615,6 @@ export default function AdminEventsPage() {
       <Tabs defaultValue="events">
         <TabsList>
           <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="checkin">Check-in</TabsTrigger>
         </TabsList>
 
         {/* Events Tab */}
@@ -872,104 +846,6 @@ export default function AdminEventsPage() {
           </Card>
         </TabsContent>
 
-        {/* Check-in Tab */}
-        <TabsContent value="checkin">
-          <Card>
-            <CardHeader>
-              <CardTitle>Check-in Attendees</CardTitle>
-              <CardDescription>
-                Select an event and check in attendees by pass ID
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Event Selection */}
-                <div className="flex flex-wrap gap-2">
-                  {allEvents.map((event) => (
-                    <Button
-                      key={event.id}
-                      variant={selectedEventForPasses?.id === event.id ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedEventForPasses(event)}
-                    >
-                      {event.title}
-                    </Button>
-                  ))}
-                </div>
-
-                {selectedEventForPasses && (
-                  <>
-                    {/* Search */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search by pass ID or name..."
-                        value={passSearch}
-                        onChange={(e) => setPassSearch(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-
-                    {/* Passes List */}
-                    {passesLoading ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : filteredPasses.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        No passes found for this event
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {filteredPasses.map((pass) => (
-                          <div
-                            key={pass.id}
-                            className={cn(
-                              "flex items-center justify-between p-3 rounded-lg border",
-                              pass.checkInStatus === "CHECKED_IN"
-                                ? "bg-green-50 border-green-200"
-                                : "bg-background"
-                            )}
-                          >
-                            <div className="space-y-1">
-                              <p className="font-mono text-sm font-medium">{pass.passId}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {pass.booking?.customerName || "Unknown"}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {pass.checkInStatus === "CHECKED_IN" ? (
-                                <Badge className="bg-green-500">Checked In</Badge>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  onClick={() => checkinMutation.mutate({ passId: pass.passId })}
-                                  disabled={checkinMutation.isPending}
-                                >
-                                  {checkinMutation.isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    "Check In"
-                                  )}
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {!selectedEventForPasses && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Select an event above to view and check in passes
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );

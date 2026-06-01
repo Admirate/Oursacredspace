@@ -75,9 +75,19 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      const classSession = await prisma.classSession.findUnique({
-        where: { id: validatedData.classSessionId },
-      });
+      const [classSession, classBookedCount] = await Promise.all([
+        prisma.classSession.findUnique({
+          where: { id: validatedData.classSessionId },
+          select: { id: true, active: true, capacity: true, pricePaise: true, deletedAt: true },
+        }),
+        prisma.booking.count({
+          where: {
+            classSessionId: validatedData.classSessionId,
+            status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
+            deletedAt: null,
+          },
+        }),
+      ]);
 
       if (!classSession) {
         return {
@@ -101,25 +111,15 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      // Inventory ledger: derive availability from confirmed/pending bookings
-      if (classSession.capacity !== null) {
-        const bookedCount = await prisma.booking.count({
-          where: {
-            classSessionId: validatedData.classSessionId,
-            status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
-            deletedAt: null,
-          },
-        });
-        if (bookedCount >= classSession.capacity) {
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({
-              success: false,
-              error: "This class is fully booked",
-            }),
-          };
-        }
+      if (classSession.capacity !== null && classBookedCount >= classSession.capacity) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: "This class is fully booked",
+          }),
+        };
       }
 
       amountPaise = classSession.pricePaise;
@@ -138,9 +138,19 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      const eventRecord = await prisma.event.findUnique({
-        where: { id: validatedData.eventId },
-      });
+      const [eventRecord, eventBookedCount] = await Promise.all([
+        prisma.event.findUnique({
+          where: { id: validatedData.eventId },
+          select: { id: true, active: true, capacity: true, pricePaise: true, deletedAt: true },
+        }),
+        prisma.booking.count({
+          where: {
+            eventId: validatedData.eventId,
+            status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
+            deletedAt: null,
+          },
+        }),
+      ]);
 
       if (!eventRecord) {
         return {
@@ -164,25 +174,15 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      // Inventory ledger: derive availability from confirmed/pending bookings
-      if (eventRecord.capacity !== null) {
-        const bookedCount = await prisma.booking.count({
-          where: {
-            eventId: validatedData.eventId,
-            status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
-            deletedAt: null,
-          },
-        });
-        if (bookedCount >= eventRecord.capacity) {
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({
-              success: false,
-              error: "This event is fully booked",
-            }),
-          };
-        }
+      if (eventRecord.capacity !== null && eventBookedCount >= eventRecord.capacity) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: "This event is fully booked",
+          }),
+        };
       }
 
       amountPaise = eventRecord.pricePaise;
@@ -215,6 +215,46 @@ const _handler: Handler = async (event) => {
 
       spaceRequestId = spaceRequest.id;
       amountPaise = 0;
+    }
+
+    // Idempotency: reject if a non-terminal booking already exists for
+    // the same customer + resource, preventing duplicate bookings from
+    // double-clicks or network retries.
+    const activeStatuses = [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED];
+    const duplicateWhere: Record<string, unknown> = {
+      customerEmail: validatedData.email,
+      status: { in: activeStatuses },
+      deletedAt: null,
+    };
+    if (validatedData.type === BookingType.CLASS) {
+      duplicateWhere.classSessionId = validatedData.classSessionId;
+    } else if (validatedData.type === BookingType.EVENT) {
+      duplicateWhere.eventId = validatedData.eventId;
+    } else if (validatedData.type === BookingType.SPACE && spaceRequestId) {
+      duplicateWhere.spaceRequestId = spaceRequestId;
+    }
+
+    const existingBooking = await prisma.booking.findFirst({
+      where: duplicateWhere,
+      select: { id: true, type: true, amountPaise: true, status: true },
+    });
+    if (existingBooking) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          data: {
+            bookingId: existingBooking.id,
+            type: existingBooking.type,
+            amount: existingBooking.amountPaise,
+            requiresPayment:
+              existingBooking.type !== BookingType.SPACE &&
+              existingBooking.amountPaise > 0 &&
+              existingBooking.status === BookingStatus.PENDING_PAYMENT,
+          },
+        }),
+      };
     }
 
     // Use a transaction with SELECT FOR UPDATE for atomic capacity check

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Search, 
@@ -85,41 +85,38 @@ const getTypeBadge = (type: string) => {
 
 export default function AdminBookingsPage() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const limit = 20;
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["admin", "bookings", typeFilter, statusFilter, page],
+    queryKey: ["admin", "bookings", typeFilter, statusFilter, debouncedSearch, page],
     queryFn: () =>
       adminApi.listBookings({
         type: typeFilter !== "all" ? (typeFilter as "CLASS" | "EVENT" | "SPACE") : undefined,
         status: statusFilter !== "all" ? statusFilter : undefined,
+        search: debouncedSearch || undefined,
         page,
         limit,
       }),
   });
 
-  // Handle both array and object response formats
   const responseData = data?.data as any;
-  const bookings = Array.isArray(responseData) 
+  const filteredBookings = Array.isArray(responseData) 
     ? responseData 
     : responseData?.bookings || [];
   const totalPages = responseData?.totalPages || (data as any)?.pagination?.totalPages || 1;
-
-  // Client-side search filter
-  const filteredBookings = bookings.filter((booking: any) => {
-    if (!search) return true;
-    const searchLower = search.toLowerCase();
-    return (
-      booking.customerName.toLowerCase().includes(searchLower) ||
-      booking.customerEmail.toLowerCase().includes(searchLower) ||
-      booking.customerPhone.includes(search) ||
-      booking.id.toLowerCase().includes(searchLower)
-    );
-  });
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -350,32 +347,6 @@ export default function AdminBookingsPage() {
                 </div>
               </div>
 
-              {selectedBooking.eventPass && (
-                <>
-                  <Separator />
-                  <div className="space-y-3">
-                    <h4 className="font-semibold">Event Pass</h4>
-                    <div className="space-y-2 text-sm">
-                      <p>
-                        <span className="text-muted-foreground">Pass ID:</span>{" "}
-                        <span className="font-mono">{selectedBooking.eventPass.passId}</span>
-                      </p>
-                      <p>
-                        <span className="text-muted-foreground">Check-in:</span>{" "}
-                        <Badge
-                          variant={
-                            selectedBooking.eventPass.checkInStatus === "CHECKED_IN"
-                              ? "default"
-                              : "outline"
-                          }
-                        >
-                          {selectedBooking.eventPass.checkInStatus.replace("_", " ")}
-                        </Badge>
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
           )}
         </DialogContent>

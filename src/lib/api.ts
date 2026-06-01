@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { API_ENDPOINTS } from "./constants";
 import type {
   CreateBookingRequest,
@@ -13,7 +14,6 @@ import type {
   ClassSession,
   Event,
   SpaceRequest,
-  EventPass,
 } from "@/types";
 
 // === Base Fetch Helper ===
@@ -21,6 +21,8 @@ import type {
 interface FetchOptions extends RequestInit {
   params?: Record<string, string | number | undefined>;
 }
+
+const API_TIMEOUT_MS = 30_000;
 
 const apiFetch = async <T>(
   endpoint: string,
@@ -42,18 +44,56 @@ const apiFetch = async <T>(
     }
   }
 
-  const response = await fetch(url, {
-    ...fetchOptions,
-    headers: {
-      "Content-Type": "application/json",
-      ...fetchOptions.headers,
-    },
-  });
+  let response: Response;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-  const data = await response.json();
+  try {
+    response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...fetchOptions.headers,
+      },
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Request timed out. Please check your connection and try again.");
+    }
+    Sentry.captureException(err, { tags: { api_endpoint: endpoint } });
+    throw new Error("Unable to connect. Please check your internet connection and try again.");
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  let data: T & { error?: string; success?: boolean };
+  try {
+    data = await response.json();
+  } catch {
+    Sentry.captureMessage(`Non-JSON response from ${endpoint}`, {
+      level: "error",
+      extra: { status: response.status, statusText: response.statusText },
+    });
+    throw new Error(
+      response.status >= 500
+        ? "Server error. Please try again in a moment."
+        : "Something went wrong. Please try again."
+    );
+  }
 
   if (!response.ok) {
-    throw new Error(data.error || "An error occurred");
+    const message = data.error || "An error occurred";
+    if (response.status >= 500) {
+      Sentry.captureMessage(`API ${response.status}: ${endpoint}`, {
+        level: "error",
+        extra: { error: message },
+      });
+    }
+    if (response.status === 429) {
+      throw new Error("Too many requests. Please wait a moment and try again.");
+    }
+    throw new Error(message);
   }
 
   return data;
@@ -97,19 +137,6 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // Pass Verification
-  verifyPass: (passId: string) =>
-    apiFetch<{
-      success: boolean;
-      data: {
-        valid: boolean;
-        pass?: EventPass;
-        event?: Event;
-        attendeeName?: string;
-      };
-    }>(API_ENDPOINTS.VERIFY_PASS, {
-      params: { passId },
-    }),
 };
 
 // === Admin API fetch wrapper (auto-injects CSRF token for mutations) ===
@@ -139,7 +166,24 @@ const adminApiFetch = async <T>(
 
 // === Admin API ===
 
+interface DashboardStats {
+  totalBookings: number;
+  confirmedBookings: number;
+  pendingBookings: number;
+  totalRevenue: number;
+  totalClasses: number;
+  activeClasses: number;
+  totalEvents: number;
+  activeEvents: number;
+  pendingSpaceRequests: number;
+}
+
 export const adminApi = {
+  dashboardStats: () =>
+    adminApiFetch<{ success: boolean; data: DashboardStats }>(
+      API_ENDPOINTS.ADMIN_DASHBOARD_STATS
+    ),
+
   // Auth
   login: (email: string, password: string) =>
     apiFetch<{ success: boolean; data?: { email: string }; error?: string }>(
@@ -217,19 +261,6 @@ export const adminApi = {
       API_ENDPOINTS.ADMIN_DELETE_EVENT,
       { method: "DELETE", body: JSON.stringify({ id }) }
     ),
-
-  // Passes
-  listPasses: (eventId?: string) =>
-    adminApiFetch<{ success: boolean; data: EventPass[] }>(
-      API_ENDPOINTS.ADMIN_LIST_PASSES,
-      { params: { eventId } }
-    ),
-
-  checkinPass: (data: AdminCheckinPassRequest) =>
-    adminApiFetch<AdminCheckinPassResponse>(API_ENDPOINTS.ADMIN_CHECKIN_PASS, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
 
   // Space Requests
   listSpaceRequests: (status?: string) =>

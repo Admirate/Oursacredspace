@@ -13,7 +13,6 @@ export const API_ENDPOINTS = {
   GET_BOOKING: "/.netlify/functions/getBooking",
   GET_CLASSES: "/.netlify/functions/getClasses",
   GET_EVENTS: "/.netlify/functions/getEvents",
-  VERIFY_PASS: "/.netlify/functions/verifyPass",
   CREATE_ENQUIRY: "/.netlify/functions/createEnquiry",
   
   // Dev Only
@@ -22,6 +21,7 @@ export const API_ENDPOINTS = {
   // Admin
   ADMIN_LOGIN: "/.netlify/functions/adminAuth",
   ADMIN_LOGOUT: "/.netlify/functions/adminAuth", // DELETE method
+  ADMIN_DASHBOARD_STATS: "/.netlify/functions/adminDashboardStats",
   ADMIN_LIST_BOOKINGS: "/.netlify/functions/adminListBookings",
   ADMIN_LIST_CLASSES: "/.netlify/functions/adminListClasses",
   ADMIN_CREATE_CLASS: "/.netlify/functions/adminCreateClass",
@@ -31,8 +31,6 @@ export const API_ENDPOINTS = {
   ADMIN_CREATE_EVENT: "/.netlify/functions/adminCreateEvent",
   ADMIN_UPDATE_EVENT: "/.netlify/functions/adminUpdateEvent",
   ADMIN_DELETE_EVENT: "/.netlify/functions/adminDeleteEvent",
-  ADMIN_LIST_PASSES: "/.netlify/functions/adminListPasses",
-  ADMIN_CHECKIN_PASS: "/.netlify/functions/adminCheckinPass",
   ADMIN_LIST_SPACE_REQUESTS: "/.netlify/functions/adminListSpaceRequests",
   ADMIN_UPDATE_SPACE_REQUEST: "/.netlify/functions/adminUpdateSpaceRequest",
   ADMIN_UPLOAD_IMAGE: "/.netlify/functions/adminUploadImage",

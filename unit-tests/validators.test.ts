@@ -6,7 +6,6 @@ import {
   createEventBookingSchema,
   createSpaceBookingSchema,
   adminLoginSchema,
-  adminCheckinPassSchema,
 } from "../src/lib/validators";
 
 // ─── phoneSchema ─────────────────────────────────────────
@@ -221,27 +220,3 @@ describe("adminLoginSchema", () => {
   });
 });
 
-// ─── adminCheckinPassSchema ──────────────────────────────
-
-describe("adminCheckinPassSchema", () => {
-  it("accepts valid pass ID format", () => {
-    const result = adminCheckinPassSchema.parse({ passId: "OSS-EV-ABCD1234" });
-    expect(result.passId).toBe("OSS-EV-ABCD1234");
-  });
-
-  it("rejects invalid pass ID format", () => {
-    expect(() =>
-      adminCheckinPassSchema.parse({ passId: "INVALID-FORMAT" })
-    ).toThrow();
-  });
-
-  it("rejects lowercase pass ID", () => {
-    expect(() =>
-      adminCheckinPassSchema.parse({ passId: "OSS-EV-abcd1234" })
-    ).toThrow();
-  });
-
-  it("rejects empty passId", () => {
-    expect(() => adminCheckinPassSchema.parse({ passId: "" })).toThrow();
-  });
-});

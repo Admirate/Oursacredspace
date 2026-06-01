@@ -33,14 +33,7 @@ const makeEventRecord = (overrides: any = {}) => ({
   startsAt: new Date(Date.now() + hours(24)),
   endsAt: null,
   active: true,
-  _count: { bookings: 3, eventPasses: 5 },
-  eventPasses: [
-    { checkInStatus: "CHECKED_IN" },
-    { checkInStatus: "NOT_CHECKED_IN" },
-    { checkInStatus: "CHECKED_IN" },
-    { checkInStatus: "NOT_CHECKED_IN" },
-    { checkInStatus: "NOT_CHECKED_IN" },
-  ],
+  _count: { bookings: 3 },
   ...overrides,
 });
 
@@ -81,33 +74,6 @@ describe("adminListEvents handler", () => {
   });
 
   // ── Stats computation ──
-
-  it("computes passesIssued from _count.eventPasses", async () => {
-    (prisma.event.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
-    (prisma.event.findMany as jest.Mock).mockResolvedValue([makeEventRecord()]);
-
-    const res = await handler(makeEvent(), {} as any);
-    const body = JSON.parse(res!.body!);
-    expect(body.data[0].passesIssued).toBe(5);
-  });
-
-  it("computes checkIns count from eventPasses with CHECKED_IN status", async () => {
-    (prisma.event.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
-    (prisma.event.findMany as jest.Mock).mockResolvedValue([makeEventRecord()]);
-
-    const res = await handler(makeEvent(), {} as any);
-    const body = JSON.parse(res!.body!);
-    expect(body.data[0].checkIns).toBe(2);
-  });
-
-  it("strips eventPasses array from response", async () => {
-    (prisma.event.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
-    (prisma.event.findMany as jest.Mock).mockResolvedValue([makeEventRecord()]);
-
-    const res = await handler(makeEvent(), {} as any);
-    const body = JSON.parse(res!.body!);
-    expect(body.data[0].eventPasses).toBeUndefined();
-  });
 
   // ── isExpired logic ──
 

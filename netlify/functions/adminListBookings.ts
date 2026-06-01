@@ -135,7 +135,6 @@ export const handler: Handler = async (event) => {
             orderBy: { createdAt: "desc" },
             take: 1,
           },
-          eventPass: { select: { passId: true, checkInStatus: true } },
         },
         orderBy: { createdAt: "desc" },
         skip,

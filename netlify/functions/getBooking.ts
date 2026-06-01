@@ -1,11 +1,12 @@
 import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
 import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
+import { withSentry } from "./helpers/logger";
 
 // SECURITY: ID format validation (supports CUID and UUID)
 const ID_REGEX = /^[a-z0-9]{20,30}$|^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export const handler: Handler = async (event) => {
+const _handler: Handler = async (event) => {
   // SECURITY: Use origin-validated CORS headers
   const headers = getPublicHeaders(event, "GET, OPTIONS");
 
@@ -49,14 +50,24 @@ export const handler: Handler = async (event) => {
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        classSession: true,
-        event: true,
-        spaceRequest: true,
-        eventPass: true,
-        payments: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        customerName: true,
+        customerEmail: true,
+        customerPhone: true,
+        amountPaise: true,
+        currency: true,
+        createdAt: true,
+        classSession: {
+          select: { title: true, startsAt: true, duration: true, location: true },
+        },
+        event: {
+          select: { title: true, startsAt: true, venue: true, endsAt: true },
+        },
+        spaceRequest: {
+          select: { purpose: true, status: true, scheduledSlot: true },
         },
       },
     });
@@ -85,8 +96,10 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({
         success: false,
-        error: "Failed to fetch booking",
+        error: "Failed to fetch booking. Please try again.",
       }),
     };
   }
 };
+
+export const handler = withSentry("getBooking", _handler);

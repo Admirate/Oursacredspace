@@ -27,9 +27,9 @@ export const handler: Handler = async (event) => {
     const now = new Date();
 
     const rawPage = parseInt(event.queryStringParameters?.page || "1", 10);
-    const rawLimit = parseInt(event.queryStringParameters?.limit || "0", 10);
+    const rawLimit = parseInt(event.queryStringParameters?.limit || "50", 10);
     const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
-    const limit = isNaN(rawLimit) || rawLimit < 1 ? 0 : rawLimit; // 0 = no limit
+    const limit = Math.min(100, isNaN(rawLimit) || rawLimit < 1 ? 50 : rawLimit);
 
     // Auto-deactivate events whose time has passed
     await prisma.event.updateMany({
@@ -46,7 +46,8 @@ export const handler: Handler = async (event) => {
     const events = await prisma.event.findMany({
       where: { deletedAt: null },
       orderBy: { startsAt: "desc" },
-      ...(limit > 0 && { skip: (page - 1) * limit, take: limit }),
+      skip: (page - 1) * limit,
+      take: limit,
       select: {
         id: true,
         title: true,
@@ -62,27 +63,17 @@ export const handler: Handler = async (event) => {
         _count: {
           select: { 
             bookings: true,
-            eventPasses: true,
           },
-        },
-        eventPasses: {
-          select: { checkInStatus: true },
         },
       },
     });
 
     const eventsWithStats = events.map((event) => {
-      const checkedInCount = event.eventPasses.filter(
-        (p) => p.checkInStatus === "CHECKED_IN"
-      ).length;
       const endTime = event.endsAt || event.startsAt;
 
       return {
         ...event,
-        passesIssued: event._count.eventPasses,
-        checkIns: checkedInCount,
         isExpired: endTime < now,
-        eventPasses: undefined,
       };
     });
 

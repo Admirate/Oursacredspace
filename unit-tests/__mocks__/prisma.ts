@@ -39,12 +39,6 @@ const mockPrisma: Record<string, any> = {
     create: jest.fn(),
     update: jest.fn(),
   },
-  eventPass: {
-    findUnique: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-  },
   notificationLog: {
     create: jest.fn(),
   },

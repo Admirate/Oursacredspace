@@ -11,7 +11,7 @@ A booking and event management system for Our Sacred Space - a cultural and comm
 
 ## Tech Stack
 
-- Next.js 14 + TypeScript
+- Next.js 16 + TypeScript
 - Tailwind CSS + shadcn/ui
 - Supabase (PostgreSQL)
 - Netlify Functions

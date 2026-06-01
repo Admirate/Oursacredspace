@@ -3,19 +3,19 @@ import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { BookingStatus, PaymentStatus } from "@prisma/client";
 import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
+import { withSentry } from "./helpers/logger";
+import Razorpay from "razorpay";
 
-// TODO: Uncomment when Razorpay credentials are available
-// import Razorpay from "razorpay";
-// const razorpay = new Razorpay({
-//   key_id: process.env.RAZORPAY_KEY_ID!,
-//   key_secret: process.env.RAZORPAY_KEY_SECRET!,
-// });
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
 
 const createOrderSchema = z.object({
   bookingId: z.string().min(1).max(30),
 });
 
-export const handler: Handler = async (event) => {
+const _handler: Handler = async (event) => {
   // SECURITY: Use origin-validated CORS headers
   const headers = getPublicHeaders(event, "POST, OPTIONS");
 
@@ -44,6 +44,11 @@ export const handler: Handler = async (event) => {
     // Get booking
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
+      select: {
+        id: true, status: true, type: true,
+        amountPaise: true, currency: true,
+        customerName: true, customerEmail: true, customerPhone: true,
+      },
     });
 
     if (!booking) {
@@ -60,16 +65,41 @@ export const handler: Handler = async (event) => {
         headers,
         body: JSON.stringify({
           success: false,
-          error: `Cannot create order for booking with status: ${booking.status}`,
+          error: "This booking is not eligible for payment. It may have already been paid or expired.",
         }),
       };
     }
 
-    // ============================================
-    // PLACEHOLDER: Razorpay Order Creation
-    // ============================================
-    // When you have Razorpay credentials, uncomment this:
-    /*
+    // Prevent double-charging: reuse an existing unpaid order if one exists
+    const existingPayment = await prisma.payment.findFirst({
+      where: {
+        bookingId: booking.id,
+        status: PaymentStatus.CREATED,
+      },
+      orderBy: { createdAt: "desc" },
+      select: { razorpayOrderId: true, amountPaise: true, currency: true },
+    });
+
+    if (existingPayment) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          data: {
+            orderId: existingPayment.razorpayOrderId,
+            keyId: process.env.RAZORPAY_KEY_ID,
+            amount: existingPayment.amountPaise,
+            currency: existingPayment.currency,
+            bookingId: booking.id,
+            customerName: booking.customerName,
+            customerEmail: booking.customerEmail,
+            customerPhone: booking.customerPhone,
+          },
+        }),
+      };
+    }
+
     const razorpayOrder = await razorpay.orders.create({
       amount: booking.amountPaise,
       currency: booking.currency,
@@ -79,17 +109,12 @@ export const handler: Handler = async (event) => {
         type: booking.type,
       },
     });
-    */
 
-    // MOCK ORDER for development (remove when using real Razorpay)
-    const mockOrderId = `order_mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    // Create payment record
     const payment = await prisma.payment.create({
       data: {
         bookingId: booking.id,
         provider: "RAZORPAY",
-        razorpayOrderId: mockOrderId, // Replace with razorpayOrder.id
+        razorpayOrderId: razorpayOrder.id,
         status: PaymentStatus.CREATED,
         amountPaise: booking.amountPaise,
         currency: booking.currency,
@@ -102,21 +127,19 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({
         success: true,
         data: {
-          orderId: mockOrderId, // Replace with razorpayOrder.id
-          keyId: process.env.RAZORPAY_KEY_ID || "rzp_test_placeholder",
+          orderId: razorpayOrder.id,
+          keyId: process.env.RAZORPAY_KEY_ID,
           amount: booking.amountPaise,
           currency: booking.currency,
           bookingId: booking.id,
           customerName: booking.customerName,
           customerEmail: booking.customerEmail,
           customerPhone: booking.customerPhone,
-          // For development: Auto-confirm after "payment"
-          _dev_note: "DEVELOPMENT MODE: Payment will auto-confirm",
         },
       }),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
     console.error("Create order error:", errorMessage);
 
     if (error instanceof z.ZodError) {
@@ -135,8 +158,10 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({
         success: false,
-        error: "Failed to create payment order",
+        error: "Failed to create payment order. Please try again.",
       }),
     };
   }
 };
+
+export const handler = withSentry("createRazorpayOrder", _handler);

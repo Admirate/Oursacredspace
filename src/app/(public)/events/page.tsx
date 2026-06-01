@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { WHATSAPP_CONTACT_NUMBER } from "@/lib/constants";
+import { usePayment } from "@/hooks/usePayment";
 import type { Event } from "@/types";
 
 // Video URL from Supabase Storage
@@ -396,14 +396,12 @@ const EventCard = ({
                 onBook(event);
               }}
             >
-              {/* TODO: Re-enable when booking goes live */}
-              {/* {isPast ? "Event Ended" : isSoldOut ? "Sold Out" : (
+              {isPast ? "Event Ended" : isSoldOut ? "Sold Out" : (
                 <>
                   Get Pass
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </>
-              )} */}
-              {isPast ? "Event Ended" : isSoldOut ? "Sold Out" : "Enquire on WhatsApp"}
+              )}
             </RippleButton>
           </div>
         </div>
@@ -428,6 +426,7 @@ export default function EventsPage() {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [collaboratorImgIndex, setCollaboratorImgIndex] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const eventsSection = useInView(0.1);
@@ -435,6 +434,16 @@ export default function EventsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["events"],
     queryFn: api.getEvents,
+  });
+
+  const { initiatePayment, isLoading: isPaymentLoading, error: paymentError } = usePayment({
+    onError: (err) => {
+      toast({
+        title: "Payment Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Trigger hero animations on mount
@@ -474,16 +483,20 @@ export default function EventsPage() {
   const bookingMutation = useMutation({
     mutationFn: api.createBooking,
     onSuccess: (response) => {
-      toast({
-        title: "Pass Reserved!",
-        description: "Redirecting to payment...",
-      });
       queryClient.invalidateQueries({ queryKey: ["events"] });
       setIsDialogOpen(false);
       form.reset();
-      window.location.href = `/success?bookingId=${response.data.bookingId}`;
+      if (response.data.requiresPayment) {
+        toast({ title: "Pass Reserved!", description: "Opening payment..." });
+        initiatePayment(response.data.bookingId);
+      } else {
+        setIsSubmitting(false);
+        toast({ title: "Pass Reserved!", description: "Your booking has been submitted." });
+        window.location.href = `/success?bookingId=${response.data.bookingId}`;
+      }
     },
     onError: (error: Error) => {
+      setIsSubmitting(false);
       toast({
         title: "Booking Failed",
         description: error.message,
@@ -493,15 +506,13 @@ export default function EventsPage() {
   });
 
   const handleBook = (event: Event) => {
-    // TODO: Re-enable when booking goes live
-    // setSelectedEvent(event);
-    // setIsDialogOpen(true);
-    const message = encodeURIComponent(`Hi! I'm interested in the "${event.title}" event. Could you share more details?`);
-    window.open(`https://wa.me/${WHATSAPP_CONTACT_NUMBER}?text=${message}`, "_blank");
+    setSelectedEvent(event);
+    setIsDialogOpen(true);
   };
 
   const handleSubmit = (formData: BookingFormData) => {
-    if (!selectedEvent) return;
+    if (!selectedEvent || isSubmitting) return;
+    setIsSubmitting(true);
 
     bookingMutation.mutate({
       type: "EVENT",
@@ -515,6 +526,7 @@ export default function EventsPage() {
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setSelectedEvent(null);
+    setIsSubmitting(false);
     form.reset();
   };
 
@@ -903,15 +915,15 @@ export default function EventsPage() {
                 <Button
                   type="submit"
                   className="flex-1"
-                  disabled={bookingMutation.isPending}
+                  disabled={isSubmitting}
                 >
-                  {bookingMutation.isPending ? (
+                  {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
+                      {isPaymentLoading ? "Opening Payment..." : "Processing..."}
                     </>
                   ) : (
-                    "Get Pass"
+                    "Get Pass & Pay"
                   )}
                 </Button>
               </div>

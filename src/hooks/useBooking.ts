@@ -165,20 +165,3 @@ export const useEvents = () => {
   });
 };
 
-// === Verify Pass Hook ===
-
-export const useVerifyPass = (passId: string | null) => {
-  return useQuery({
-    queryKey: ["verifyPass", passId],
-    queryFn: async () => {
-      if (!passId) return null;
-      const response = await api.verifyPass(passId);
-      if (!response.success) {
-        throw new Error("Invalid pass");
-      }
-      return response.data;
-    },
-    enabled: !!passId,
-    retry: false,
-  });
-};

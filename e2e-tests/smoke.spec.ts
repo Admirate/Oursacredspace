@@ -75,10 +75,6 @@ test.describe("Smoke Tests — Utility Pages", () => {
     expect(response?.status()).toBe(200);
   });
 
-  test("/verify page loads without passId (graceful)", async ({ page }) => {
-    const response = await page.goto("/verify");
-    expect(response?.status()).toBe(200);
-  });
 });
 
 test.describe("Smoke Tests — SEO", () => {
