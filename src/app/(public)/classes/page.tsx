@@ -541,11 +541,16 @@ export default function ClassesPage() {
       form.reset();
       if (response.data.requiresPayment) {
         toast({ title: "Booking Created!", description: "Opening payment..." });
-        initiatePayment(response.data.bookingId);
+        // SECURITY (SEC-006): pass the one-time accessToken alongside the
+        // bookingId so createRazorpayOrder and the /success page can fetch
+        // the booking.
+        initiatePayment(response.data.bookingId, response.data.accessToken);
       } else {
         setIsSubmitting(false);
         toast({ title: "Booking Created!", description: "Your booking has been submitted." });
-        window.location.href = `/success?bookingId=${response.data.bookingId}`;
+        window.location.href = `/success?bookingId=${encodeURIComponent(
+          response.data.bookingId
+        )}&token=${encodeURIComponent(response.data.accessToken)}`;
       }
     },
     onError: (error: Error) => {

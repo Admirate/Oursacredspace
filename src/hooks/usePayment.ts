@@ -51,7 +51,10 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
   }, []);
 
   const initiatePayment = useCallback(
-    async (bookingId: string) => {
+    // SECURITY (SEC-006): accessToken from createBooking is now required
+    // to create a Razorpay order and to fetch the booking on the success
+    // page. Callers MUST pass the token returned by createBooking.
+    async (bookingId: string, accessToken: string) => {
       if (inFlightRef.current) return;
       inFlightRef.current = true;
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -65,7 +68,7 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
 
         // Create Razorpay order
         setState((prev) => ({ ...prev, isCreatingOrder: true }));
-        const orderResponse = await api.createRazorpayOrder({ bookingId });
+        const orderResponse = await api.createRazorpayOrder({ bookingId, accessToken });
 
         if (!orderResponse.success || !orderResponse.data) {
           throw new Error(orderResponse.error || "Failed to create payment order");
@@ -93,7 +96,13 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
           handler: (response: RazorpaySuccessResponse) => {
             inFlightRef.current = false;
             options.onSuccess?.(response);
-            router.push(`/success?bookingId=${bookingId}`);
+            // SECURITY (SEC-005): The access token must travel with the
+            // booking ID to the success page, otherwise getBooking will
+            // 404. encodeURIComponent guards against any URL-special chars
+            // in the base64url token (none today, but defence-in-depth).
+            router.push(
+              `/success?bookingId=${encodeURIComponent(bookingId)}&token=${encodeURIComponent(accessToken)}`
+            );
           },
           modal: {
             ondismiss: () => {

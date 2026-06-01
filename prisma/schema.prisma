@@ -71,6 +71,12 @@ model Booking {
   type            BookingType
   status          BookingStatus @default(PENDING_PAYMENT)
 
+  // SECURITY (SEC-005, SEC-006): SHA-256 hash of a high-entropy per-booking
+  // access token. The raw token is returned to the client once at creation
+  // time and required on getBooking / createRazorpayOrder. Prevents IDOR/PII
+  // exposure by guessing or enumerating booking IDs.
+  accessTokenHash String?       @unique @map("access_token_hash")
+
   customerName    String        @map("customer_name")
   customerPhone   String        @map("customer_phone")
   customerEmail   String        @map("customer_email")
@@ -307,8 +313,10 @@ model RateLimitEntry {
 model AdminSession {
   id             String   @id @default(cuid())
   email          String   @unique
-  token          String   @unique
-  hashedToken    String?  @unique @map("hashed_token")
+  // SECURITY: Only the SHA-256 hash of the token is persisted. The raw token
+  // exists only in the user's HttpOnly cookie. A DB breach therefore cannot
+  // produce usable session tokens (SEC-003).
+  hashedToken    String   @unique @map("hashed_token")
 
   ipAddress      String?  @map("ip_address")
   userAgent      String?  @map("user_agent")

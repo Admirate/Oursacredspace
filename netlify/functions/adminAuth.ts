@@ -133,13 +133,15 @@ const _handler: Handler = async (event) => {
 
       // SECURITY: Delete ALL existing sessions for this email before creating new one
       await prisma.adminSession.deleteMany({ where: { email } });
-      
+
+      // SECURITY (SEC-003): Persist ONLY the SHA-256 hash of the token. The raw
+      // token is sent to the client as an HttpOnly cookie below and is never
+      // stored server-side, so a DB breach cannot reveal active sessions.
       const hashedToken = hashToken(token);
-      
+
       await prisma.adminSession.create({
         data: {
           email,
-          token,
           hashedToken,
           expiresAt,
           ipAddress: clientIP,

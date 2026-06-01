@@ -1,10 +1,27 @@
 import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
-import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
+import {
+  getClientIP,
+  isRateLimited,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getPublicHeaders,
+  hashToken,
+} from "./helpers/security";
 import { withSentry } from "./helpers/logger";
 
 // SECURITY: ID format validation (supports CUID and UUID)
 const ID_REGEX = /^[a-z0-9]{20,30}$|^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// SECURITY (SEC-005): Access token format check. base64url-encoded 32 bytes
+// produces 43 chars from [A-Za-z0-9_-]. Reject obviously malformed inputs
+// before any DB work to keep the unauthenticated surface small.
+const ACCESS_TOKEN_REGEX = /^[A-Za-z0-9_-]{40,64}$/;
+
+const NOT_FOUND_BODY = JSON.stringify({
+  success: false,
+  error: "Booking not found",
+});
 
 const _handler: Handler = async (event) => {
   // SECURITY: Use origin-validated CORS headers
@@ -30,6 +47,12 @@ const _handler: Handler = async (event) => {
 
   try {
     const bookingId = event.queryStringParameters?.bookingId;
+    // SECURITY (SEC-005): Access token is REQUIRED. Without it, this endpoint
+    // returns 404 even for valid booking IDs so that booking ID enumeration
+    // cannot reveal customer PII (customerName / email / phone) or expose
+    // whether a given booking ID exists.
+    const accessToken =
+      event.queryStringParameters?.token ?? event.queryStringParameters?.accessToken;
 
     if (!bookingId) {
       return {
@@ -48,8 +71,21 @@ const _handler: Handler = async (event) => {
       };
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
+    // SECURITY: Reject requests without a well-formed token with the same
+    // generic 404 used for token mismatches, so callers cannot distinguish
+    // "missing token" from "wrong token" or "wrong booking".
+    if (!accessToken || !ACCESS_TOKEN_REGEX.test(accessToken)) {
+      return { statusCode: 404, headers, body: NOT_FOUND_BODY };
+    }
+
+    const accessTokenHash = hashToken(accessToken);
+
+    // SECURITY: Match BOTH id and accessTokenHash. findFirst is used because
+    // we need a compound match; both fields must agree before any row is
+    // returned. Wrong booking ID, wrong token, or a legacy row without a
+    // hash all collapse into the same 404 response.
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, accessTokenHash },
       select: {
         id: true,
         type: true,
@@ -73,11 +109,7 @@ const _handler: Handler = async (event) => {
     });
 
     if (!booking) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, error: "Booking not found" }),
-      };
+      return { statusCode: 404, headers, body: NOT_FOUND_BODY };
     }
 
     return {

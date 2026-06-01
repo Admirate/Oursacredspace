@@ -79,7 +79,7 @@ describe("adminAuth handler", () => {
     (prisma.adminSession.create as jest.Mock).mockResolvedValue({
       id: "session-1",
       email: "admin@test.com",
-      token: "abc123",
+      hashedToken: "a".repeat(64),
       expiresAt: new Date(Date.now() + 86400000),
     });
 
@@ -103,7 +103,7 @@ describe("adminAuth handler", () => {
     (prisma.adminSession.create as jest.Mock).mockResolvedValue({
       id: "session-2",
       email: "admin@test.com",
-      token: "def456",
+      hashedToken: "b".repeat(64),
       expiresAt: new Date(Date.now() + 86400000),
     });
 
@@ -137,7 +137,7 @@ describe("adminAuth handler", () => {
   it("returns 200 for valid session", async () => {
     (prisma.adminSession.findUnique as jest.Mock).mockResolvedValue({
       email: "admin@test.com",
-      token: "a".repeat(64),
+      hashedToken: "a".repeat(64),
       expiresAt: new Date(Date.now() + 86400000),
     });
 
@@ -157,7 +157,7 @@ describe("adminAuth handler", () => {
   it("returns 401 for expired session", async () => {
     (prisma.adminSession.findUnique as jest.Mock).mockResolvedValue({
       email: "admin@test.com",
-      token: "b".repeat(64),
+      hashedToken: "b".repeat(64),
       expiresAt: new Date(Date.now() - 1000),
     });
 

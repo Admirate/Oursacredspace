@@ -115,9 +115,13 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getBooking: (bookingId: string) =>
+  // SECURITY (SEC-005): getBooking now requires a per-booking accessToken
+  // returned by createBooking. Without it the backend returns 404, so the
+  // caller MUST persist the token from createBooking through the payment /
+  // success flow.
+  getBooking: (bookingId: string, accessToken: string) =>
     apiFetch<GetBookingResponse>(API_ENDPOINTS.GET_BOOKING, {
-      params: { bookingId },
+      params: { bookingId, token: accessToken },
     }),
 
   // Classes

@@ -185,6 +185,12 @@ export interface CreateBookingResponse {
   success: boolean;
   data: {
     bookingId: string;
+    /**
+     * SECURITY (SEC-005, SEC-006): One-time access token returned at
+     * booking creation. Must be passed to getBooking and
+     * createRazorpayOrder to access the booking's PII / payment.
+     */
+    accessToken: string;
     type: BookingType;
     amount: number;
     requiresPayment: boolean;
@@ -194,6 +200,8 @@ export interface CreateBookingResponse {
 
 export interface CreateRazorpayOrderRequest {
   bookingId: string;
+  /** SECURITY (SEC-006): Per-booking access token returned by createBooking. */
+  accessToken: string;
 }
 
 export interface CreateRazorpayOrderResponse {

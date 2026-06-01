@@ -46,18 +46,25 @@ export const useCreateBooking = (options: UseCreateBookingOptions = {}) => {
 
 // === Get Booking Hook ===
 
-export const useBooking = (bookingId: string | null, options?: { enabled?: boolean }) => {
+// SECURITY (SEC-005): getBooking now requires the per-booking accessToken
+// returned by createBooking. Both bookingId and accessToken must be present
+// for the hook to fire.
+export const useBooking = (
+  bookingId: string | null,
+  accessToken: string | null,
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
-    queryKey: ["booking", bookingId],
+    queryKey: ["booking", bookingId, accessToken],
     queryFn: async () => {
-      if (!bookingId) return null;
-      const response = await api.getBooking(bookingId);
+      if (!bookingId || !accessToken) return null;
+      const response = await api.getBooking(bookingId, accessToken);
       if (!response.success) {
         throw new Error(response.error || "Failed to fetch booking");
       }
       return response.data;
     },
-    enabled: !!bookingId && (options?.enabled !== false),
+    enabled: !!bookingId && !!accessToken && (options?.enabled !== false),
   });
 };
 
@@ -71,22 +78,23 @@ interface UsePollBookingOptions {
 
 export const usePollBookingStatus = (
   bookingId: string | null,
+  accessToken: string | null,
   options: UsePollBookingOptions = {}
 ) => {
   const [pollCount, setPollCount] = useState(0);
   const [status, setStatus] = useState<"polling" | "confirmed" | "failed" | "timeout">("polling");
 
   const query = useQuery({
-    queryKey: ["booking", bookingId, "poll"],
+    queryKey: ["booking", bookingId, accessToken, "poll"],
     queryFn: async () => {
-      if (!bookingId) return null;
-      const response = await api.getBooking(bookingId);
+      if (!bookingId || !accessToken) return null;
+      const response = await api.getBooking(bookingId, accessToken);
       if (!response.success) {
         throw new Error(response.error || "Failed to fetch booking");
       }
       return response.data;
     },
-    enabled: !!bookingId && status === "polling",
+    enabled: !!bookingId && !!accessToken && status === "polling",
     refetchInterval: (query) => {
       const booking = query.state.data as Booking | null | undefined;
       if (!booking) return POLLING_INTERVAL;

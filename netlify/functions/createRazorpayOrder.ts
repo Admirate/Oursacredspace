@@ -2,7 +2,14 @@ import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { BookingStatus, PaymentStatus } from "@prisma/client";
-import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
+import {
+  getClientIP,
+  isRateLimited,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getPublicHeaders,
+  hashToken,
+} from "./helpers/security";
 import { withSentry } from "./helpers/logger";
 import Razorpay from "razorpay";
 
@@ -11,8 +18,25 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
+// SECURITY (SEC-006): accessToken is REQUIRED. Without a matching token an
+// unauthenticated caller with a guessed booking ID can no longer create an
+// order or harvest customerName / customerEmail / customerPhone from the
+// response.
 const createOrderSchema = z.object({
   bookingId: z.string().min(1).max(30),
+  accessToken: z
+    .string()
+    .min(40)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/, "Invalid accessToken format"),
+});
+
+const NOT_FOUND_RESPONSE = (
+  headers: Record<string, string>
+): { statusCode: number; headers: Record<string, string>; body: string } => ({
+  statusCode: 404,
+  headers,
+  body: JSON.stringify({ success: false, error: "Booking not found" }),
 });
 
 const _handler: Handler = async (event) => {
@@ -39,11 +63,15 @@ const _handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}");
-    const { bookingId } = createOrderSchema.parse(body);
+    const { bookingId, accessToken } = createOrderSchema.parse(body);
 
-    // Get booking
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
+    // SECURITY (SEC-006): Look up the booking by id AND accessTokenHash.
+    // Any mismatch (wrong booking, wrong token, or legacy booking without
+    // a hash) returns a generic 404 -- the response body and timing must
+    // not leak which condition failed.
+    const accessTokenHash = hashToken(accessToken);
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, accessTokenHash },
       select: {
         id: true, status: true, type: true,
         amountPaise: true, currency: true,
@@ -52,11 +80,7 @@ const _handler: Handler = async (event) => {
     });
 
     if (!booking) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, error: "Booking not found" }),
-      };
+      return NOT_FOUND_RESPONSE(headers);
     }
 
     if (booking.status !== BookingStatus.PENDING_PAYMENT) {

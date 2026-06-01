@@ -76,6 +76,10 @@ const SUCCESS_POLL_MAX = 60;
 function SuccessPageContent() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("bookingId");
+  // SECURITY (SEC-005): The success page now requires the per-booking
+  // access token returned by createBooking. Without it the backend returns
+  // 404 and we render the "Booking Not Found" state.
+  const accessToken = searchParams.get("token");
   const [pollCount, setPollCount] = useState(0);
   const pollTimedOut = pollCount >= SUCCESS_POLL_MAX;
   const { toast } = useToast();
@@ -91,9 +95,11 @@ function SuccessPageContent() {
   });
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["booking", bookingId],
-    queryFn: () => api.getBooking(bookingId!),
-    enabled: !!bookingId,
+    queryKey: ["booking", bookingId, accessToken],
+    queryFn: () => api.getBooking(bookingId!, accessToken!),
+    // SECURITY (SEC-005): both bookingId AND accessToken must be present
+    // before we attempt to fetch.
+    enabled: !!bookingId && !!accessToken,
     retry: 3,
     refetchInterval: (query) => {
       const status = query.state.data?.data?.status;
@@ -107,8 +113,11 @@ function SuccessPageContent() {
 
   const booking = data?.data;
 
-  // No booking ID provided
-  if (!bookingId) {
+  // No booking ID or no access token -> render the same "missing reference"
+  // state. We deliberately do not distinguish between the two: a leaked
+  // booking ID without a token must not produce a different UI than no ID
+  // at all.
+  if (!bookingId || !accessToken) {
     return (
       <div className="container py-12">
         <div className="max-w-lg mx-auto text-center">
@@ -387,8 +396,8 @@ function SuccessPageContent() {
               )}
               <Button
                 className="w-full"
-                disabled={isPaymentLoading}
-                onClick={() => initiatePayment(booking.id)}
+                disabled={isPaymentLoading || !accessToken}
+                onClick={() => initiatePayment(booking.id, accessToken!)}
               >
                 {isPaymentLoading ? (
                   <>

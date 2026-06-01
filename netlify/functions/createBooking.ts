@@ -1,9 +1,26 @@
 import { Handler } from "@netlify/functions";
 import { z } from "zod";
+import crypto from "crypto";
 import { prisma } from "./helpers/prisma";
 import { BookingType, BookingStatus } from "@prisma/client";
-import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
+import {
+  getClientIP,
+  isRateLimited,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getPublicHeaders,
+  hashToken,
+} from "./helpers/security";
 import { withSentry } from "./helpers/logger";
+
+/**
+ * SECURITY (SEC-005, SEC-006): Per-booking access token.
+ * 32 random bytes encoded as base64url -> 43 URL-safe characters of
+ * cryptographic entropy. The raw token is returned to the client exactly
+ * once at creation time; only its SHA-256 hash is persisted.
+ */
+const generateBookingAccessToken = (): string =>
+  crypto.randomBytes(32).toString("base64url");
 
 // Validation schema with strict limits
 const createBookingSchema = z.object({
@@ -217,12 +234,29 @@ const _handler: Handler = async (event) => {
       amountPaise = 0;
     }
 
-    // Idempotency: reject if a non-terminal booking already exists for
-    // the same customer + resource, preventing duplicate bookings from
-    // double-clicks or network retries.
+    // SECURITY (SEC-004): Idempotency / duplicate-booking check.
+    //
+    // The previous implementation matched on customerEmail + resource only,
+    // and returned the existing bookingId in the response. An attacker who
+    // knew a victim's email and a public classSessionId / eventId could
+    // submit createBooking with the victim's email and receive the victim's
+    // bookingId, then chain to getBooking / createRazorpayOrder for full PII.
+    //
+    // The fix has two parts:
+    //   1. Require BOTH customerEmail AND customerPhone to match before we
+    //      consider a request a duplicate of an existing booking. Phone is
+    //      not enumerable from public data so an attacker would need to know
+    //      both fields for the targeted victim.
+    //   2. Even on a confirmed duplicate, do NOT echo back the existing
+    //      bookingId or access token (we only have the token's hash). The
+    //      response is a generic 409 advising the caller to check their
+    //      email. Legitimate double-click retries surface as a clear error
+    //      while the original (slower) request finishes and produces the
+    //      real bookingId + token.
     const activeStatuses = [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED];
     const duplicateWhere: Record<string, unknown> = {
       customerEmail: validatedData.email,
+      customerPhone: validatedData.phone,
       status: { in: activeStatuses },
       deletedAt: null,
     };
@@ -236,23 +270,16 @@ const _handler: Handler = async (event) => {
 
     const existingBooking = await prisma.booking.findFirst({
       where: duplicateWhere,
-      select: { id: true, type: true, amountPaise: true, status: true },
+      select: { id: true },
     });
     if (existingBooking) {
       return {
-        statusCode: 200,
+        statusCode: 409,
         headers,
         body: JSON.stringify({
-          success: true,
-          data: {
-            bookingId: existingBooking.id,
-            type: existingBooking.type,
-            amount: existingBooking.amountPaise,
-            requiresPayment:
-              existingBooking.type !== BookingType.SPACE &&
-              existingBooking.amountPaise > 0 &&
-              existingBooking.status === BookingStatus.PENDING_PAYMENT,
-          },
+          success: false,
+          error:
+            "An active booking already exists for this email and phone. Please check your inbox for the confirmation link, or contact us if you cannot find it.",
         }),
       };
     }
@@ -298,6 +325,11 @@ const _handler: Handler = async (event) => {
         }
       }
 
+      // SECURITY (SEC-005, SEC-006): Generate the per-booking access token
+      // inside the transaction so it is atomically attached to the row.
+      const accessToken = generateBookingAccessToken();
+      const accessTokenHash = hashToken(accessToken);
+
       const newBooking = await tx.booking.create({
         data: {
           type: validatedData.type,
@@ -313,6 +345,7 @@ const _handler: Handler = async (event) => {
           classSessionId: validatedData.classSessionId,
           eventId: validatedData.eventId,
           spaceRequestId,
+          accessTokenHash,
         },
       });
 
@@ -326,7 +359,7 @@ const _handler: Handler = async (event) => {
         },
       });
 
-      return newBooking;
+      return { booking: newBooking, accessToken };
     });
 
     return {
@@ -335,8 +368,12 @@ const _handler: Handler = async (event) => {
       body: JSON.stringify({
         success: true,
         data: {
-          bookingId: booking.id,
-          type: booking.type,
+          bookingId: booking.booking.id,
+          // SECURITY: Raw access token is returned ONCE here and must be
+          // included by the client on subsequent getBooking / createRazorpayOrder
+          // calls. It is never persisted in plaintext server-side.
+          accessToken: booking.accessToken,
+          type: booking.booking.type,
           amount: amountPaise,
           requiresPayment: validatedData.type !== BookingType.SPACE && amountPaise > 0,
         },
