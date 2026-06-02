@@ -289,7 +289,8 @@ declare global {
     Razorpay: new (options: RazorpayOptions) => {
       open: () => void;
       close: () => void;
-      on: (event: string, handler: (response: unknown) => void) => void;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      on: (event: string, handler: (response: any) => void) => void;
     };
   }
 }
