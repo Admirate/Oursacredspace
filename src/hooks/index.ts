@@ -6,6 +6,5 @@ export {
   usePollBookingStatus,
   useClasses,
   useEvents,
-  useVerifyPass,
 } from "./useBooking";
 export { useLenis } from "./useLenis";
