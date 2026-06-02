@@ -1,7 +1,7 @@
 import { Handler } from "@netlify/functions";
 import crypto from "crypto";
 import { prisma } from "./helpers/prisma";
-import { BookingStatus, PaymentStatus, BookingType } from "@prisma/client";
+import { BookingStatus, PaymentStatus, BookingType, Prisma } from "@prisma/client";
 import { logSecurityEvent } from "./helpers/security";
 import { logger, withSentry } from "./helpers/logger";
 import { sendBookingConfirmation } from "./helpers/notifications";
@@ -69,7 +69,7 @@ const _handler: Handler = async (event) => {
       };
     }
 
-    let payload: Record<string, unknown>;
+    let payload: Record<string, unknown> & Prisma.InputJsonValue;
     try {
       payload = JSON.parse(webhookBody);
     } catch {
