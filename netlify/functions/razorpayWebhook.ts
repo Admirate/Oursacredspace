@@ -106,7 +106,7 @@ const _handler: Handler = async (event) => {
       include: {
         booking: {
           include: {
-            classSession: { select: { title: true, startsAt: true, venue: true, duration: true } },
+            classSession: { select: { title: true, startsAt: true, location: true, duration: true } },
             event: { select: { title: true, startsAt: true, venue: true, endsAt: true } },
           },
         },

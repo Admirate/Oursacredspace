@@ -16,7 +16,7 @@ interface BookingWithRelations {
   customerPhone: string;
   amountPaise: number;
   currency: string;
-  classSession?: { title: string; startsAt: Date; venue: string; duration: number } | null;
+  classSession?: { title: string; startsAt: Date; location: string | null; duration: number } | null;
   event?: { title: string; startsAt: Date; venue: string; endsAt?: Date | null } | null;
 }
 
@@ -56,7 +56,9 @@ async function sendConfirmationEmail(booking: BookingWithRelations): Promise<boo
   const title = resource.title;
   const date = formatDate(resource.startsAt);
   const time = formatTime(resource.startsAt);
-  const venue = resource.venue;
+  const venue = isClass
+    ? (booking.classSession?.location ?? "TBA")
+    : (booking.event?.venue ?? "TBA");
 
   try {
     const { error } = await resend.emails.send({
@@ -174,6 +176,9 @@ async function sendWhatsAppConfirmation(booking: BookingWithRelations): Promise<
   if (!resource) return false;
 
   const templateName = isClass ? "booking_class_confirmed" : "booking_event_confirmed";
+  const venue = isClass
+    ? (booking.classSession?.location ?? "TBA")
+    : (booking.event?.venue ?? "TBA");
 
   try {
     const response = await fetch(
@@ -199,7 +204,7 @@ async function sendWhatsAppConfirmation(booking: BookingWithRelations): Promise<
                   { type: "text", text: sanitizeTemplateParam(resource.title) },
                   { type: "text", text: sanitizeTemplateParam(formatDate(resource.startsAt), 50) },
                   { type: "text", text: sanitizeTemplateParam(formatTime(resource.startsAt), 20) },
-                  { type: "text", text: sanitizeTemplateParam(resource.venue) },
+                  { type: "text", text: sanitizeTemplateParam(venue) },
                 ],
               },
             ],
