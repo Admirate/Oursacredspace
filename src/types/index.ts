@@ -289,6 +289,7 @@ declare global {
     Razorpay: new (options: RazorpayOptions) => {
       open: () => void;
       close: () => void;
+      on: (event: string, handler: (response: unknown) => void) => void;
     };
   }
 }
