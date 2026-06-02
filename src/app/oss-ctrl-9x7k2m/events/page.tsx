@@ -17,7 +17,6 @@ import {
   ToggleRight,
   CalendarIcon,
   Ticket,
-  QrCode,
   Search,
   X,
   Image as ImageIcon,
@@ -730,9 +729,6 @@ export default function AdminEventsPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => setSelectedEventForPasses(event)} title="View Passes">
-                                  <QrCode className="h-4 w-4" />
-                                </Button>
                                 <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate({ id: event.id, active: !event.active })} title={event.active ? "Deactivate" : "Activate"}>
                                   {event.active ? <ToggleRight className="h-4 w-4 text-green-600" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
                                 </Button>
@@ -789,9 +785,6 @@ export default function AdminEventsPage() {
                                 </div>
                               </div>
                               <div className="flex gap-0.5 shrink-0">
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setSelectedEventForPasses(event)}>
-                                  <QrCode className="h-4 w-4" />
-                                </Button>
                                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggleActiveMutation.mutate({ id: event.id, active: !event.active })}>
                                   {event.active ? <ToggleRight className="h-4 w-4 text-green-600" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
                                 </Button>
