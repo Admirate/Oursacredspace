@@ -9,8 +9,6 @@ import type {
   AdminListBookingsRequest,
   AdminListBookingsResponse,
   AdminUpdateSpaceRequestRequest,
-  AdminCheckinPassRequest,
-  AdminCheckinPassResponse,
   ClassSession,
   Event,
   SpaceRequest,
