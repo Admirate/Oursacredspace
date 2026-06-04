@@ -25,19 +25,18 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const includeInactive = event.queryStringParameters?.includeInactive === "true";
-
+    // SECURITY (SEC-010): Public endpoints NEVER expose inactive or deleted
+    // records. The previous `includeInactive` query param was removed because
+    // it allowed unauthenticated callers to bypass all filters.
     const events = await prisma.event.findMany({
-      where: includeInactive
-        ? {}
-        : {
-            active: true,
-            deletedAt: null,
-            OR: [
-              { startsAt: { gte: new Date() } },
-              { endsAt: { gte: new Date() } },
-            ],
-          },
+      where: {
+        active: true,
+        deletedAt: null,
+        OR: [
+          { startsAt: { gte: new Date() } },
+          { endsAt: { gte: new Date() } },
+        ],
+      },
       orderBy: { startsAt: "asc" },
       take: 100,
       include: {

@@ -8,6 +8,8 @@ import { withSentry } from "./helpers/logger";
 import { 
   getClientIP, 
   hashToken,
+  computeCsrfToken,
+  timingSafeStringEqual,
   logSecurityEvent, 
   rateLimitResponse, 
   RATE_LIMITS,
@@ -67,21 +69,33 @@ const _handler: Handler = async (event) => {
       .find((c) => c.trim().startsWith("admin_token="))
       ?.split("=")[1];
 
+    // SECURITY (SEC-026): Verify CSRF on logout to prevent cross-site logout attacks.
     if (token) {
       const hashed = hashToken(token);
+      const csrfHeader = event.headers["x-csrf-token"];
+      const expectedCsrf = computeCsrfToken(hashed);
+
+      if (!csrfHeader || !timingSafeStringEqual(csrfHeader, expectedCsrf)) {
+        logSecurityEvent("AUTH_FAILURE", {
+          ip: getClientIP(event),
+          reason: "csrf_mismatch_logout",
+        });
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ success: false, error: "CSRF validation failed" }),
+        };
+      }
+
       await prisma.adminSession.deleteMany({ where: { hashedToken: hashed } });
     }
 
-    const isProduction = process.env.NODE_ENV === "production";
-    const secureSuffix = isProduction ? "; Secure" : "";
-    
     return {
       statusCode: 200,
       headers,
       multiValueHeaders: {
         "Set-Cookie": [
-          `admin_token=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secureSuffix}`,
-          `csrf_token=; Path=/; SameSite=Strict; Max-Age=0${secureSuffix}`,
+          `admin_token=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`,
         ],
       },
       body: JSON.stringify({ success: true }),
@@ -149,22 +163,23 @@ const _handler: Handler = async (event) => {
         },
       });
 
-      const isProduction = process.env.NODE_ENV === "production";
-      const secureSuffix = isProduction ? "; Secure" : "";
-      const csrfToken = crypto.randomBytes(16).toString("hex");
-      
+      // SECURITY (SEC-017): CSRF token is HMAC-derived from the session hash,
+      // returned in the response body only. No csrf_token cookie — nothing for
+      // XSS to steal from document.cookie. Frontend stores it in memory.
+      const csrfToken = computeCsrfToken(hashedToken);
+
+      // SECURITY (SEC-016): Always set Secure — modern browsers allow it on localhost
       return {
         statusCode: 200,
         headers,
         multiValueHeaders: {
           "Set-Cookie": [
-            `admin_token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${secureSuffix}`,
-            `csrf_token=${csrfToken}; Path=/; SameSite=Strict; Max-Age=86400${secureSuffix}`,
+            `admin_token=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400`,
           ],
         },
         body: JSON.stringify({
           success: true,
-          data: { email },
+          data: { email, csrfToken },
         }),
       };
     } catch (error) {
@@ -221,12 +236,49 @@ const _handler: Handler = async (event) => {
       };
     }
 
+    // SECURITY (SEC-011): Verify session binding on check requests too
+    const checkIP = getClientIP(event);
+    const checkUA = (event.headers["user-agent"] || "").slice(0, 500);
+
+    if (session.ipAddress && session.ipAddress !== checkIP) {
+      logSecurityEvent("AUTH_FAILURE", {
+        ip: checkIP,
+        sessionIp: session.ipAddress,
+        email: session.email,
+        reason: "ip_mismatch",
+      });
+      await prisma.adminSession.delete({ where: { id: session.id } }).catch(() => {});
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ success: false, error: "Session invalidated" }),
+      };
+    }
+
+    if (session.userAgent && checkUA && session.userAgent !== checkUA) {
+      logSecurityEvent("AUTH_FAILURE", {
+        ip: checkIP,
+        email: session.email,
+        reason: "user_agent_mismatch",
+      });
+      await prisma.adminSession.delete({ where: { id: session.id } }).catch(() => {});
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ success: false, error: "Session invalidated" }),
+      };
+    }
+
+    // SECURITY (SEC-017): Return CSRF token on session check so the frontend
+    // can restore it after page refresh without needing a cookie.
+    const csrfToken = computeCsrfToken(hashed);
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        data: { email: session.email },
+        data: { email: session.email, csrfToken },
       }),
     };
   }

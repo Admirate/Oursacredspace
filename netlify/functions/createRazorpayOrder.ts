@@ -4,12 +4,12 @@ import { prisma } from "./helpers/prisma";
 import { BookingStatus, PaymentStatus } from "@prisma/client";
 import {
   getClientIP,
-  isRateLimited,
   rateLimitResponse,
   RATE_LIMITS,
   getPublicHeaders,
   hashToken,
 } from "./helpers/security";
+import { isDbRateLimited } from "./helpers/dbRateLimit";
 import { withSentry } from "./helpers/logger";
 import Razorpay from "razorpay";
 
@@ -57,7 +57,7 @@ const _handler: Handler = async (event) => {
 
   // SECURITY: Rate limit payment order creation
   const clientIP = getClientIP(event);
-  if (isRateLimited(`order:${clientIP}`, RATE_LIMITS.PAYMENT.maxRequests, RATE_LIMITS.PAYMENT.windowMs)) {
+  if (await isDbRateLimited(`order:${clientIP}`, RATE_LIMITS.PAYMENT.maxRequests, RATE_LIMITS.PAYMENT.windowMs)) {
     return rateLimitResponse();
   }
 

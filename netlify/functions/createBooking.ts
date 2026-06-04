@@ -5,12 +5,12 @@ import { prisma } from "./helpers/prisma";
 import { BookingType, BookingStatus } from "@prisma/client";
 import {
   getClientIP,
-  isRateLimited,
   rateLimitResponse,
   RATE_LIMITS,
   getPublicHeaders,
   hashToken,
 } from "./helpers/security";
+import { isDbRateLimited } from "./helpers/dbRateLimit";
 import { withSentry } from "./helpers/logger";
 
 /**
@@ -25,7 +25,8 @@ const generateBookingAccessToken = (): string =>
 // Validation schema with strict limits
 const createBookingSchema = z.object({
   type: z.nativeEnum(BookingType),
-  name: z.string().min(2).max(100).trim(),
+  name: z.string().min(2).max(100).trim()
+    .regex(/^[\p{L}\p{M}'\-.\s]+$/u, "Name contains invalid characters"),
   phone: z
     .string()
     .transform((val) => {
@@ -68,7 +69,7 @@ const _handler: Handler = async (event) => {
 
   // SECURITY: Rate limit booking creation
   const clientIP = getClientIP(event);
-  if (isRateLimited(`booking:${clientIP}`, RATE_LIMITS.BOOKING_CREATE.maxRequests, RATE_LIMITS.BOOKING_CREATE.windowMs)) {
+  if (await isDbRateLimited(`booking:${clientIP}`, RATE_LIMITS.BOOKING_CREATE.maxRequests, RATE_LIMITS.BOOKING_CREATE.windowMs)) {
     return rateLimitResponse();
   }
 

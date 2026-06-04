@@ -2,6 +2,7 @@ import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
+import { isRateLimited, getClientIP, RATE_LIMITS, rateLimitResponse } from "./helpers/security";
 import { SpaceRequestStatus, BookingStatus } from "@prisma/client";
 // TODO: Uncomment when WhatsApp is configured
 // import { sendSpaceCallConfirmation } from "./helpers/sendWhatsApp";
@@ -41,6 +42,12 @@ export const handler: Handler = async (event) => {
   const authResult = await verifyAdminSession(event);
   if (!authResult.isValid) {
     return unauthorizedResponse(event, authResult.error);
+  }
+
+  // SECURITY (SEC-019): Rate limit admin write operations
+  const clientIP = getClientIP(event);
+  if (isRateLimited(`admin-write:${clientIP}`, RATE_LIMITS.ADMIN_WRITE.maxRequests, RATE_LIMITS.ADMIN_WRITE.windowMs)) {
+    return rateLimitResponse();
   }
 
   try {

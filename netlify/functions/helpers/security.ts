@@ -70,6 +70,35 @@ export const hashToken = (token: string): string => {
 };
 
 /**
+ * SECURITY (SEC-017): Derive a CSRF token from the session hash using HMAC.
+ * This eliminates the need for a separate csrf_token cookie — the server can
+ * always recompute the expected value from the session. The token is returned
+ * in the login/session-check response body; the frontend stores it in memory
+ * and sends it as X-CSRF-Token header on mutations.
+ */
+export const computeCsrfToken = (hashedSessionToken: string): string => {
+  return crypto
+    .createHmac("sha256", hashedSessionToken)
+    .update("csrf-protection")
+    .digest("hex")
+    .slice(0, 32);
+};
+
+/**
+ * SECURITY (SEC-027): Constant-time string comparison for CSRF tokens.
+ * Prevents timing side-channel attacks that could leak the expected value
+ * one character at a time via response-time measurement.
+ */
+export const timingSafeStringEqual = (a: string, b: string): boolean => {
+  if (a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+  } catch {
+    return false;
+  }
+};
+
+/**
  * SECURITY: Generate cryptographically secure random string
  * Use this instead of Math.random() for security-sensitive operations
  */
@@ -246,11 +275,15 @@ const getAllowedOrigins = (): string[] => {
 };
 
 /**
- * Check if request is from allowed origin
+ * SECURITY (SEC-021): Check if request Origin is in the allowlist.
+ * Returns false when the header is absent — callers must not treat
+ * "no Origin" as implicitly trusted (curl/Postman/server requests
+ * omit it). Endpoints that genuinely need to accept same-origin
+ * navigations should handle the missing-origin case explicitly.
  */
 export const isAllowedOrigin = (event: HandlerEvent): boolean => {
   const origin = event.headers.origin || event.headers.Origin;
-  if (!origin) return true; // Same-origin requests don't have origin header
+  if (!origin) return false;
   return getAllowedOrigins().includes(origin);
 };
 

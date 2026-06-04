@@ -1,7 +1,7 @@
 import { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
-import { validateImageMagicBytes } from "./helpers/security";
+import { validateImageMagicBytes, isRateLimited, getClientIP, RATE_LIMITS, rateLimitResponse } from "./helpers/security";
 
 // Initialize Supabase client with service role key for storage operations
 const supabase = createClient(
@@ -11,7 +11,9 @@ const supabase = createClient(
 
 // Allowed image types
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_SIZE = 5 * 1024 * 1024; // 5MB decoded binary
+// Base64 inflates ~4:3 + JSON wrapper overhead; 7MB raw body is generous for 5MB binary
+const MAX_BODY_BYTES = 7 * 1024 * 1024;
 
 // SECURITY: Allowed folder names (whitelist)
 const ALLOWED_FOLDERS = ["classes", "events", "general", "profiles"];
@@ -40,9 +42,27 @@ export const handler: Handler = async (event) => {
     return unauthorizedResponse(event, authResult.error);
   }
 
+  // SECURITY (SEC-019): Rate limit admin write operations
+  const clientIP = getClientIP(event);
+  if (isRateLimited(`admin-write:${clientIP}`, RATE_LIMITS.ADMIN_WRITE.maxRequests, RATE_LIMITS.ADMIN_WRITE.windowMs)) {
+    return rateLimitResponse();
+  }
+
   try {
-    // Handle base64 encoded image in JSON body
-    const body = JSON.parse(event.body || "{}");
+    // SECURITY (SEC-018): Reject oversized payloads BEFORE parsing/decoding
+    // to prevent OOM from unbounded base64 strings.
+    if (!event.body || event.body.length > MAX_BODY_BYTES) {
+      return {
+        statusCode: 413,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: "Payload too large. Maximum image size is 5MB.",
+        }),
+      };
+    }
+
+    const body = JSON.parse(event.body);
     const { image, fileName, folder = "classes" } = body;
 
     if (!image || !fileName) {

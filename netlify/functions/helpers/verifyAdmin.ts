@@ -1,6 +1,6 @@
 import { HandlerEvent } from "@netlify/functions";
 import { prisma } from "./prisma";
-import { getSecureAdminHeaders, hashToken, logSecurityEvent } from "./security";
+import { getSecureAdminHeaders, getClientIP, hashToken, computeCsrfToken, timingSafeStringEqual, logSecurityEvent } from "./security";
 
 export interface AdminVerifyResult {
   isValid: boolean;
@@ -35,26 +35,6 @@ export const verifyAdminSession = async (
   event: HandlerEvent
 ): Promise<AdminVerifyResult> => {
   try {
-    const method = event.httpMethod.toUpperCase();
-
-    // SECURITY: CSRF double-submit cookie check for all state-changing requests
-    if (method !== "GET" && method !== "OPTIONS") {
-      const csrfHeader = event.headers["x-csrf-token"];
-      const csrfCookie = event.headers.cookie
-        ?.split(";")
-        .find((c) => c.trim().startsWith("csrf_token="))
-        ?.split("=")[1]
-        ?.trim();
-
-      if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
-        logSecurityEvent("AUTH_FAILURE", {
-          ip: event.headers["x-forwarded-for"] || "unknown",
-          reason: "csrf_mismatch",
-        });
-        return { isValid: false, error: "CSRF validation failed" };
-      }
-    }
-
     const token = parseAdminToken(event.headers.cookie);
 
     if (!token) {
@@ -64,17 +44,72 @@ export const verifyAdminSession = async (
     const hashedTokenValue = hashToken(token);
     const session = await prisma.adminSession.findUnique({
       where: { hashedToken: hashedTokenValue },
-      select: { id: true, email: true, expiresAt: true },
+      select: {
+        id: true,
+        email: true,
+        expiresAt: true,
+        ipAddress: true,
+        userAgent: true,
+      },
     });
 
     if (!session) {
       return { isValid: false, error: "Invalid session" };
     }
 
+    // SECURITY (SEC-017): CSRF check using HMAC-derived token. The expected
+    // value is computed from the session hash — no cookie needed. The frontend
+    // receives the token at login/session-check and sends it as a header.
+    const method = event.httpMethod.toUpperCase();
+    if (method !== "GET" && method !== "OPTIONS") {
+      const csrfHeader = event.headers["x-csrf-token"];
+      const expectedCsrf = computeCsrfToken(hashedTokenValue);
+
+      if (!csrfHeader || !timingSafeStringEqual(csrfHeader, expectedCsrf)) {
+        logSecurityEvent("AUTH_FAILURE", {
+          ip: event.headers["x-forwarded-for"] || "unknown",
+          email: session.email,
+          reason: "csrf_mismatch",
+        });
+        return { isValid: false, error: "CSRF validation failed" };
+      }
+    }
+
     if (session.expiresAt < new Date()) {
       await prisma.adminSession.delete({ where: { id: session.id } }).catch(() => {});
       return { isValid: false, error: "Session expired" };
     }
+
+    // SECURITY (SEC-011): Bind session to the originating IP and user-agent.
+    // A stolen token used from a different device/network is rejected.
+    const currentIP = getClientIP(event);
+    const currentUA = (event.headers["user-agent"] || "").slice(0, 500);
+
+    if (session.ipAddress && session.ipAddress !== currentIP) {
+      logSecurityEvent("AUTH_FAILURE", {
+        ip: currentIP,
+        sessionIp: session.ipAddress,
+        email: session.email,
+        reason: "ip_mismatch",
+      });
+      await prisma.adminSession.delete({ where: { id: session.id } }).catch(() => {});
+      return { isValid: false, error: "Session invalidated — IP address changed" };
+    }
+
+    if (session.userAgent && currentUA && session.userAgent !== currentUA) {
+      logSecurityEvent("AUTH_FAILURE", {
+        ip: currentIP,
+        email: session.email,
+        reason: "user_agent_mismatch",
+      });
+      await prisma.adminSession.delete({ where: { id: session.id } }).catch(() => {});
+      return { isValid: false, error: "Session invalidated — device mismatch" };
+    }
+
+    // Update last activity timestamp (fire-and-forget)
+    prisma.adminSession
+      .update({ where: { id: session.id }, data: { lastActivityAt: new Date() } })
+      .catch(() => {});
 
     return { isValid: true, email: session.email };
   } catch (error) {

@@ -1,41 +1,54 @@
 import { prisma } from "./prisma";
-import { isRateLimited } from "./security";
 
 /**
- * DB-based rate limiter — works across all serverless container instances.
- * Uses a sliding window: counts requests with key in the last windowMs milliseconds.
- * Returns true if the request should be blocked.
- * Falls back to in-memory rate limiting if the DB table is unavailable.
+ * SECURITY (SEC-013, SEC-014): DB-based rate limiter that works reliably
+ * across all serverless container instances.
+ *
+ * Tries to use PostgreSQL advisory locks to serialize concurrent requests
+ * per key (eliminating the count-then-insert TOCTOU race). Falls back to a
+ * plain count-then-insert transaction if advisory locks aren't available
+ * (e.g. Supabase uses PgBouncer in transaction mode, which doesn't support
+ * advisory locks).
  */
 export async function isDbRateLimited(
   key: string,
   maxRequests: number,
   windowMs: number
 ): Promise<boolean> {
-  try {
-    const windowStart = new Date(Date.now() - windowMs);
+  const windowStart = new Date(Date.now() - windowMs);
 
-    const count = await prisma.rateLimitEntry.count({
-      where: {
-        key,
-        createdAt: { gte: windowStart },
-      },
+  try {
+    const blocked = await prisma.$transaction(async (tx) => {
+      // Try advisory lock; swallow errors from connection poolers that don't
+      // support them (PgBouncer in transaction/statement mode).
+      try {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+      } catch {
+        // Lock unavailable — proceed without serialization.
+        // The small TOCTOU window is acceptable vs. blocking all requests.
+      }
+
+      const count = await tx.rateLimitEntry.count({
+        where: { key, createdAt: { gte: windowStart } },
+      });
+
+      if (count >= maxRequests) {
+        return true;
+      }
+
+      await tx.rateLimitEntry.create({ data: { key } });
+      return false;
     });
 
-    if (count >= maxRequests) {
-      return true;
-    }
-
-    await prisma.rateLimitEntry.create({ data: { key } });
-
-    // Fire-and-forget cleanup of expired entries for this key
+    // Fire-and-forget cleanup of expired entries (outside the lock)
     prisma.rateLimitEntry
       .deleteMany({ where: { key, createdAt: { lt: windowStart } } })
       .catch(() => {});
 
-    return false;
-  } catch {
-    // Table not yet created or Prisma client stale — fall back to in-memory rate limiting
-    return isRateLimited(key, maxRequests, windowMs);
+    return blocked;
+  } catch (error) {
+    console.error("dbRateLimit error:", error instanceof Error ? error.message : error);
+    // DB unreachable — deny by default for security-critical endpoints.
+    return true;
   }
 }

@@ -6,6 +6,37 @@ import { logSecurityEvent } from "./helpers/security";
 import { logger, withSentry } from "./helpers/logger";
 import { sendBookingConfirmation } from "./helpers/notifications";
 
+/**
+ * SECURITY (SEC-022): Strip sensitive / PCI-adjacent fields from webhook
+ * payloads before persisting. We keep only the fields needed for audit
+ * trails and dispute resolution.
+ */
+const sanitizeWebhookPayload = (
+  raw: Record<string, unknown>
+): Prisma.InputJsonValue => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const entity = (raw as any).payload?.payment?.entity;
+  return {
+    event: raw.event,
+    event_id: raw.event_id,
+    account_id: raw.account_id,
+    created_at: raw.created_at,
+    payment: entity
+      ? {
+          id: entity.id,
+          order_id: entity.order_id,
+          status: entity.status,
+          amount: entity.amount,
+          currency: entity.currency,
+          method: entity.method,
+          captured: entity.captured,
+          error_code: entity.error_code,
+          error_reason: entity.error_reason,
+        }
+      : undefined,
+  } as Prisma.InputJsonValue;
+};
+
 const headers = {
   "Content-Type": "application/json",
 };
@@ -197,14 +228,13 @@ const _handler: Handler = async (event) => {
           return { skipped: true, reason: "Payment already processed" };
         }
 
-        // Update payment
         await tx.payment.update({
           where: { id: payment.id },
           data: {
             razorpayPaymentId,
             status: PaymentStatus.PAID,
             webhookEventId: webhookEventId || `evt_${razorpayOrderId}_${Date.now()}`,
-            rawPayload: payload,
+            rawPayload: sanitizeWebhookPayload(payload),
           },
         });
 
@@ -288,7 +318,7 @@ const _handler: Handler = async (event) => {
             razorpayPaymentId,
             status: PaymentStatus.FAILED,
             webhookEventId: webhookEventId || `evt_${razorpayOrderId}_${Date.now()}`,
-            rawPayload: payload,
+            rawPayload: sanitizeWebhookPayload(payload),
           },
         });
 

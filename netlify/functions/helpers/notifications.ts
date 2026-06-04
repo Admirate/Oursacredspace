@@ -8,6 +8,20 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const WHATSAPP_API_URL = "https://graph.facebook.com/v21.0";
 const FROM_EMAIL = process.env.EMAIL_FROM || "Our Sacred Space <noreply@oursacredspace.in>";
 
+/**
+ * SECURITY (SEC-009): Escape HTML special characters to prevent XSS/injection
+ * in email templates. All user-supplied values MUST pass through this before
+ * interpolation into HTML strings.
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 interface BookingWithRelations {
   id: string;
   type: string;
@@ -64,16 +78,16 @@ async function sendConfirmationEmail(booking: BookingWithRelations): Promise<boo
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: booking.customerEmail,
-      subject: `Booking Confirmed — ${title}`,
+      subject: `Booking Confirmed — ${escapeHtml(title)}`,
       html: buildConfirmationHtml({
-        customerName: booking.customerName,
-        bookingId: booking.id,
+        customerName: escapeHtml(booking.customerName),
+        bookingId: escapeHtml(booking.id),
         type: isClass ? "Class" : "Event",
-        title,
-        date,
-        time,
-        venue,
-        amount: formatPrice(booking.amountPaise),
+        title: escapeHtml(title),
+        date: escapeHtml(date),
+        time: escapeHtml(time),
+        venue: escapeHtml(venue),
+        amount: escapeHtml(formatPrice(booking.amountPaise)),
       }),
     });
 

@@ -1,10 +1,12 @@
 import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import { prisma } from "./helpers/prisma";
-import { getClientIP, isRateLimited, rateLimitResponse, getPublicHeaders } from "./helpers/security";
+import { getClientIP, rateLimitResponse, getPublicHeaders } from "./helpers/security";
+import { isDbRateLimited } from "./helpers/dbRateLimit";
 
 const enquirySchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").max(100).trim(),
+  name: z.string().min(2, "Name must be at least 2 characters").max(100).trim()
+    .regex(/^[\p{L}\p{M}'\-.\s]+$/u, "Name contains invalid characters"),
   email: z.string().email("Please enter a valid email").max(254).toLowerCase(),
   phone: z
     .string()
@@ -31,7 +33,7 @@ export const handler: Handler = async (event) => {
 
   // Rate limit: 5 enquiries per minute per IP
   const clientIP = getClientIP(event);
-  if (isRateLimited(`enquiry:${clientIP}`, 5, 60000)) {
+  if (await isDbRateLimited(`enquiry:${clientIP}`, 5, 60000)) {
     return rateLimitResponse();
   }
 

@@ -254,9 +254,9 @@ describe("validateEnvVars", () => {
 // ─── CORS / Origin helpers ───────────────────────────────
 
 describe("isAllowedOrigin", () => {
-  it("allows requests without origin header (same-origin)", () => {
+  it("rejects requests without origin header (SEC-021)", () => {
     const event = makeEvent();
-    expect(isAllowedOrigin(event)).toBe(true);
+    expect(isAllowedOrigin(event)).toBe(false);
   });
 
   it("allows localhost:3000", () => {

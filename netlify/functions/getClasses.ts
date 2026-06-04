@@ -25,20 +25,19 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const includeInactive = event.queryStringParameters?.includeInactive === "true";
-
+    // SECURITY (SEC-010): Public endpoints NEVER expose inactive or deleted
+    // records. The previous `includeInactive` query param was removed because
+    // it allowed unauthenticated callers to bypass all filters.
     const classes = await prisma.classSession.findMany({
-      where: includeInactive
-        ? {}
-        : {
-            active: true,
-            deletedAt: null,
-            OR: [
-              { isRecurring: true, OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] },
-              { startsAt: { gte: new Date() } },
-              { endsAt: { gte: new Date() } },
-            ],
-          },
+      where: {
+        active: true,
+        deletedAt: null,
+        OR: [
+          { isRecurring: true, OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] },
+          { startsAt: { gte: new Date() } },
+          { endsAt: { gte: new Date() } },
+        ],
+      },
       orderBy: { startsAt: "asc" },
       take: 100,
       include: {

@@ -2,6 +2,7 @@ import { Handler } from "@netlify/functions";
 import { z } from "zod";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
+import { isRateLimited, getClientIP, RATE_LIMITS, rateLimitResponse } from "./helpers/security";
 
 const updateEventSchema = z.object({
   id: z.string().min(1).max(30),
@@ -35,6 +36,12 @@ export const handler: Handler = async (event) => {
   const authResult = await verifyAdminSession(event);
   if (!authResult.isValid) {
     return unauthorizedResponse(event, authResult.error);
+  }
+
+  // SECURITY (SEC-019): Rate limit admin write operations
+  const clientIP = getClientIP(event);
+  if (isRateLimited(`admin-write:${clientIP}`, RATE_LIMITS.ADMIN_WRITE.maxRequests, RATE_LIMITS.ADMIN_WRITE.windowMs)) {
+    return rateLimitResponse();
   }
 
   try {
@@ -95,7 +102,7 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({
         success: false,
-        error: errorMessage || "Failed to update event",
+        error: "Failed to update event",
       }),
     };
   }

@@ -143,11 +143,16 @@ export const api = {
 
 // === Admin API fetch wrapper (auto-injects CSRF token for mutations) ===
 
-const getCsrfToken = (): string | null => {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
+// SECURITY (SEC-017): CSRF token is stored in module memory, not in a cookie.
+// It's received from the server in login/session-check response bodies.
+// XSS cannot read it from document.cookie (there is no csrf_token cookie).
+let _csrfToken: string | null = null;
+
+export const setCsrfToken = (token: string | null) => {
+  _csrfToken = token;
 };
+
+const getCsrfToken = (): string | null => _csrfToken;
 
 const adminApiFetch = async <T>(
   endpoint: string,
@@ -186,29 +191,38 @@ export const adminApi = {
       API_ENDPOINTS.ADMIN_DASHBOARD_STATS
     ),
 
-  // Auth
-  login: (email: string, password: string) =>
-    apiFetch<{ success: boolean; data?: { email: string }; error?: string }>(
+  // Auth — login and checkSession capture the CSRF token from the response body
+  login: async (email: string, password: string) => {
+    const res = await apiFetch<{ success: boolean; data?: { email: string; csrfToken?: string }; error?: string }>(
       API_ENDPOINTS.ADMIN_LOGIN,
       {
         method: "POST",
         body: JSON.stringify({ email, password }),
         credentials: "include",
       }
-    ),
+    );
+    if (res.success && res.data?.csrfToken) setCsrfToken(res.data.csrfToken);
+    return res;
+  },
 
-  checkSession: () =>
-    apiFetch<{ success: boolean; data?: { email: string }; error?: string }>(
+  checkSession: async () => {
+    const res = await apiFetch<{ success: boolean; data?: { email: string; csrfToken?: string }; error?: string }>(
       API_ENDPOINTS.ADMIN_LOGIN,
       {
         credentials: "include",
       }
-    ),
+    );
+    if (res.success && res.data?.csrfToken) setCsrfToken(res.data.csrfToken);
+    return res;
+  },
 
-  logout: () =>
-    adminApiFetch<{ success: boolean }>(API_ENDPOINTS.ADMIN_LOGOUT, {
+  logout: async () => {
+    const res = await adminApiFetch<{ success: boolean }>(API_ENDPOINTS.ADMIN_LOGOUT, {
       method: "DELETE",
-    }),
+    });
+    setCsrfToken(null);
+    return res;
+  },
 
   // Bookings
   listBookings: (params?: AdminListBookingsRequest) =>
