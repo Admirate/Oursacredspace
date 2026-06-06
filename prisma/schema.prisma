@@ -312,7 +312,7 @@ model RateLimitEntry {
 
 model AdminSession {
   id             String   @id @default(cuid())
-  email          String   @unique
+  email          String
   // SECURITY: Only the SHA-256 hash of the token is persisted. The raw token
   // exists only in the user's HttpOnly cookie. A DB breach therefore cannot
   // produce usable session tokens (SEC-003).

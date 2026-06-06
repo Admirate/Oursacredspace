@@ -145,9 +145,6 @@ const _handler: Handler = async (event) => {
       const token = generateToken();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-      // SECURITY: Delete ALL existing sessions for this email before creating new one
-      await prisma.adminSession.deleteMany({ where: { email } });
-
       // SECURITY (SEC-003): Persist ONLY the SHA-256 hash of the token. The raw
       // token is sent to the client as an HttpOnly cookie below and is never
       // stored server-side, so a DB breach cannot reveal active sessions.
