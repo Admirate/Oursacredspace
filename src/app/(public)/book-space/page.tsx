@@ -473,17 +473,17 @@ export default function SpacesPage() {
           >
             <MagneticLink
               href="/space-enquiry"
-              className="flex items-center gap-2 text-white text-xs xs:text-sm md:text-base font-medium hover:text-white/80 transition-colors"
+              className="flex items-center gap-2 text-sacred-burgundy text-sm xs:text-base md:text-lg lg:text-xl font-semibold hover:text-sacred-burgundy-light transition-colors"
             >
               Book a Space
-              <ArrowRight className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 transition-transform duration-300 group-hover:translate-x-2" />
+              <ArrowRight className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 transition-transform duration-300 group-hover:translate-x-2" />
             </MagneticLink>
             <MagneticLink
               href="/contact"
-              className="flex items-center gap-2 text-white text-xs xs:text-sm md:text-base font-medium hover:text-white/80 transition-colors"
+              className="flex items-center gap-2 text-sacred-burgundy text-sm xs:text-base md:text-lg lg:text-xl font-semibold hover:text-sacred-burgundy-light transition-colors"
             >
               Enquire
-              <ArrowRight className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 transition-transform duration-300 group-hover:translate-x-2" />
+              <ArrowRight className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 transition-transform duration-300 group-hover:translate-x-2" />
             </MagneticLink>
           </div>
         </div>
