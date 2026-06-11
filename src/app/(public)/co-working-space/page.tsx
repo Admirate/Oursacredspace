@@ -12,6 +12,63 @@ const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/obj
 // Banner video URL
 const BANNER_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/coworking-banner.mp4";
 
+const PRICING_PLANS = [
+  {
+    title: "Private AC Cabin",
+    items: [
+      "Day Plan: ₹900/day",
+      "Monthly Plan: ₹11500/month",
+      "Caution Deposit: ₹5000",
+    ],
+  },
+  {
+    title: "Designated Desk",
+    items: [
+      "Day Plan: ₹600/day",
+      "Monthly Plan: ₹6350/month",
+      "Caution Deposit: ₹1000",
+    ],
+  },
+  {
+    title: "Conference Room",
+    items: ["₹600/hour", "₹2000/4 hours", "₹3500/8 hours"],
+  },
+  {
+    title: "Day Pass",
+    items: ["₹600/day"],
+  },
+  {
+    title: "Additional Charges",
+    items: [
+      "Extra Usage Fee: ₹600/hour",
+      "Guest Charges: ₹600 after the first free hour",
+    ],
+  },
+];
+
+const SPACE_CAPACITY = [
+  {
+    title: "Dedicated Desks",
+    items: ["12 desks available"],
+  },
+  {
+    title: "Private AC Cabins",
+    items: [
+      "2 cabins total",
+      "1 cabin currently occupied",
+      "1 cabin available",
+    ],
+  },
+  {
+    title: "Conference Room",
+    items: ["Seating Capacity: 24 people"],
+  },
+  {
+    title: "Event Hall",
+    items: ["Capacity: 40 people"],
+  },
+];
+
 // Custom hook for intersection observer animations
 const useInView = (threshold = 0.1) => {
   const ref = useRef<HTMLElement>(null);
@@ -306,6 +363,72 @@ export default function CoWorkingSpacePage() {
             Enquire
             <ArrowRight className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 transition-transform duration-300 group-hover:translate-x-2" />
           </MagneticLink>
+        </div>
+      </section>
+
+      {/* Pricing & Capacity Section */}
+      <section className="relative bg-[#F8D7E3] py-12 xs:py-16 sm:py-20 md:py-24 overflow-hidden">
+        <img
+          src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/tree-1.png"
+          alt=""
+          className="absolute -bottom-10 -right-10 w-[280px] sm:w-[360px] md:w-[440px] opacity-20 pointer-events-none select-none"
+          aria-hidden="true"
+        />
+
+        <div className="container relative px-4 xs:px-6 sm:px-8 lg:px-12 max-w-7xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-0">
+            {/* Pricing Plans */}
+            <div className="md:pr-10 lg:pr-16 md:border-r md:border-black/20">
+              <h2 className="text-xl sm:text-2xl font-[600] text-black mb-6 sm:mb-8">
+                Pricing Plans
+              </h2>
+              <div className="space-y-5 sm:space-y-6">
+                {PRICING_PLANS.map((plan) => (
+                  <div key={plan.title}>
+                    <h3 className="text-base sm:text-lg font-[600] text-black mb-2">
+                      {plan.title}
+                    </h3>
+                    <ul className="space-y-1">
+                      {plan.items.map((item) => (
+                        <li
+                          key={item}
+                          className="text-sm sm:text-base text-black leading-relaxed pl-4 relative before:content-['•'] before:absolute before:left-0"
+                        >
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Space Capacity */}
+            <div className="md:pl-10 lg:pl-16">
+              <h2 className="text-xl sm:text-2xl font-[600] text-black mb-6 sm:mb-8">
+                Space Capacity
+              </h2>
+              <div className="space-y-5 sm:space-y-6">
+                {SPACE_CAPACITY.map((space) => (
+                  <div key={space.title}>
+                    <h3 className="text-base sm:text-lg font-[600] text-black mb-2">
+                      {space.title}
+                    </h3>
+                    <ul className="space-y-1">
+                      {space.items.map((item) => (
+                        <li
+                          key={item}
+                          className="text-sm sm:text-base text-black leading-relaxed pl-4 relative before:content-['•'] before:absolute before:left-0"
+                        >
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
