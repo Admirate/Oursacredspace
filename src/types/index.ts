@@ -219,6 +219,25 @@ export interface CreateRazorpayOrderResponse {
   error?: string;
 }
 
+export interface VerifyPaymentRequest {
+  bookingId: string;
+  /** SECURITY (SEC-006): Per-booking access token from createBooking. */
+  accessToken: string;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}
+
+export interface VerifyPaymentResponse {
+  success: boolean;
+  data?: {
+    bookingId: string;
+    status: "CONFIRMED";
+    alreadyProcessed: boolean;
+  };
+  error?: string;
+}
+
 export interface GetBookingResponse {
   success: boolean;
   data?: Booking;
@@ -275,6 +294,15 @@ export interface RazorpayOptions {
   handler: (response: RazorpaySuccessResponse) => void;
   modal?: {
     ondismiss?: () => void;
+    confirm_close?: boolean;
+    escape?: boolean;
+  };
+  /** Razorpay checkout auto-close timeout (seconds). */
+  timeout?: number;
+  notes?: Record<string, string>;
+  retry?: {
+    enabled: boolean;
+    max_count?: number;
   };
 }
 

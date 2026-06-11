@@ -124,10 +124,15 @@ const _handler: Handler = async (event) => {
       };
     }
 
+    // payment_capture: 1 forces auto-capture so funds are settled the
+    // moment Razorpay marks the payment captured. This is the
+    // Razorpay-recommended setting for one-shot booking flows; relying on
+    // the account-level default is fragile because an admin can change it.
     const razorpayOrder = await razorpay.orders.create({
       amount: booking.amountPaise,
       currency: booking.currency,
       receipt: booking.id,
+      payment_capture: true,
       notes: {
         bookingId: booking.id,
         type: booking.type,

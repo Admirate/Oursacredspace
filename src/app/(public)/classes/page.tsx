@@ -17,10 +17,10 @@ import { api } from "@/lib/api";
 import { usePayment } from "@/hooks/usePayment";
 import type { ClassSession } from "@/types";
 import Link from "next/link";
+import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
 
-
-// Video URL from Supabase Storage
-const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/classes.mp4";
+const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/classes.mp4";
+const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/classesHero.png";
 
 // Custom hook for intersection observer animations
 const useInView = (threshold = 0.1) => {
@@ -597,10 +597,9 @@ export default function ClassesPage() {
         <div className="container px-4 flex justify-center">
           <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <img
-                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/classesHero.png"
-                alt="Classes background"
-                className="absolute inset-0 h-full w-full object-cover scale-105 "
+              <HeroBackgroundVideo
+                src={HERO_VIDEO_URL}
+                poster={HERO_POSTER_URL}
               />
               <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 

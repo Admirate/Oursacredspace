@@ -16,9 +16,10 @@ import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 import { usePayment } from "@/hooks/usePayment";
 import type { Event } from "@/types";
+import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
 
-// Video URL from Supabase Storage
-const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/classicaldance.mp4";
+const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/events%20page.mp4";
+const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventHero.png";
 
 const COLLABORATOR_IMAGES = [
   "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventImg-2.png",
@@ -544,10 +545,9 @@ export default function EventsPage() {
         <div className="container px-4 flex justify-center">
           <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <img
-                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventHero.png"
-                alt="Classes background"
-                className="absolute inset-0 h-full w-full object-cover scale-105 "
+              <HeroBackgroundVideo
+                src={HERO_VIDEO_URL}
+                poster={HERO_POSTER_URL}
               />
               <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 

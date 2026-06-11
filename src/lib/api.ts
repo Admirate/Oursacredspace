@@ -5,6 +5,8 @@ import type {
   CreateBookingResponse,
   CreateRazorpayOrderRequest,
   CreateRazorpayOrderResponse,
+  VerifyPaymentRequest,
+  VerifyPaymentResponse,
   GetBookingResponse,
   AdminListBookingsRequest,
   AdminListBookingsResponse,
@@ -109,6 +111,17 @@ export const api = {
 
   createRazorpayOrder: (data: CreateRazorpayOrderRequest) =>
     apiFetch<CreateRazorpayOrderResponse>(API_ENDPOINTS.CREATE_RAZORPAY_ORDER, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // SECURITY: Server-side verification of the Razorpay checkout signature
+  // is mandatory per Razorpay's standard integration. The client passes the
+  // (order_id, payment_id, signature) triple from the success handler;
+  // the server recomputes HMAC-SHA256(order_id|payment_id, KEY_SECRET) and
+  // confirms the booking on match.
+  verifyPayment: (data: VerifyPaymentRequest) =>
+    apiFetch<VerifyPaymentResponse>(API_ENDPOINTS.VERIFY_PAYMENT, {
       method: "POST",
       body: JSON.stringify(data),
     }),

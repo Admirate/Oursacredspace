@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
   // Public
   CREATE_BOOKING: "/.netlify/functions/createBooking",
   CREATE_RAZORPAY_ORDER: "/.netlify/functions/createRazorpayOrder",
+  VERIFY_PAYMENT: "/.netlify/functions/verifyPayment",
   GET_BOOKING: "/.netlify/functions/getBooking",
   GET_CLASSES: "/.netlify/functions/getClasses",
   GET_EVENTS: "/.netlify/functions/getEvents",
@@ -149,3 +150,4 @@ export const WHATSAPP_TEMPLATES = {
   CLASS_CONFIRMED: "booking_class_confirmed",
   SPACE_CALL_SCHEDULED: "space_call_confirmed",
 } as const;
+

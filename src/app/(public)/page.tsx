@@ -5,9 +5,11 @@ import Image from "next/image";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
 
 // Video URL from Supabase Storage
-const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/lotus.mp4";
+const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/Home%20page.mp4";
+const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/hero.jpg";
 
 // Video URLs
 const WHO_WE_ARE_VIDEO = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/pottery.mp4";
@@ -171,13 +173,10 @@ export default function HomePage() {
         <div className="container px-4 flex justify-center">
           <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-2xl w-full h-[255px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <Image
-                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/hero.jpg"
-                alt="Sacred space background"
-                fill
-                priority
-                sizes="(max-width: 768px) 100vw, 1414px"
-                className="object-cover object-top"
+              <HeroBackgroundVideo
+                src={HERO_VIDEO_URL}
+                poster={HERO_POSTER_URL}
+                className="object-top scale-100"
               />
 
               <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />

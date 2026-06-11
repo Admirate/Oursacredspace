@@ -4,9 +4,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
 
-// Hero video URL - replace with actual co-working space video
-const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/room.mp4";
+const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/co%20working%20space.mp4";
+const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/co-workingHero.png";
 
 // Banner video URL
 const BANNER_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/coworking-banner.mp4";
@@ -184,10 +185,10 @@ export default function CoWorkingSpacePage() {
         <div className="container px-3 xs:px-4 flex justify-center">
           <div className="relative w-full max-w-[1414px] p-3 xs:p-4 sm:p-5 md:p-[40px] bg-[#FFE5EC] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px]">
             <div className="relative overflow-hidden shadow-xl sm:shadow-2xl w-full h-[220px] xs:h-[260px] sm:h-[320px] md:h-[418px] lg:h-[498px] xl:h-[550px] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px] group">
-              <img
-                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/co-workingHero.png"
-                alt="Co Working background"
-                className="absolute inset-0 h-full w-full object-cover object-top scale-105 "
+              <HeroBackgroundVideo
+                src={HERO_VIDEO_URL}
+                poster={HERO_POSTER_URL}
+                className="object-top"
               />
               <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 

@@ -93,18 +93,53 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
             contact: customerPhone,
           },
           theme: RAZORPAY_CONFIG.theme,
-          handler: (response: RazorpaySuccessResponse) => {
-            inFlightRef.current = false;
-            options.onSuccess?.(response);
-            // SECURITY (SEC-005): The access token must travel with the
-            // booking ID to the success page, otherwise getBooking will
-            // 404. encodeURIComponent guards against any URL-special chars
-            // in the base64url token (none today, but defence-in-depth).
-            router.push(
-              `/success?bookingId=${encodeURIComponent(bookingId)}&token=${encodeURIComponent(accessToken)}`
-            );
+          // SECURITY: Razorpay's Standard Checkout integration mandates
+          // server-side verification of the (order_id, payment_id,
+          // signature) triple. We POST it to /verifyPayment, which
+          // recomputes HMAC-SHA256 and confirms the booking on match.
+          // Only after that succeeds do we redirect — this protects
+          // against client-side handler tampering and removes the
+          // dependency on webhook latency for the user-facing flow.
+          handler: async (response: RazorpaySuccessResponse) => {
+            try {
+              const verifyResult = await api.verifyPayment({
+                bookingId,
+                accessToken,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              });
+
+              if (!verifyResult.success) {
+                throw new Error(
+                  verifyResult.error || "Payment verification failed"
+                );
+              }
+
+              inFlightRef.current = false;
+              options.onSuccess?.(response);
+              router.push(
+                `/success?bookingId=${encodeURIComponent(bookingId)}&token=${encodeURIComponent(accessToken)}`
+              );
+            } catch (verifyError) {
+              inFlightRef.current = false;
+              const msg =
+                verifyError instanceof Error
+                  ? verifyError.message
+                  : "Payment verification failed. If you were charged, contact support.";
+              Sentry.captureException(verifyError, {
+                tags: { flow: "payment_verify" },
+                extra: { bookingId, orderId: response.razorpay_order_id },
+              });
+              setState((prev) => ({ ...prev, isLoading: false, error: msg }));
+              options.onError?.(verifyError instanceof Error ? verifyError : new Error(msg));
+            }
           },
           modal: {
+            // confirm_close shows a "Are you sure?" prompt when the user
+            // tries to close the checkout — reduces accidental drop-offs.
+            confirm_close: true,
+            escape: false,
             ondismiss: () => {
               inFlightRef.current = false;
               setState((prev) => ({
@@ -114,6 +149,11 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
               }));
               options.onError?.(new Error("Payment cancelled. You can retry from the booking page."));
             },
+          },
+          // Auto-close the checkout if the user walks away (10 minutes).
+          timeout: 600,
+          notes: {
+            bookingId,
           },
         };
 
