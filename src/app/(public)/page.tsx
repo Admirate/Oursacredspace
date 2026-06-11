@@ -213,7 +213,7 @@ export default function HomePage() {
                   }`}
                   style={{ transitionDelay: "600ms" }}
                 >
-                  A safe space for art movement and mindful living.
+                   Art movement and mindful living.
                 </p>
               </div>
             </div>
