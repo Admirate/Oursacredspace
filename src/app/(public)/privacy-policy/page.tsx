@@ -267,8 +267,7 @@ export default function PrivacyPolicyPage() {
                 </a>
               </li>
               <li>
-                <strong>Address:</strong> 1-8-702/A, Padma Colony, Nallakunta,
-                Secunderabad, Telangana 500044
+                <strong>Address:</strong> Shop Marredpally, Before Himalaya Book World, 9-1-84, Sardar Patel Rd, beside Orchids Flower, Regimental Bazaar, East Marredpally, Secunderabad, Telangana 500026
               </li>
             </ul>
           </div>

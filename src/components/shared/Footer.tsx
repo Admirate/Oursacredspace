@@ -179,11 +179,13 @@ export const Footer = () => {
                   aria-hidden="true"
                 />
                 <span className="text-sm text-sacred-burgundy/80 leading-relaxed">
-                  1-8-702/A, Padma Colony,
+                  Shop Marredpally, Before Himalaya Book World,
                   <br />
-                  Nallakunta, Secunderabad,
+                  9-1-84, Sardar Patel Rd, beside Orchids Flower,
                   <br />
-                  Telangana 500044
+                  Regimental Bazaar, East Marredpally,
+                  <br />
+                  Secunderabad, Telangana 500026
                 </span>
               </li>
               <li className="flex items-center gap-3">

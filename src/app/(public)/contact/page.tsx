@@ -24,9 +24,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
 
 // Video URL from Supabase Storage
-const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/videos/plant.mp4";
+const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/Contact.mp4";
 
 // Custom hook for intersection observer animations
 const useInView = (threshold = 0.1) => {
@@ -191,8 +192,8 @@ const CONTACT_INFO = [
   {
     icon: MapPin,
     title: "Visit Us",
-    content: "9-1-84, Sardar Patel Rd, East Marredpally, Secunderabad, Telangana 500026",
-    link: "https://maps.google.com/maps?q=9-1-84+Sardar+Patel+Rd+East+Marredpally+Secunderabad+500026",
+    content: "Shop Marredpally, Before Himalaya Book World, 9-1-84, Sardar Patel Rd, beside Orchids Flower, Regimental Bazaar, East Marredpally, Secunderabad, Telangana 500026",
+    link: "https://maps.google.com/maps?q=Shop+Marredpally+Before+Himalaya+Book+World+9-1-84+Sardar+Patel+Rd+beside+Orchids+Flower+Regimental+Bazaar+East+Marredpally+Secunderabad+Telangana+500026",
   },
   {
     icon: Phone,
@@ -303,39 +304,32 @@ export default function ContactPage() {
   return (
     <div className="overflow-x-visible">
       {/* Hero Section */}
-      <section className="relative bg-[#FFE5EC] py-8 md:py-10 lg:py-16">
-        <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
-            <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <img
-                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/contactHero.png"
-                alt="Classes background"
-                className="absolute inset-0 h-full w-full object-cover object-top scale-105 "
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+      <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
+        <HeroBackgroundVideo
+          src={HERO_VIDEO_URL}
+          poster="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/contactHero.png"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
-              <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
-                  <AnimatedText
-                    text="Contact"
-                    isVisible={heroLoaded}
-                    className="block"
-                  />
-                </h1>
-                <p
-                  className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded
-                      ? "opacity-100 translate-y-0 delay-500"
-                      : "opacity-0 translate-y-8"
-                  }`}
-                  style={{ transitionDelay: "600ms" }}
-                >
-                  We are happy to help with classes, bookings, events or general
-                  enquiries.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
+            <AnimatedText
+              text="Contact"
+              isVisible={heroLoaded}
+              className="block"
+            />
+          </h1>
+          <p
+            className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
+              heroLoaded
+                ? "opacity-100 translate-y-0 delay-500"
+                : "opacity-0 translate-y-8"
+            }`}
+            style={{ transitionDelay: "600ms" }}
+          >
+            We are happy to help with classes, bookings, events or general
+            enquiries.
+          </p>
         </div>
       </section>
 

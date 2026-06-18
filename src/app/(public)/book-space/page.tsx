@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
 
-const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/space%20rentals.mp4";
+const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/Spaces%20(1).mp4";
 const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/bookSpaceHero.png";
 
 // Custom hook for intersection observer animations
@@ -366,39 +366,33 @@ export default function SpacesPage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-[#FFE5EC] py-4 xs:py-6 sm:py-8 md:py-10">
-        <div className="container px-3 xs:px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-3 xs:p-4 sm:p-5 md:p-[40px] bg-[#FFE5EC] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px]">
-            <div className="relative overflow-hidden shadow-xl sm:shadow-2xl w-full h-[220px] xs:h-[260px] sm:h-[320px] md:h-[418px] lg:h-[498px] xl:h-[550px] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px] group">
-              <HeroBackgroundVideo
-                src={HERO_VIDEO_URL}
-                poster={HERO_POSTER_URL}
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+      <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
+        <HeroBackgroundVideo
+          src={HERO_VIDEO_URL}
+          poster={HERO_POSTER_URL}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
-              <div className="absolute inset-0 flex flex-col justify-center px-4 xs:px-5 sm:px-6 md:px-10 lg:px-16">
-                <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide whitespace-nowrap">
-                  <AnimatedText
-                    text="Space Rentals"
-                    isVisible={heroLoaded}
-                    className="block"
-                  />
-                </h1>
-                <p
-                  className={`mt-2 xs:mt-3 md:mt-4 text-xs xs:text-sm sm:text-base md:text-base lg:text-lg text-white/90 max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out leading-relaxed ${
-                    heroLoaded
-                      ? "opacity-100 translate-y-0 delay-500"
-                      : "opacity-0 translate-y-8"
-                  }`}
-                  style={{ transitionDelay: "600ms" }}
-                >
-                  We offer spaces that adapt to different needs and formats.
-                  Quiet intimate or open and expressive depending on what you're
-                  hosting.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
+          <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide whitespace-nowrap">
+            <AnimatedText
+              text="Space Rentals"
+              isVisible={heroLoaded}
+              className="block"
+            />
+          </h1>
+          <p
+            className={`mt-2 xs:mt-3 md:mt-4 text-xs xs:text-sm sm:text-base md:text-base lg:text-lg text-white/90 max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out leading-relaxed ${
+              heroLoaded
+                ? "opacity-100 translate-y-0 delay-500"
+                : "opacity-0 translate-y-8"
+            }`}
+            style={{ transitionDelay: "600ms" }}
+          >
+            We offer spaces that adapt to different needs and formats.
+            Quiet, intimate, or open and expressive, depending on what you're
+            hosting.
+          </p>
         </div>
       </section>
 
@@ -412,7 +406,7 @@ export default function SpacesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 xs:gap-4 md:gap-5">
             {/* Image Card 1 */}
             <ImageCard
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/bookSpaceImg-1.png"
+              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/new%20images/Spaces1.png"
               className="h-[180px] xs:h-[200px] sm:h-[220px] md:h-[240px] lg:h-[260px] "
               delay={0}
               isVisible={bentoSection.isInView}
@@ -421,7 +415,7 @@ export default function SpacesPage() {
             {/* What You Can Use */}
             <InfoCard
               title="What You Can Use"
-              description="Indoor halls open courtyards studios and flexible rooms across the campus. Each space is designed to feel calm, functional, and welcoming."
+              description="Indoor halls, open courtyards, studios, and flexible rooms across the campus. Each space is designed to feel calm, functional, and welcoming."
               delay={100}
               isVisible={bentoSection.isInView}
             />
@@ -429,7 +423,7 @@ export default function SpacesPage() {
             {/* What It Works For */}
             <InfoCard
               title="What It Works For"
-              description="Performances rehearsals talks workshops meetings celebrations and private gatherings. Both cultural and non-cultural use are welcome."
+              description="Performances, rehearsals, talks, workshops, meetings, celebrations, and private gatherings. Both cultural and non-cultural events are welcome."
               delay={200}
               isVisible={bentoSection.isInView}
             />
@@ -437,7 +431,7 @@ export default function SpacesPage() {
             {/* How It Works */}
             <InfoCard
               title="How It Works"
-              description="Spaces can be booked for short durations or full day use. Support is available based on the nature of the event."
+              description="Spaces can be booked for short durations or full-day use. Support is available based on the nature of the event."
               delay={300}
               isVisible={bentoSection.isInView}
             />
@@ -445,14 +439,14 @@ export default function SpacesPage() {
             {/* The Setting */}
             <InfoCard
               title="The Setting"
-              description="The campus is surrounded by greenery and natural light. Events here feel grounded, unhurried and personal."
+              description="The campus is surrounded by greenery and natural light. Events here feel grounded, unhurried, and personal."
               delay={400}
               isVisible={bentoSection.isInView}
             />
 
             {/* Image Card 2 */}
             <ImageCard
-              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/bookSpaceImg-2.png"
+              src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/new%20images/Spaces2.png"
               className="h-[180px] xs:h-[200px] sm:h-[220px] md:h-[240px] lg:h-[260px]"
               delay={0}
               isVisible={bentoSection.isInView}

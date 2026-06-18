@@ -293,39 +293,33 @@ export default function WorkshopsPage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
-        <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
-            <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <HeroBackgroundVideo
-                src={HERO_VIDEO_URL}
-                poster={HERO_POSTER_URL}
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+      <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
+        <HeroBackgroundVideo
+          src={HERO_VIDEO_URL}
+          poster={HERO_POSTER_URL}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
-              <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
-                  <AnimatedText
-                    text="Workshops"
-                    isVisible={heroLoaded}
-                    className="block"
-                  />
-                </h1>
-                <p
-                  className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded
-                      ? "opacity-100 translate-y-0 delay-500"
-                      : "opacity-0 translate-y-8"
-                  }`}
-                  style={{ transitionDelay: "600ms" }}
-                >
-                  We host short format sessions that invite people to slow down,
-                  learn and engage. These sessions are open to everyone
-                  regardless of experience.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
+            <AnimatedText
+              text="Workshops"
+              isVisible={heroLoaded}
+              className="block"
+            />
+          </h1>
+          <p
+            className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
+              heroLoaded
+                ? "opacity-100 translate-y-0 delay-500"
+                : "opacity-0 translate-y-8"
+            }`}
+            style={{ transitionDelay: "600ms" }}
+          >
+            We host short-format sessions that invite people to slow down,
+            learn, and engage. These sessions are open to everyone,
+            regardless of experience.
+          </p>
         </div>
       </section>
 
@@ -338,10 +332,9 @@ export default function WorkshopsPage() {
           <div className="relative w-full max-w-[1434px] p-5 md:p-[40px] bg-[#E2F0CB]">
             <div className="relative overflow-hidden shadow-2xl w-full max-w-[1354px] min-h-[600px] sm:min-h-[650px] md:min-h-[750px] lg:min-h-[900px] xl:min-h-[1000px] rounded-[24px] md:rounded-[40px] mx-auto group">
               {/* Video Background with parallax */}
-              <img
-                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/workshopImg.png"
-                alt="Classes background"
-                className="absolute inset-0 h-full w-full object-cover scale-105 "
+              <HeroBackgroundVideo
+                src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/new%20images/WhatHappensHere.mp4"
+                poster="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/workshopImg.png"
               />
               <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
@@ -363,9 +356,9 @@ export default function WorkshopsPage() {
                     What Happens Here
                   </h2>
                   <p className="text-xs sm:text-sm md:text-base text-white/80 font-light leading-relaxed">
-                    Hands-on sessions across art, craft, movement, music and
+                    Hands-on sessions across art, craft, movement, music, and
                     cultural practices. Each workshop is designed to be
-                    accessible, thoughtful and rooted in practice.
+                    accessible, thoughtful, and rooted in practice.
                   </p>
                 </div>
 

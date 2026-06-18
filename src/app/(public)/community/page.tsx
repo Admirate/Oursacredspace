@@ -6,7 +6,7 @@ import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
 
-const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/community%20space.mp4";
+const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/Community%20(1).mp4";
 const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/communityHero.png";
 
 // Custom hook for intersection observer animations
@@ -186,41 +186,35 @@ export default function CommunityPage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
-        <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
-            <div className="relative  overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <HeroBackgroundVideo
-                src={HERO_VIDEO_URL}
-                poster={HERO_POSTER_URL}
-                className="md:object-[center_60%]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+      <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
+        <HeroBackgroundVideo
+          src={HERO_VIDEO_URL}
+          poster={HERO_POSTER_URL}
+          className="md:object-[center_60%]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
-              <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white tracking-wide whitespace-nowrap">
-                  <AnimatedText
-                    text="Community Spaces"
-                    isVisible={heroLoaded}
-                    className="block"
-                  />
-                </h1>
-                <p
-                  className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded
-                      ? "opacity-100 translate-y-0 delay-500"
-                      : "opacity-0 translate-y-8"
-                  }`}
-                  style={{ transitionDelay: "600ms" }}
-                >
-                  We have spaces that exist beyond classes and events.
-                  <br />
-                  They are meant for browsing reading meeting and spending
-                  unstructured time.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white tracking-wide whitespace-nowrap">
+            <AnimatedText
+              text="Community Spaces"
+              isVisible={heroLoaded}
+              className="block"
+            />
+          </h1>
+          <p
+            className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
+              heroLoaded
+                ? "opacity-100 translate-y-0 delay-500"
+                : "opacity-0 translate-y-8"
+            }`}
+            style={{ transitionDelay: "600ms" }}
+          >
+            We have spaces that exist beyond classes and events.
+            <br />
+            They are meant for browsing, reading, meeting, and spending
+            unstructured time.
+          </p>
         </div>
       </section>
 
@@ -248,10 +242,10 @@ export default function CommunityPage() {
                   Organic Market
                 </h3>
                 <p className="text-black text-sm md:text-base font-light leading-relaxed">
-                  A market that supports organic produce natural products and
+                  A market that supports organic produce, natural products, and
                   sustainable alternatives.
                   <br />
-                  It connects growers makers and the community.
+                  It connects growers, makers, and the community.
                 </p>
               </div>
 
@@ -270,8 +264,8 @@ export default function CommunityPage() {
                   Adivaram Angadi
                 </h3>
                 <p className="text-black text-sm md:text-base font-light leading-relaxed">
-                  A space that brings together handcrafted goods sustainable
-                  products and local makers.
+                  A space that brings together handcrafted goods, sustainable
+                  products, and local makers.
                   <br />
                   It supports mindful living and conscious choices.
                 </p>

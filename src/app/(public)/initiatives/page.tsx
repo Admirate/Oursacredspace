@@ -147,105 +147,93 @@ export default function InitiativesPage() {
 
   return (
     <div>
-      <section className="relative bg-[#FFE5EC] py-4 xs:py-6 sm:py-8 md:py-10">
-        <div className="container px-3 xs:px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-3 xs:p-4 sm:p-5 md:p-[40px] bg-[#FFE5EC] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px]">
-            <div className="relative overflow-hidden shadow-xl sm:shadow-2xl w-full h-[480px] xs:h-[520px] sm:h-[450px] md:h-[418px] lg:h-[498px] xl:h-[550px] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px] group">
-              <HeroBackgroundVideo
-                src={HERO_VIDEO_URL}
-                poster={HERO_POSTER_URL}
-                className="object-top"
+      <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
+        <HeroBackgroundVideo
+          src={HERO_VIDEO_URL}
+          poster={HERO_POSTER_URL}
+          className="object-top"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+
+        <div className="absolute inset-0 flex flex-col sm:flex-row sm:justify-between px-4 xs:px-5 sm:px-6 md:px-10 lg:px-16 py-4 xs:py-5 sm:py-8 md:py-12">
+          <div className="flex flex-col justify-center max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md">
+            <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide whitespace-nowrap">
+              <AnimatedText
+                text="Initiatives"
+                isVisible={heroLoaded}
+                className="block"
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+            </h1>
+            <p
+              className={getHeroClass()}
+              style={{ transitionDelay: "600ms" }}
+            >
+              We believe care for culture and care for the environment go
+              together. Our initiatives reflect this responsibility and
+              grow through collective participation.
+            </p>
+          </div>
 
-              <div className="absolute inset-0 flex flex-col sm:flex-row sm:justify-between px-4 xs:px-5 sm:px-6 md:px-10 lg:px-16 py-4 xs:py-5 sm:py-8 md:py-12">
-                {/* Left Section - Title and Description */}
-                <div className="flex flex-col justify-center max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md">
-                  <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide whitespace-nowrap">
-                    <AnimatedText
-                      text="Initiatives"
-                      isVisible={heroLoaded}
-                      className="block"
-                    />
-                  </h1>
-                  <p
-                    className={getHeroClass()}
-                    style={{ transitionDelay: "600ms" }}
-                  >
-                    We believe care for culture and care for the environment go
-                    together. Our initiatives reflect this responsibility and
-                    grow through collective participation.
-                  </p>
-                </div>
+          <div className="flex flex-col justify-center gap-4 xs:gap-5 sm:gap-6 mt-4 xs:mt-5 sm:mt-0 max-w-[280px] xs:max-w-xs sm:max-w-[220px] md:max-w-xs lg:max-w-sm">
+            <div className="block sm:hidden w-full border-t-2 border-white/40 mb-4"></div>
+            <div
+              className="transition-all duration-700 border-b-2 border-white/40 pb-4 xs:pb-5 sm:pb-6"
+              style={{
+                opacity: heroLoaded ? 1 : 0,
+                transform: heroLoaded
+                  ? "translateX(0)"
+                  : "translateX(20px)",
+                transitionDelay: "400ms",
+              }}
+            >
+              <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-1">
+                The Treedom Movement
+              </h3>
+              <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
+                An ongoing effort focused on planting trees and nurturing
+                green spaces. It encourages awareness, responsibility, and
+                long-term thinking.
+              </p>
+            </div>
 
-                {/* Right Section - Three Info Cards */}
+            <div
+              className="transition-all duration-700 border-b-2 border-white/40 pb-4 xs:pb-5 sm:pb-6"
+              style={{
+                opacity: heroLoaded ? 1 : 0,
+                transform: heroLoaded
+                  ? "translateX(0)"
+                  : "translateX(20px)",
+                transitionDelay: "600ms",
+              }}
+            >
+              <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-1">
+                What We Do
+              </h3>
+              <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
+                Tree-planting drives, environmental conversations, and
+                community-led action. Each activity is rooted in care for
+                the land and future generations.
+              </p>
+            </div>
 
-                <div className="flex flex-col justify-center gap-4 xs:gap-5 sm:gap-6 mt-4 xs:mt-5 sm:mt-0 max-w-[280px] xs:max-w-xs sm:max-w-[220px] md:max-w-xs lg:max-w-sm">
-                  <div className="block sm:hidden w-full border-t-2 border-white/40 mb-4"></div>
-                  {/* Item */}
-                  <div
-                    className="transition-all duration-700 border-b-2 border-white/40 pb-4 xs:pb-5 sm:pb-6"
-                    style={{
-                      opacity: heroLoaded ? 1 : 0,
-                      transform: heroLoaded
-                        ? "translateX(0)"
-                        : "translateX(20px)",
-                      transitionDelay: "400ms",
-                    }}
-                  >
-                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-1">
-                      The Treedom Movement
-                    </h3>
-                    <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
-                      An ongoing effort focused on planting trees and nurturing
-                      green spaces. It encourages awareness responsibility and
-                      long term thinking.
-                    </p>
-                  </div>
-
-                  {/* Item */}
-                  <div
-                    className="transition-all duration-700 border-b-2 border-white/40 pb-4 xs:pb-5 sm:pb-6"
-                    style={{
-                      opacity: heroLoaded ? 1 : 0,
-                      transform: heroLoaded
-                        ? "translateX(0)"
-                        : "translateX(20px)",
-                      transitionDelay: "600ms",
-                    }}
-                  >
-                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-1">
-                      What We Do
-                    </h3>
-                    <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
-                      Tree planting drives environmental conversations and
-                      community led action. Each activity is rooted in care for
-                      the land and future generations.
-                    </p>
-                  </div>
-
-                  {/* Item */}
-                  <div
-                    className="transition-all duration-700 border-b-2 border-white/40 pb-4 xs:pb-5 sm:pb-6"
-                    style={{
-                      opacity: heroLoaded ? 1 : 0,
-                      transform: heroLoaded
-                        ? "translateX(0)"
-                        : "translateX(20px)",
-                      transitionDelay: "800ms",
-                    }}
-                  >
-                    <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-1">
-                      Community Involvement
-                    </h3>
-                    <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
-                      Everyone is welcome to participate contribute and support
-                      the movement. The initiative grows through shared effort
-                      and sustained commitment.
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <div
+              className="transition-all duration-700 border-b-2 border-white/40 pb-4 xs:pb-5 sm:pb-6"
+              style={{
+                opacity: heroLoaded ? 1 : 0,
+                transform: heroLoaded
+                  ? "translateX(0)"
+                  : "translateX(20px)",
+                transitionDelay: "800ms",
+              }}
+            >
+              <h3 className="text-white text-sm xs:text-base md:text-lg font-medium mb-1">
+                Community Involvement
+              </h3>
+              <p className="text-white/80 text-[10px] xs:text-xs md:text-sm font-light leading-relaxed">
+                Everyone is welcome to participate, contribute, and support
+                the movement. The initiative grows through shared effort
+                and sustained commitment.
+              </p>
             </div>
           </div>
         </div>

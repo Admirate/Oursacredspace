@@ -41,8 +41,7 @@ export default function TermsAndConditionsPage() {
             <ul className="list-disc pl-6 space-y-1.5">
               <li>
                 <strong>&quot;We&quot;, &quot;Us&quot;, &quot;Our&quot;</strong> refers to Our Sacred Space,
-                located at 1-8-702/A, Padma Colony, Nallakunta, Secunderabad,
-                Telangana 500044.
+                located at Shop Marredpally, Before Himalaya Book World, 9-1-84, Sardar Patel Rd, beside Orchids Flower, Regimental Bazaar, East Marredpally, Secunderabad, Telangana 500026.
               </li>
               <li>
                 <strong>&quot;You&quot;, &quot;User&quot;</strong> refers to any individual accessing
@@ -342,8 +341,7 @@ export default function TermsAndConditionsPage() {
                 </a>
               </li>
               <li>
-                <strong>Address:</strong> 1-8-702/A, Padma Colony, Nallakunta,
-                Secunderabad, Telangana 500044
+                <strong>Address:</strong> Shop Marredpally, Before Himalaya Book World, 9-1-84, Sardar Patel Rd, beside Orchids Flower, Regimental Bazaar, East Marredpally, Secunderabad, Telangana 500026
               </li>
             </ul>
           </div>

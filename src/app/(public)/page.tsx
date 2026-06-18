@@ -169,55 +169,49 @@ export default function HomePage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
-        <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
-            <div className="relative overflow-hidden shadow-2xl w-full h-[255px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <HeroBackgroundVideo
-                src={HERO_VIDEO_URL}
-                poster={HERO_POSTER_URL}
-                className="object-top scale-100"
-              />
+      <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
+        <HeroBackgroundVideo
+          src={HERO_VIDEO_URL}
+          poster={HERO_POSTER_URL}
+          className="object-top scale-100"
+        />
 
-              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />
 
-              {/* Floating particles */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-2 h-2 bg-white/20 rounded-full animate-float"
-                    style={{
-                      left: `${15 + i * 15}%`,
-                      top: `${20 + (i % 3) * 25}%`,
-                      animationDelay: `${i * 0.5}s`,
-                      animationDuration: `${3 + i * 0.5}s`,
-                    }}
-                  />
-                ))}
-              </div>
+        {/* Floating particles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 bg-white/20 rounded-full animate-float"
+              style={{
+                left: `${15 + i * 15}%`,
+                top: `${20 + (i % 3) * 25}%`,
+                animationDelay: `${i * 0.5}s`,
+                animationDuration: `${3 + i * 0.5}s`,
+              }}
+            />
+          ))}
+        </div>
 
-              <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-[1.35rem] sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white whitespace-nowrap">
-                  <AnimatedText
-                    text="Our Sacred Space"
-                    isVisible={heroLoaded}
-                    className="block"
-                  />
-                </h1>
-                <p
-                  className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded
-                      ? "opacity-100 translate-y-0 delay-500"
-                      : "opacity-0 translate-y-8"
-                  }`}
-                  style={{ transitionDelay: "600ms" }}
-                >
-                   Art movement and mindful living.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
+          <h1 className="text-[1.35rem] sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white whitespace-nowrap">
+            <AnimatedText
+              text="Our Sacred Space"
+              isVisible={heroLoaded}
+              className="block"
+            />
+          </h1>
+          <p
+            className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
+              heroLoaded
+                ? "opacity-100 translate-y-0 delay-500"
+                : "opacity-0 translate-y-8"
+            }`}
+            style={{ transitionDelay: "600ms" }}
+          >
+             Art, movement, and mindful living.
+          </p>
         </div>
       </section>
 
@@ -258,8 +252,7 @@ export default function HomePage() {
                     }`}
                     style={{ transitionDelay: "400ms" }}
                   >
-                    Workshops performances markets and community gatherings that
-                    keep the space alive.
+                    Workshops, performances, markets, and community gatherings that keep the space alive.
                   </p>
                   <div
                     className={`pt-6 mt-2 transition-all duration-700 ${
@@ -378,7 +371,7 @@ export default function HomePage() {
               <div className="relative z-10 w-full max-w-[762px]">
                 <div className="relative overflow-hidden rounded-t-[24px] md:rounded-t-[40px] shadow-xl aspect-[3/4] sm:aspect-[4/3] md:aspect-[762/455] group cursor-pointer transition-shadow duration-500 hover:shadow-2xl">
                   <img
-                    src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/whoWeAre.png"
+                    src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/new%20images/WhoWeAre.png"
                     alt="Who we are"
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
@@ -389,15 +382,10 @@ export default function HomePage() {
                       Who We Are
                     </h2>
                     <p className="text-white/90 text-xs sm:text-sm leading-relaxed max-w-md">
-                      We are a cultural and community centre based in
-                      Secunderabad. Founded in 2012, we bring together art,
-                      wellness, learning and environmental awareness in one
-                      shared space.
+                    We are a cultural and community centre based in Secunderabad. Founded in 2012, we bring together art, wellness, learning, and environmental awareness in one shared space.
                     </p>
                     <p className="text-white/90 text-xs sm:text-sm leading-relaxed max-w-md">
-                      We host dance music workshops conversations markets and
-                      gatherings that encourage creative expression and
-                      conscious living.
+                    We host dance sessions, music events, workshops, conversations, markets, and gatherings that encourage creative expression and conscious living.
                     </p>
                   </div>
                 </div>
@@ -433,10 +421,7 @@ export default function HomePage() {
                     Regular Classes
                   </h3>
                   <p className="text-sm md:text-base leading-relaxed max-w-2xl mb-4 transition-all duration-300 group-hover:text-black/60">
-                    We offer ongoing classes across classical dance martial arts
-                    yoga languages and movement. Our classes are structured
-                    inclusive and led by experienced practitioners for all age
-                    groups.
+                  We offer ongoing classes across classical dance, martial arts, yoga, languages, and movement practices.
                   </p>
                   <MagneticButton
                     href="/classes"
@@ -465,9 +450,7 @@ export default function HomePage() {
                     Workshops
                   </h3>
                   <p className="text-sm md:text-base leading-relaxed max-w-2xl mb-4 transition-all duration-300 group-hover:text-black/80">
-                    We curate hands on workshops focused on learning through
-                    doing and shared experience. These sessions span art craft
-                    movement music and cultural practices.
+                  We curate hands-on workshops focused on learning through doing and shared experiences.
                   </p>
                   <MagneticButton
                     href="/events"
@@ -496,10 +479,7 @@ export default function HomePage() {
                     Space Rentals
                   </h3>
                   <p className="text-sm md:text-base leading-relaxed max-w-2xl mb-4 transition-all duration-300 group-hover:text-black/90">
-                    We offer indoor and open air spaces for performances
-                    rehearsals meetings celebrations and community events. Our
-                    spaces are flexible calm and rooted in a cultural
-                    environment.
+                  We offer indoor and open-air spaces for performances, rehearsals, meetings, celebrations, and community events.
                   </p>
                   <MagneticButton
                     href="/book-space"
@@ -555,53 +535,6 @@ export default function HomePage() {
                 around people, craft, and care for nature.
               </p>
 
-              {/* Animated Stats */}
-              {/* <div
-                className={`flex gap-8 md:gap-12 mt-8 transition-all duration-700 ${
-                  communitySection.isInView
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-8"
-                }`}
-                style={{ transitionDelay: "400ms" }}
-              >
-                <div className="text-center">
-                  <div className="text-3xl md:text-4xl font-bold text-sacred-green">
-                    <AnimatedCounter
-                      end={12}
-                      isVisible={communitySection.isInView}
-                    />
-                    +
-                  </div>
-                  <div className="text-xs md:text-sm text-gray-500 mt-1">
-                    Years Active
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl md:text-4xl font-bold text-sacred-burgundy">
-                    <AnimatedCounter
-                      end={50}
-                      isVisible={communitySection.isInView}
-                    />
-                    +
-                  </div>
-                  <div className="text-xs md:text-sm text-gray-500 mt-1">
-                    Classes
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl md:text-4xl font-bold text-sacred-pink-dark">
-                    <AnimatedCounter
-                      end={1000}
-                      duration={2500}
-                      isVisible={communitySection.isInView}
-                    />
-                    +
-                  </div>
-                  <div className="text-xs md:text-sm text-gray-500 mt-1">
-                    Community
-                  </div>
-                </div>
-              </div> */}
             </div>
           </div>
         </div>
@@ -634,7 +567,6 @@ export default function HomePage() {
                     className="md:w-6 md:h-8 w-4 h-6 inline-block"
                   />
                 </span>
-                Also
               </h2>
               <p
                 className={`text-sm md:text-base text-gray-600 leading-relaxed mb-6 md:mb-8 transition-all duration-700 ${

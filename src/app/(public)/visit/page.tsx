@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
 
-const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/visit.mp4";
+const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/Visit%20(1).mp4";
 const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visitHero.jpg";
 
 // Custom hook for intersection observer animations
@@ -136,55 +136,33 @@ export default function VisitPage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
-        <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
-            <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <HeroBackgroundVideo
-                src={HERO_VIDEO_URL}
-                poster={HERO_POSTER_URL}
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+      <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
+        <HeroBackgroundVideo
+          src={HERO_VIDEO_URL}
+          poster={HERO_POSTER_URL}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
-              {/* Floating particles
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-2 h-2 bg-white/20 rounded-full animate-float"
-                    style={{
-                      left: `${15 + i * 15}%`,
-                      top: `${20 + (i % 3) * 25}%`,
-                      animationDelay: `${i * 0.5}s`,
-                      animationDuration: `${3 + i * 0.5}s`,
-                    }}
-                  />
-                ))}
-              </div> */}
-
-              <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
-                  <AnimatedText
-                    text="Visit Us"
-                    isVisible={heroLoaded}
-                    className="block"
-                  />
-                </h1>
-                <p
-                  className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded
-                      ? "opacity-100 translate-y-0 delay-500"
-                      : "opacity-0 translate-y-8"
-                  }`}
-                  style={{ transitionDelay: "600ms" }}
-                >
-                  Come experience the space in person. Walk through the campus
-                  explore the surroundings and discover what makes this place
-                  meaningful.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
+            <AnimatedText
+              text="Visit Us"
+              isVisible={heroLoaded}
+              className="block"
+            />
+          </h1>
+          <p
+            className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
+              heroLoaded
+                ? "opacity-100 translate-y-0 delay-500"
+                : "opacity-0 translate-y-8"
+            }`}
+            style={{ transitionDelay: "600ms" }}
+          >
+            Come experience the space in person. Walk through the campus,
+            explore the surroundings, and discover what makes this place
+            meaningful.
+          </p>
         </div>
       </section>
 
@@ -215,7 +193,7 @@ export default function VisitPage() {
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
                   Our Sacred Space
                   <br />
-                  Secunderabad Hyderabad
+                  Secunderabad, Hyderabad
                 </p>
               </div>
 
@@ -234,7 +212,7 @@ export default function VisitPage() {
                   When to Visit
                 </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
-                  The campus is active through the week with classes workshops
+                  The campus is active through the week with classes, workshops,
                   and events.
                   <br />
                   Timings may vary based on activities.
@@ -276,10 +254,9 @@ export default function VisitPage() {
             >
               <div className="relative w-full lg:w-[415px] xl:w-[380px] h-[315px] md:h-[415px] rounded-3xl overflow-hidden">
                 {/* Background Video */}
-                <img
-                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visitImg.png"
-                  alt="Reach out background"
-                  className="absolute inset-0 h-full w-full object-cover object-center scale-150"
+                <HeroBackgroundVideo
+                  src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/new%20images/ReachOut.mp4"
+                  poster="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/visitImg.png"
                 />
 
                 {/* Dark Overlay */}
@@ -291,9 +268,9 @@ export default function VisitPage() {
                     Reach Out
                   </h3>
                   <p className="text-white/80 text-xs md:text-sm font-light leading-relaxed mb-4">
-                    For enquiries bookings or general
+                    For enquiries, bookings, or general
                     <br />
-                    information you can get in touch with us.
+                    information, you can get in touch with us.
                   </p>
                   <a
                     href="/contact"

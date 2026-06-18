@@ -238,40 +238,34 @@ export default function CoWorkingSpacePage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-[#FFE5EC] py-4 xs:py-6 sm:py-8 md:py-10">
-        <div className="container px-3 xs:px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-3 xs:p-4 sm:p-5 md:p-[40px] bg-[#FFE5EC] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px]">
-            <div className="relative overflow-hidden shadow-xl sm:shadow-2xl w-full h-[220px] xs:h-[260px] sm:h-[320px] md:h-[418px] lg:h-[498px] xl:h-[550px] rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] md:rounded-[40px] group">
-              <HeroBackgroundVideo
-                src={HERO_VIDEO_URL}
-                poster={HERO_POSTER_URL}
-                className="object-top"
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+      <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
+        <HeroBackgroundVideo
+          src={HERO_VIDEO_URL}
+          poster={HERO_POSTER_URL}
+          className="object-top"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
-              <div className="absolute inset-0 flex flex-col justify-center px-4 xs:px-5 sm:px-6 md:px-10 lg:px-16">
-                <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide whitespace-nowrap">
-                  <AnimatedText
-                    text="Co Working Space"
-                    isVisible={heroLoaded}
-                    className="block"
-                  />
-                </h1>
-                <p
-                  className={`mt-2 xs:mt-3 md:mt-4 text-xs xs:text-sm sm:text-base md:text-base lg:text-lg text-white/90 max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out leading-relaxed ${
-                    heroLoaded
-                      ? "opacity-100 translate-y-0 delay-500"
-                      : "opacity-0 translate-y-8"
-                  }`}
-                  style={{ transitionDelay: "600ms" }}
-                >
-                  We offer a work environment that feels calm, focused and
-                  unhurried. It is designed for people who want to work with
-                  clarity while staying connected to a larger cultural space.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
+          <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-[600] text-white tracking-wide whitespace-nowrap">
+            <AnimatedText
+              text="co-working space"
+              isVisible={heroLoaded}
+              className="block"
+            />
+          </h1>
+          <p
+            className={`mt-2 xs:mt-3 md:mt-4 text-xs xs:text-sm sm:text-base md:text-base lg:text-lg text-white/90 max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out leading-relaxed ${
+              heroLoaded
+                ? "opacity-100 translate-y-0 delay-500"
+                : "opacity-0 translate-y-8"
+            }`}
+            style={{ transitionDelay: "600ms" }}
+          >
+            We offer a work environment that feels calm, focused, and
+            unhurried. It is designed for people who want to work with
+            clarity while staying connected to a larger cultural space.
+          </p>
         </div>
       </section>
 
@@ -297,8 +291,8 @@ export default function CoWorkingSpacePage() {
                 The Space
               </h2>
               <p className="text-sm xs:text-base sm:text-lg text-black leading-relaxed">
-                Set within greenery the work area blends indoor comfort with
-                open air options. You can choose between air conditioned seating
+                Set within greenery, the work area blends indoor comfort with
+                open-air options. You can choose between air conditioned seating
                 or outdoor spaces depending on how you work best.
               </p>
             </div>
@@ -309,8 +303,8 @@ export default function CoWorkingSpacePage() {
                 How You Work
               </h2>
               <p className="text-sm xs:text-base sm:text-lg text-black leading-relaxed">
-                The space supports individuals freelancers and small teams. It
-                encourages focus while allowing room for pause movement and
+                The space supports individuals, freelancers, and small teams. It
+                encourages focus while allowing room for pause, movement, and
                 interaction.
               </p>
             </div>
@@ -321,8 +315,8 @@ export default function CoWorkingSpacePage() {
                 Facilities
               </h2>
               <p className="text-sm xs:text-base sm:text-lg text-black leading-relaxed">
-                Wi-Fi power backup and comfortable seating are available. A
-                conference room can be used for meetings discussions and
+                Wi-Fi, power backup, and comfortable seating are available. A
+                conference room can be used for meetings, discussions, and
                 collaborative sessions.
               </p>
             </div>

@@ -18,13 +18,13 @@ import { usePayment } from "@/hooks/usePayment";
 import type { Event } from "@/types";
 import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
 
-const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/events%20page.mp4";
+const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/events.mp4";
 const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventHero.png";
 
 const COLLABORATOR_IMAGES = [
   "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventImg-2.png",
-  "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/event_new_image_2.png",
-  "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/event_page_new.png",
+  "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/new%20images/Collaborators2.png",
+  "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/new%20images/Collaborators3.png",
 ];
 
 // Custom hook for intersection observer animations
@@ -541,38 +541,32 @@ export default function EventsPage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-[#FFE5EC] py-8 md:py-10">
-        <div className="container px-4 flex justify-center">
-          <div className="relative w-full max-w-[1414px] p-5 md:p-[40px] bg-[#FFE5EC] rounded-[24px] md:rounded-[40px]">
-            <div className="relative overflow-hidden shadow-2xl w-full h-[280px] sm:h-[350px] md:h-[418px] lg:h-[498px] rounded-[24px] md:rounded-[40px] group">
-              <HeroBackgroundVideo
-                src={HERO_VIDEO_URL}
-                poster={HERO_POSTER_URL}
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
+      <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
+        <HeroBackgroundVideo
+          src={HERO_VIDEO_URL}
+          poster={HERO_POSTER_URL}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
 
-              <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
-                  <AnimatedText
-                    text="Upcoming Events"
-                    isVisible={heroLoaded}
-                    className="block"
-                  />
-                </h1>
-                <p
-                  className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
-                    heroLoaded
-                      ? "opacity-100 translate-y-0 delay-500"
-                      : "opacity-0 translate-y-8"
-                  }`}
-                  style={{ transitionDelay: "600ms" }}
-                >
-                  Join our exciting community events. Get your pass instantly
-                  with QR code delivered to your WhatsApp!
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-16">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-[600] text-white tracking-wide whitespace-nowrap">
+            <AnimatedText
+              text="Upcoming Events"
+              isVisible={heroLoaded}
+              className="block"
+            />
+          </h1>
+          <p
+            className={`mt-3 md:mt-4 text-sm md:text-base lg:text-lg text-white/90 max-w-md lg:max-w-lg font-light transition-all duration-1000 ease-out ${
+              heroLoaded
+                ? "opacity-100 translate-y-0 delay-500"
+                : "opacity-0 translate-y-8"
+            }`}
+            style={{ transitionDelay: "600ms" }}
+          >
+            Join our exciting community events. Get your pass instantly
+            with QR code delivered to your WhatsApp!
+          </p>
         </div>
       </section>
 
@@ -596,9 +590,7 @@ export default function EventsPage() {
                   About the Events
                 </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
-                  We host events that bring people together through art movement
-                  conversation and culture. Some are planned in advance. Some
-                  grow organically.
+                We host events that bring people together through art, movement, conversation, and culture.
                 </p>
               </div>
 
@@ -608,9 +600,7 @@ export default function EventsPage() {
                   What You Will Find
                 </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
-                  Performances talks screenings exhibitions markets and
-                  community led gatherings. Events are designed to be
-                  participatory and welcoming.
+                Performances, talks, screenings, exhibitions, markets, and community-led gatherings.
                 </p>
               </div>
 
@@ -620,8 +610,7 @@ export default function EventsPage() {
                   Ongoing Gatherings
                 </h3>
                 <p className="text-gray-600 text-xs md:text-sm font-light leading-relaxed">
-                  Recurring events that return through the year. These include
-                  cultural evenings open sessions and seasonal celebrations.
+                Events that take place throughout the year.
                 </p>
               </div>
             </div>
@@ -631,12 +620,9 @@ export default function EventsPage() {
 
       {/* Host an Event Section */}
       <section className=" relative w-full h-[400px] sm:h-[500px] md:h-[600px] lg:h-[712px]  rounded-t-[24px] md:rounded-t-[40px] -mt-6 md:-mt-10 z-10 overflow-hidden">
-        {" "}
-        {/* Background Image */}
-        <img
-          src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventImg-1.png"
-          alt="Classes background"
-          className="absolute inset-0 h-full w-full object-cover scale-105 "
+        <HeroBackgroundVideo
+          src="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/new%20images/HostAnEvent.mp4"
+          poster="https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventImg-1.png"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-gray-500/60 to-black/60" />
         {/* Content */}
@@ -666,8 +652,7 @@ export default function EventsPage() {
                 transitionDelay: "200ms",
               }}
             >
-              We welcome artists collectives and organisations to host events in
-              the space.
+              We welcome artists, collectives, and organisations to host events in the space.
               <br />
               Events are curated to align with the spirit of the campus.
             </p>
