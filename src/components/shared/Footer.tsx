@@ -27,7 +27,7 @@ export const Footer = () => {
             {/* Social Links */}
             <div className="flex items-center gap-4">
               <a
-                href="https://instagram.com/oursacredspace"
+                href="https://www.instagram.com/oursacredspace.in/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center w-10 h-10 rounded-full bg-sacred-burgundy/10 text-sacred-burgundy hover:bg-sacred-burgundy hover:text-white transition-all duration-300"
@@ -37,7 +37,7 @@ export const Footer = () => {
                 <Instagram className="h-5 w-5" />
               </a>
               <a
-                href="https://facebook.com/oursacredspace"
+                href="https://www.facebook.com/OurSacredSpace/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center w-10 h-10 rounded-full bg-sacred-burgundy/10 text-sacred-burgundy hover:bg-sacred-burgundy hover:text-white transition-all duration-300"
@@ -46,16 +46,7 @@ export const Footer = () => {
               >
                 <Facebook className="h-5 w-5" />
               </a>
-              <a
-                href="https://youtube.com/@oursacredspace"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-sacred-burgundy/10 text-sacred-burgundy hover:bg-sacred-burgundy hover:text-white transition-all duration-300"
-                aria-label="Subscribe on YouTube"
-                tabIndex={0}
-              >
-                <Youtube className="h-5 w-5" />
-              </a>
+              
             </div>
           </div>
 
@@ -179,11 +170,9 @@ export const Footer = () => {
                   aria-hidden="true"
                 />
                 <span className="text-sm text-sacred-burgundy/80 leading-relaxed">
-                  Shop Marredpally, Before Himalaya Book World,
+                  9-1-84, Sardar Patel Rd,
                   <br />
-                  9-1-84, Sardar Patel Rd, beside Orchids Flower,
-                  <br />
-                  Regimental Bazaar, East Marredpally,
+                  Before Himalaya Book Shop,
                   <br />
                   Secunderabad, Telangana 500026
                 </span>
@@ -198,7 +187,7 @@ export const Footer = () => {
                   className="text-sm text-sacred-burgundy/80 hover:text-sacred-green transition-colors"
                   tabIndex={0}
                 >
-                  +91 40 2761 7444
+                  +91 9030613344
                 </a>
               </li>
               <li className="flex items-center gap-3">
