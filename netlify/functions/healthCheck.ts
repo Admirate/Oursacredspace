@@ -1,11 +1,22 @@
 import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
 import { logger } from "./helpers/logger";
-import { hashToken } from "./helpers/security";
+import { hashToken, getClientIP, isRateLimited, rateLimitResponse } from "./helpers/security";
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") {
     return { statusCode: 405, body: "Method not allowed" };
+  }
+
+  // SECURITY (SEC-031): Throttle the unauthenticated health probe. Each call
+  // runs a `SELECT 1` against Postgres; without a cap an anonymous caller can
+  // use it as a cheap DB-load amplifier. 30/min per IP is ample for real
+  // uptime monitors while blunting abuse. (In-memory is acceptable here — the
+  // endpoint touches no sensitive state and we don't want a health check to
+  // add DB writes of its own.)
+  const clientIP = getClientIP(event);
+  if (isRateLimited(`healthCheck:${clientIP}`, 30, 60000)) {
+    return rateLimitResponse();
   }
 
   const start = Date.now();

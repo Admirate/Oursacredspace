@@ -163,9 +163,9 @@ describe("getClasses handler", () => {
     ]);
   });
 
-  // ── includeInactive ──
+  // ── includeInactive (SEC-010): the param was removed; it must be ignored ──
 
-  it("skips all filters when includeInactive=true", async () => {
+  it("SECURITY (SEC-010): ignores includeInactive=true and still filters to active/non-deleted", async () => {
     (prisma.classSession.findMany as jest.Mock).mockResolvedValue([]);
 
     const event = makeEvent({
@@ -174,10 +174,12 @@ describe("getClasses handler", () => {
     await handler(event, {} as any);
 
     const findManyArgs = (prisma.classSession.findMany as jest.Mock).mock.calls[0][0];
-    expect(findManyArgs.where).toEqual({});
+    // Unauthenticated callers must never be able to bypass the active filter.
+    expect(findManyArgs.where.active).toBe(true);
+    expect(findManyArgs.where.deletedAt).toBeNull();
   });
 
-  it("applies filters when includeInactive is not 'true'", async () => {
+  it("applies the active filter regardless of query params", async () => {
     (prisma.classSession.findMany as jest.Mock).mockResolvedValue([]);
 
     const event = makeEvent({

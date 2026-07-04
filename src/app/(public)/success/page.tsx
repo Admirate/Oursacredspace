@@ -200,8 +200,8 @@ function SuccessPageContent() {
               </div>
               <h1 className="text-3xl font-bold mb-2">Booking Confirmed!</h1>
               <p className="text-muted-foreground">
-                {isEvent 
-                  ? "Your pass has been sent to your WhatsApp!"
+                {isEvent
+                  ? "A confirmation has been sent to your email and WhatsApp."
                   : "Your booking has been confirmed. See you soon!"
                 }
               </p>
@@ -469,15 +469,15 @@ function SuccessPageContent() {
                 <>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
-                    <span>Your QR pass has been sent to your WhatsApp</span>
+                    <span>You'll receive a confirmation email and WhatsApp message with all details</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
-                    <span>Show the QR code at the venue entrance</span>
+                    <span>Arrive on time - the venue address is in your confirmation</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
-                    <span>Arrive on time - the pass is valid only for this event</span>
+                    <span>Bring your booking ID for verification at the entrance</span>
                   </li>
                 </>
               )}

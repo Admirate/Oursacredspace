@@ -160,13 +160,33 @@ export const validateImageMagicBytes = (buffer: Buffer): { valid: boolean; mimeT
 };
 
 /**
- * Get client IP from request
+ * SECURITY (SEC-029): Get the client IP from a request in a spoof-resistant way.
+ *
+ * `x-forwarded-for`, `x-real-ip` and `client-ip` are all attacker-controlled
+ * request headers. Trusting them lets a caller rotate their rate-limit key at
+ * will (defeating the DB-backed limits on login/booking/payment) and forge the
+ * IP used for admin session binding in verifyAdmin.
+ *
+ * On Netlify the trustworthy value is `x-nf-client-connection-ip`, which the
+ * Netlify edge sets from the actual TCP connection and OVERWRITES on every
+ * request — a client cannot spoof it. We prefer that header exclusively in
+ * production and only consult the legacy forwarded headers as a local-dev
+ * fallback (where the Netlify header is absent), never letting them override a
+ * platform-provided value.
  */
 export const getClientIP = (event: HandlerEvent): string => {
+  // Trusted, platform-set header — cannot be spoofed by the client on Netlify.
+  const netlifyIP = event.headers["x-nf-client-connection-ip"]?.trim();
+  if (netlifyIP) {
+    return netlifyIP;
+  }
+
+  // Local dev / non-Netlify fallback only. These are client-controlled, so
+  // they are used ONLY when the trusted header is entirely absent.
   return (
     event.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-    event.headers["x-real-ip"] ||
-    event.headers["client-ip"] ||
+    event.headers["x-real-ip"]?.trim() ||
+    event.headers["client-ip"]?.trim() ||
     "unknown"
   );
 };

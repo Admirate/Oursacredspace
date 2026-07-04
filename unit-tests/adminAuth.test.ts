@@ -12,6 +12,7 @@ jest.mock("bcryptjs", () => ({
 
 import { handler } from "../netlify/functions/adminAuth";
 import { prisma } from "./__mocks__/prisma";
+import { hashToken, computeCsrfToken } from "../netlify/functions/helpers/security";
 
 const makeEvent = (overrides: Partial<HandlerEvent> = {}): HandlerEvent => ({
   rawUrl: "http://localhost:8888/.netlify/functions/adminAuth",
@@ -177,10 +178,17 @@ describe("adminAuth handler", () => {
   it("clears the cookie on logout", async () => {
     (prisma.adminSession.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
 
+    // SECURITY (SEC-026): logout now requires a valid CSRF token derived from
+    // the session (double-submit). Compute the expected value the same way the
+    // handler does.
+    const token = "c".repeat(64);
+    const csrfToken = computeCsrfToken(hashToken(token));
+
     const event = makeEvent({
       httpMethod: "DELETE",
       headers: {
-        cookie: `admin_token=${"c".repeat(64)}`,
+        cookie: `admin_token=${token}`,
+        "x-csrf-token": csrfToken,
         origin: "http://localhost:3000",
       },
     });

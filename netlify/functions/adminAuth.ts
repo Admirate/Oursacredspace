@@ -150,6 +150,12 @@ const _handler: Handler = async (event) => {
       // stored server-side, so a DB breach cannot reveal active sessions.
       const hashedToken = hashToken(token);
 
+      // SECURITY (SEC-032): Enforce a single active session per admin. Deleting
+      // this email's prior sessions on a fresh login means a leaked/older token
+      // stops working the moment the admin logs in again, and prevents session
+      // accumulation. Complements the per-session IP/UA binding.
+      await prisma.adminSession.deleteMany({ where: { email } });
+
       await prisma.adminSession.create({
         data: {
           email,

@@ -67,7 +67,7 @@ export const verifyAdminSession = async (
 
       if (!csrfHeader || !timingSafeStringEqual(csrfHeader, expectedCsrf)) {
         logSecurityEvent("AUTH_FAILURE", {
-          ip: event.headers["x-forwarded-for"] || "unknown",
+          ip: getClientIP(event),
           email: session.email,
           reason: "csrf_mismatch",
         });

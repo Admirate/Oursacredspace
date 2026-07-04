@@ -1,10 +1,11 @@
 import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
+import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS } from "./helpers/security";
 
 export const handler: Handler = async (event) => {
   const headers = getAdminHeaders(event);
-  
+
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }
@@ -15,6 +16,14 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({ success: false, error: "Method not allowed" }),
     };
+  }
+
+  // SECURITY (SEC-030): Rate limit before auth. This endpoint also performs an
+  // updateMany write on every GET, so throttling caps write load from a valid
+  // (or hijacked) session hammering the list view.
+  const clientIP = getClientIP(event);
+  if (isRateLimited(`admin:listEvents:${clientIP}`, RATE_LIMITS.ADMIN_READ.maxRequests, RATE_LIMITS.ADMIN_READ.windowMs)) {
+    return rateLimitResponse();
   }
 
   // Verify admin session

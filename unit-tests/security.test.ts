@@ -160,7 +160,26 @@ describe("validateImageMagicBytes", () => {
 // ─── getClientIP ─────────────────────────────────────────
 
 describe("getClientIP", () => {
-  it("extracts IP from x-forwarded-for (first entry)", () => {
+  it("prefers the trusted Netlify header (x-nf-client-connection-ip)", () => {
+    const event = makeEvent({ headers: { "x-nf-client-connection-ip": "203.0.113.9" } });
+    expect(getClientIP(event)).toBe("203.0.113.9");
+  });
+
+  it("SECURITY: the trusted Netlify header overrides spoofed forwarded headers", () => {
+    // A client cannot bypass rate limiting / IP binding by forging
+    // x-forwarded-for; the platform-set header must win.
+    const event = makeEvent({
+      headers: {
+        "x-nf-client-connection-ip": "203.0.113.9",
+        "x-forwarded-for": "1.2.3.4",
+        "x-real-ip": "5.6.7.8",
+        "client-ip": "9.9.9.9",
+      },
+    });
+    expect(getClientIP(event)).toBe("203.0.113.9");
+  });
+
+  it("falls back to x-forwarded-for (first entry) only when the trusted header is absent", () => {
     const event = makeEvent({ headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" } });
     expect(getClientIP(event)).toBe("1.2.3.4");
   });

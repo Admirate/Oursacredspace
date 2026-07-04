@@ -8,6 +8,13 @@ jest.mock("../netlify/functions/helpers/logger", () => ({
   withSentry: (_name: string, fn: any) => fn,
 }));
 
+// createBooking rate-limits via the DB-backed limiter (isDbRateLimited), not
+// the in-memory isRateLimited. Mock it directly so tests control the outcome
+// without exercising the real $transaction/rateLimitEntry path.
+jest.mock("../netlify/functions/helpers/dbRateLimit", () => ({
+  isDbRateLimited: jest.fn().mockResolvedValue(false),
+}));
+
 jest.mock("../netlify/functions/helpers/security", () => ({
   getClientIP: jest.fn().mockReturnValue("127.0.0.1"),
   isRateLimited: jest.fn().mockReturnValue(false),
@@ -27,7 +34,7 @@ jest.mock("../netlify/functions/helpers/security", () => ({
 
 import { handler } from "../netlify/functions/createBooking";
 import { prisma } from "./__mocks__/prisma";
-import { isRateLimited } from "../netlify/functions/helpers/security";
+import { isDbRateLimited } from "../netlify/functions/helpers/dbRateLimit";
 
 const makeEvent = (overrides: Partial<HandlerEvent> = {}): HandlerEvent => ({
   rawUrl: "http://localhost:8888/.netlify/functions/createBooking",
@@ -102,6 +109,10 @@ describe("createBooking handler", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (prisma.$transaction as jest.Mock).mockImplementation((fn: any) => fn(prisma));
+    // clearAllMocks clears call records but NOT mockResolvedValue
+    // implementations. Reset the duplicate-check default each test so a
+    // truthy value set by the duplicate test does not leak into later tests.
+    (prisma.booking.findFirst as jest.Mock).mockResolvedValue(null);
   });
 
   // ── HTTP guards ──
@@ -124,7 +135,7 @@ describe("createBooking handler", () => {
   // ── Rate limiting ──
 
   it("returns 429 when rate limited", async () => {
-    (isRateLimited as jest.Mock).mockReturnValueOnce(true);
+    (isDbRateLimited as jest.Mock).mockResolvedValueOnce(true);
     const response = await handler(
       makeEvent({ body: JSON.stringify(validClassBody) }),
       {} as any
@@ -273,6 +284,7 @@ describe("createBooking handler", () => {
 
   it("allows booking when class has unlimited capacity (null)", async () => {
     (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass({ capacity: null }));
+    (prisma.booking.count as jest.Mock).mockResolvedValue(0);
     (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
     (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
 
@@ -281,8 +293,10 @@ describe("createBooking handler", () => {
       {} as any
     );
 
+    // A null capacity means unlimited: the booking is created regardless of
+    // the current booked count (the count is queried but not used as a cap).
     expect(response!.statusCode).toBe(200);
-    expect(prisma.booking.count).not.toHaveBeenCalled();
+    expect(prisma.booking.create).toHaveBeenCalled();
   });
 
   // ── EVENT booking ──
@@ -378,6 +392,47 @@ describe("createBooking handler", () => {
     const body = JSON.parse(response!.body!);
     expect(body.success).toBe(true);
     expect(body.data.requiresPayment).toBe(false);
+  });
+
+  it("creates the SpaceRequest inside the booking transaction (not before)", async () => {
+    (prisma.spaceRequest.create as jest.Mock).mockResolvedValue({ id: "spr-002" });
+    (prisma.booking.create as jest.Mock).mockResolvedValue(
+      makeBooking({ type: "SPACE", status: "REQUESTED", amountPaise: 0 })
+    );
+    (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
+
+    await handler(makeEvent({ body: JSON.stringify(validSpaceBody) }), {} as any);
+
+    // The SpaceRequest and the Booking must be created within the same
+    // transaction so a failure cannot orphan the SpaceRequest (F6).
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(prisma.spaceRequest.create).toHaveBeenCalledTimes(1);
+    const bookingArgs = (prisma.booking.create as jest.Mock).mock.calls[0][0];
+    expect(bookingArgs.data.spaceRequestId).toBe("spr-002");
+  });
+
+  // F6: a duplicate SPACE request must be rejected WITHOUT ever creating an
+  // orphaned SpaceRequest row.
+  it("returns 409 for a duplicate SPACE request and does not create a SpaceRequest", async () => {
+    (prisma.booking.findFirst as jest.Mock).mockResolvedValue({ id: "bkg-existing-space" });
+
+    const response = await handler(
+      makeEvent({ body: JSON.stringify(validSpaceBody) }),
+      {} as any
+    );
+
+    expect(response!.statusCode).toBe(409);
+    expect(prisma.spaceRequest.create).not.toHaveBeenCalled();
+    // The dedup query must target open (REQUESTED) SPACE bookings for this person.
+    const findFirstCall = (prisma.booking.findFirst as jest.Mock).mock.calls[0][0];
+    expect(findFirstCall.where).toEqual(
+      expect.objectContaining({
+        customerEmail: "rahul@example.com",
+        customerPhone: "+919876543212",
+        type: "SPACE",
+        status: "REQUESTED",
+      })
+    );
   });
 
   // ── Transaction race-condition errors ──

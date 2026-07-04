@@ -78,7 +78,6 @@ const _handler: Handler = async (event) => {
     const validatedData = createBookingSchema.parse(body);
 
     let amountPaise = 0;
-    let spaceRequestId: string | undefined;
 
     // === Handle CLASS booking ===
     if (validatedData.type === BookingType.CLASS) {
@@ -207,6 +206,10 @@ const _handler: Handler = async (event) => {
     }
 
     // === Handle SPACE booking ===
+    // NOTE (F6): We deliberately do NOT create the SpaceRequest row here. It is
+    // created inside the transaction below, atomically with the Booking, so a
+    // duplicate 409 or a transaction failure can never leave an orphaned
+    // SpaceRequest with no owning Booking.
     if (validatedData.type === BookingType.SPACE) {
       if (!validatedData.preferredSlots || validatedData.preferredSlots.length === 0) {
         return {
@@ -219,19 +222,6 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      const spaceRequest = await prisma.spaceRequest.create({
-        data: {
-          customerName: validatedData.name,
-          customerPhone: validatedData.phone,
-          customerEmail: validatedData.email,
-          preferredSlots: validatedData.preferredSlots,
-          notes: validatedData.notes,
-          purpose: validatedData.purpose,
-          status: "REQUESTED",
-        },
-      });
-
-      spaceRequestId = spaceRequest.id;
       amountPaise = 0;
     }
 
@@ -254,19 +244,25 @@ const _handler: Handler = async (event) => {
     //      email. Legitimate double-click retries surface as a clear error
     //      while the original (slower) request finishes and produces the
     //      real bookingId + token.
-    const activeStatuses = [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED];
     const duplicateWhere: Record<string, unknown> = {
       customerEmail: validatedData.email,
       customerPhone: validatedData.phone,
-      status: { in: activeStatuses },
       deletedAt: null,
     };
     if (validatedData.type === BookingType.CLASS) {
       duplicateWhere.classSessionId = validatedData.classSessionId;
+      duplicateWhere.status = { in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED] };
     } else if (validatedData.type === BookingType.EVENT) {
       duplicateWhere.eventId = validatedData.eventId;
-    } else if (validatedData.type === BookingType.SPACE && spaceRequestId) {
-      duplicateWhere.spaceRequestId = spaceRequestId;
+      duplicateWhere.status = { in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED] };
+    } else if (validatedData.type === BookingType.SPACE) {
+      // SPACE bookings are created as REQUESTED (no payment). The previous
+      // check keyed on the just-created spaceRequestId (always unique) AND on
+      // PENDING_PAYMENT/CONFIRMED, so it never matched — SPACE requests were
+      // never de-duplicated. Match an existing open SPACE request from the
+      // same person instead so repeat submissions are collapsed.
+      duplicateWhere.type = BookingType.SPACE;
+      duplicateWhere.status = BookingStatus.REQUESTED;
     }
 
     const existingBooking = await prisma.booking.findFirst({
@@ -324,6 +320,27 @@ const _handler: Handler = async (event) => {
             throw new Error("EVENT_FULL");
           }
         }
+      }
+
+      // F6: Create the SpaceRequest inside the transaction so it is atomic with
+      // the Booking — if anything below throws, the row is rolled back rather
+      // than orphaned.
+      let spaceRequestId: string | undefined;
+      if (validatedData.type === BookingType.SPACE) {
+        const spaceRequest = await tx.spaceRequest.create({
+          data: {
+            customerName: validatedData.name,
+            customerPhone: validatedData.phone,
+            customerEmail: validatedData.email,
+            // Guaranteed non-empty: the SPACE block above returns 400 otherwise.
+            // The `?? []` only satisfies the compiler across the branch boundary.
+            preferredSlots: validatedData.preferredSlots ?? [],
+            notes: validatedData.notes,
+            purpose: validatedData.purpose,
+            status: "REQUESTED",
+          },
+        });
+        spaceRequestId = spaceRequest.id;
       }
 
       // SECURITY (SEC-005, SEC-006): Generate the per-booking access token
