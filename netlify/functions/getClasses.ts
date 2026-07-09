@@ -40,25 +40,27 @@ export const handler: Handler = async (event) => {
       },
       orderBy: { startsAt: "asc" },
       take: 100,
-      include: {
-        _count: {
-          select: {
-            bookings: {
-              where: {
-                status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
-                deletedAt: null,
-              },
-            },
-          },
-        },
-      },
     });
 
+    // Multi-seat aware: booked = SUM(quantity) of active bookings per class,
+    // not a row count. One booking may hold several seats.
+    const grouped = await prisma.booking.groupBy({
+      by: ["classSessionId"],
+      where: {
+        classSessionId: { in: classes.map((c) => c.id) },
+        status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
+        deletedAt: null,
+      },
+      _sum: { quantity: true },
+    });
+    const bookedByClass = new Map(
+      grouped.map((g) => [g.classSessionId, g._sum.quantity ?? 0])
+    );
+
     const classesWithAvailability = classes.map((c) => {
-      const bookedCount = c._count.bookings;
+      const bookedCount = bookedByClass.get(c.id) ?? 0;
       const availableSpots = c.capacity !== null ? Math.max(0, c.capacity - bookedCount) : null;
-      const { _count, ...rest } = c;
-      return { ...rest, bookedCount, availableSpots };
+      return { ...c, bookedCount, availableSpots };
     });
 
     return {

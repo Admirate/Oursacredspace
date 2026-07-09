@@ -6,6 +6,10 @@ let sentryInitialized = false;
 const initSentry = (): boolean => {
   if (sentryInitialized) return true;
   if (!process.env.SENTRY_DSN) return false;
+  // Skip Sentry in local dev. Its HTTP auto-instrumentation recursively
+  // patches TCP.onconnection under `netlify dev` on newer Node and crashes
+  // the CLI (RangeError: Maximum call stack size exceeded).
+  if (process.env.NODE_ENV !== "production") return false;
 
   Sentry.init({
     dsn: process.env.SENTRY_DSN,

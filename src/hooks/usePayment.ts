@@ -15,6 +15,10 @@ interface UsePaymentOptions {
 interface PaymentState {
   isLoading: boolean;
   isCreatingOrder: boolean;
+  // True from the moment the Razorpay modal reports success until we finish
+  // server-side verification and redirect. Drives the "Confirming your
+  // payment…" overlay so the user isn't left staring at a blank page.
+  isVerifying: boolean;
   error: string | null;
 }
 
@@ -24,6 +28,7 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
   const [state, setState] = useState<PaymentState>({
     isLoading: false,
     isCreatingOrder: false,
+    isVerifying: false,
     error: null,
   });
 
@@ -57,7 +62,7 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
     async (bookingId: string, accessToken: string) => {
       if (inFlightRef.current) return;
       inFlightRef.current = true;
-      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      setState((prev) => ({ ...prev, isLoading: true, isVerifying: false, error: null }));
 
       try {
         // Load Razorpay script
@@ -101,6 +106,9 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
           // against client-side handler tampering and removes the
           // dependency on webhook latency for the user-facing flow.
           handler: async (response: RazorpaySuccessResponse) => {
+            // Modal has closed and payment succeeded; show the verifying
+            // overlay while we confirm server-side.
+            setState((prev) => ({ ...prev, isVerifying: true }));
             try {
               const verifyResult = await api.verifyPayment({
                 bookingId,
@@ -131,7 +139,7 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
                 tags: { flow: "payment_verify" },
                 extra: { bookingId, orderId: response.razorpay_order_id },
               });
-              setState((prev) => ({ ...prev, isLoading: false, error: msg }));
+              setState((prev) => ({ ...prev, isLoading: false, isVerifying: false, error: msg }));
               options.onError?.(verifyError instanceof Error ? verifyError : new Error(msg));
             }
           },
@@ -150,8 +158,13 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
               options.onError?.(new Error("Payment cancelled. You can retry from the booking page."));
             },
           },
-          // Auto-close the checkout if the user walks away (10 minutes).
-          timeout: 600,
+          // Auto-close the checkout after 4 minutes. This MUST stay below the
+          // server-side unpaid-booking expiry window (pg_cron expires
+          // PENDING_PAYMENT bookings after 5 min). If checkout outlived that
+          // window, a payment could capture against an already-EXPIRED booking
+          // and the confirmation path would skip it — charging the customer
+          // without confirming. Keep checkout timeout < expiry window.
+          timeout: 240,
           notes: {
             bookingId,
           },
@@ -177,6 +190,7 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
           ...prev,
           isLoading: false,
           isCreatingOrder: false,
+          isVerifying: false,
           error: errorMessage,
         }));
         options.onError?.(error instanceof Error ? error : new Error(errorMessage));

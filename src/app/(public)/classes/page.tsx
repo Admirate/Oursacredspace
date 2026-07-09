@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Clock, Users, Loader2, AlertCircle, ArrowRight } from "lucide-react";
+import { Calendar, Clock, Users, Loader2, AlertCircle, ArrowRight, Minus, Plus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,6 +18,7 @@ import { usePayment } from "@/hooks/usePayment";
 import type { ClassSession } from "@/types";
 import Link from "next/link";
 import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
+import { PaymentVerifyingOverlay } from "@/components/shared/PaymentVerifyingOverlay";
 
 const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/Classes%20(1).mp4";
 const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/classesHero.png";
@@ -291,7 +292,12 @@ const ClassCard = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const hasCapacity = classItem.capacity !== null && classItem.capacity !== undefined;
-  const spotsLeft = hasCapacity ? classItem.capacity! - classItem.spotsBooked : Infinity;
+  // Derived from confirmed + pending bookings (seat-summed), returned by the
+  // API. Falls back to the legacy spotsBooked only if the API field is absent.
+  const bookedCount = classItem.bookedCount ?? classItem.spotsBooked ?? 0;
+  const spotsLeft = hasCapacity
+    ? (classItem.availableSpots ?? Math.max(0, classItem.capacity! - bookedCount))
+    : Infinity;
   const isFull = hasCapacity && spotsLeft <= 0;
   const isPast = !classItem.isRecurring && new Date(classItem.startsAt) < new Date();
 
@@ -423,7 +429,7 @@ const ClassCard = ({
               </div>
               <div className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
-                <span>{hasCapacity ? `${classItem.spotsBooked}/${classItem.capacity}` : "Unlimited"}</span>
+                <span>{hasCapacity ? `${bookedCount}/${classItem.capacity}` : "Unlimited"}</span>
               </div>
             </div>
             {classItem.timeSlots && classItem.timeSlots.length > 1 && (
@@ -483,6 +489,7 @@ const ClassCardSkeleton = () => (
 
 export default function ClassesPage() {
   const [selectedClass, setSelectedClass] = useState<ClassSession | null>(null);
+  const [quantity, setQuantity] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -496,7 +503,7 @@ export default function ClassesPage() {
     queryFn: api.getClasses,
   });
 
-  const { initiatePayment, isLoading: isPaymentLoading, error: paymentError } = usePayment({
+  const { initiatePayment, isLoading: isPaymentLoading, isVerifying, error: paymentError } = usePayment({
     onError: (err) => {
       toast({
         title: "Payment Error",
@@ -540,7 +547,11 @@ export default function ClassesPage() {
       setIsDialogOpen(false);
       form.reset();
       if (response.data.requiresPayment) {
-        toast({ title: "Booking Created!", description: "Opening payment..." });
+        toast(
+          response.data.resumed
+            ? { title: "Resuming your booking", description: "Opening payment..." }
+            : { title: "Booking Created!", description: "Opening payment..." }
+        );
         // SECURITY (SEC-006): pass the one-time accessToken alongside the
         // bookingId so createRazorpayOrder and the /success page can fetch
         // the booking.
@@ -565,16 +576,32 @@ export default function ClassesPage() {
 
   const handleBook = (classItem: ClassSession) => {
     setSelectedClass(classItem);
+    setQuantity(1);
     setIsDialogOpen(true);
   };
 
+  // Max seats bookable in one go: capped at 10 (server limit) and at the
+  // seats actually remaining for a capacity-limited class.
+  const selectedBooked = selectedClass
+    ? (selectedClass.bookedCount ?? selectedClass.spotsBooked ?? 0)
+    : 0;
+  const selectedAvailable =
+    selectedClass && selectedClass.capacity != null
+      ? (selectedClass.availableSpots ?? Math.max(0, selectedClass.capacity - selectedBooked))
+      : null;
+  const maxQty = Math.max(1, Math.min(10, selectedAvailable ?? 10));
+  const totalPaise = selectedClass ? selectedClass.pricePaise * quantity : 0;
+
   const handleSubmit = (formData: BookingFormData) => {
     if (!selectedClass || isSubmitting) return;
+    // Guard: never submit more seats than remain.
+    const qty = Math.max(1, Math.min(quantity, maxQty));
     setIsSubmitting(true);
 
     bookingMutation.mutate({
       type: "CLASS",
       classSessionId: selectedClass.id,
+      quantity: qty,
       name: formData.customerName,
       email: formData.customerEmail,
       phone: `+91${formData.customerPhone}`,
@@ -584,6 +611,7 @@ export default function ClassesPage() {
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setSelectedClass(null);
+    setQuantity(1);
     setIsSubmitting(false);
     form.reset();
   };
@@ -592,6 +620,7 @@ export default function ClassesPage() {
 
   return (
     <div>
+      <PaymentVerifyingOverlay show={isVerifying} />
       {/* Hero Section */}
       <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
         <HeroBackgroundVideo
@@ -778,7 +807,50 @@ export default function ClassesPage() {
                 )}
               />
 
-              <div className="flex gap-3 pt-4">
+              {/* Quantity selector */}
+              <div>
+                <FormLabel>Seats</FormLabel>
+                <div className="mt-2 flex items-center justify-between rounded-md border border-input p-2">
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={quantity <= 1}
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      aria-label="Decrease seats"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-6 text-center font-semibold tabular-nums">{quantity}</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={quantity >= maxQty}
+                      onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+                      aria-label="Increase seats"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedAvailable !== null ? `${selectedAvailable} available` : "Max 10"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="flex items-center justify-between border-t pt-3">
+                <span className="text-sm text-muted-foreground">
+                  {quantity} × {selectedClass ? formatPrice(selectedClass.pricePaise) : ""}
+                </span>
+                <span className="text-lg font-bold text-primary">{formatPrice(totalPaise)}</span>
+              </div>
+
+              <div className="flex gap-3 pt-2">
                 <Button
                   type="button"
                   variant="outline"

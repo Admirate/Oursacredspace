@@ -4,3 +4,4 @@ export { LoadingSpinner, PageLoader, InlineLoader } from "./LoadingSpinner";
 export { OptimizedImage } from "./OptimizedImage";
 export { OptimizedVideo, BackgroundVideo } from "./OptimizedVideo";
 export { ErrorBoundary } from "./ErrorBoundary";
+export { PaymentVerifyingOverlay } from "./PaymentVerifyingOverlay";

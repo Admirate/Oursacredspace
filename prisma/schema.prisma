@@ -84,6 +84,10 @@ model Booking {
   amountPaise     Int           @map("amount_paise")
   currency        String        @default("INR")
 
+  // Number of seats/passes this booking reserves. Capacity is enforced as the
+  // SUM of quantity across active bookings, not a row count.
+  quantity        Int           @default(1)
+
   cancelledAt     DateTime?     @map("cancelled_at") @db.Timestamptz(3)
   cancelReason    String?       @map("cancel_reason")
 

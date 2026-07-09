@@ -275,30 +275,41 @@ CREATE INDEX IF NOT EXISTS idx_booking_pending_expiry
 
 
 -- ============ PHASE 5C: PG_CRON BOOKING EXPIRATION ============
--- Uncomment and run this separately if pg_cron extension is enabled in Supabase.
--- Expires unpaid bookings older than 15 minutes, every 5 minutes.
+-- Run this separately once the pg_cron extension is enabled in Supabase.
+-- Expires unpaid bookings older than 5 minutes, checked every minute.
+--
+-- The single-statement CTE flips PENDING_PAYMENT -> EXPIRED and writes ONE
+-- status_history row per booking in the same transaction, using UPDATE ...
+-- RETURNING so only rows expired in THIS run get an audit entry (no
+-- duplicate history rows across overlapping runs).
+--
+-- NOTE: keep this expiry window (5 min) strictly GREATER than the Razorpay
+-- checkout `timeout` in src/hooks/usePayment.ts (currently 240s / 4 min) so a
+-- payment can never capture against an already-expired booking.
+--
+-- CREATE EXTENSION IF NOT EXISTS pg_cron;
 --
 -- SELECT cron.schedule(
 --   'expire-unpaid-bookings',
---   '*/5 * * * *',
+--   '* * * * *',
 --   $$
---     UPDATE bookings
---     SET status = 'EXPIRED'
---     WHERE status = 'PENDING_PAYMENT'
---     AND created_at < NOW() - INTERVAL '15 minutes';
---
+--     WITH expired AS (
+--       UPDATE bookings
+--       SET status = 'EXPIRED'
+--       WHERE status = 'PENDING_PAYMENT'
+--       AND created_at < NOW() - INTERVAL '5 minutes'
+--       RETURNING id
+--     )
 --     INSERT INTO status_history (id, booking_id, from_status, to_status, changed_by, reason, created_at)
 --     SELECT
 --       gen_random_uuid()::text,
---       b.id,
+--       id,
 --       'PENDING_PAYMENT',
 --       'EXPIRED',
 --       'SYSTEM',
---       'Auto-expired: payment not completed within 15 minutes',
+--       'Auto-expired: payment not completed within 5 minutes',
 --       NOW()
---     FROM bookings b
---     WHERE b.status = 'EXPIRED'
---     AND b.updated_at >= NOW() - INTERVAL '6 minutes';
+--     FROM expired;
 --   $$
 -- );
 

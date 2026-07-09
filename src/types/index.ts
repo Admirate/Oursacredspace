@@ -36,6 +36,7 @@ export interface Booking {
   customerEmail: string;
   amountPaise?: number | null;
   currency?: string;
+  quantity?: number;
 
   cancelledAt?: string | null;
   cancelReason?: string | null;
@@ -174,6 +175,8 @@ export interface CreateBookingRequest {
   name: string;
   phone: string;
   email: string;
+  /** Number of seats/passes (CLASS/EVENT). Defaults to 1 server-side. */
+  quantity?: number;
   classSessionId?: string;
   eventId?: string;
   preferredSlots?: string[];
@@ -194,6 +197,12 @@ export interface CreateBookingResponse {
     type: BookingType;
     amount: number;
     requiresPayment: boolean;
+    /**
+     * True when this response continues an existing unpaid booking (the
+     * customer re-submitted the same email/phone for the same class/event)
+     * rather than creating a new one. Used only for UX messaging.
+     */
+    resumed?: boolean;
   };
   error?: string;
 }

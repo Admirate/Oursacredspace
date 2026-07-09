@@ -4,19 +4,21 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  CheckCircle2, 
-  Loader2, 
-  AlertCircle, 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  Mail, 
+import {
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  Calendar,
+  Clock,
+  MapPin,
+  Mail,
   Phone,
   Home,
   Ticket,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Users,
+  ShieldCheck
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePayment } from "@/hooks/usePayment";
 import { api } from "@/lib/api";
 import { POLLING_INTERVAL } from "@/lib/constants";
+import { PaymentVerifyingOverlay } from "@/components/shared/PaymentVerifyingOverlay";
 
 const formatPrice = (paise: number): string => {
   return new Intl.NumberFormat("en-IN", {
@@ -55,9 +58,9 @@ const formatTime = (date: string): string => {
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "CONFIRMED":
-      return <Badge className="bg-green-500">Confirmed</Badge>;
+      return <Badge className="bg-sacred-green hover:bg-sacred-green">Confirmed</Badge>;
     case "PENDING_PAYMENT":
-      return <Badge variant="outline" className="border-yellow-500 text-yellow-600">Pending Payment</Badge>;
+      return <Badge variant="outline" className="border-amber-500 text-amber-600">Pending Payment</Badge>;
     case "PAYMENT_FAILED":
       return <Badge variant="destructive">Payment Failed</Badge>;
     case "CANCELLED":
@@ -65,11 +68,23 @@ const getStatusBadge = (status: string) => {
     case "EXPIRED":
       return <Badge variant="outline" className="border-gray-400 text-gray-500">Expired</Badge>;
     case "REQUESTED":
-      return <Badge variant="secondary">Request Submitted</Badge>;
+      return <Badge className="bg-sacred-burgundy hover:bg-sacred-burgundy">Request Submitted</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
 };
+
+// Thin brand gradient bar that sits flush at the top edge of a Card.
+const AccentBar = () => (
+  <div className="h-1.5 w-full bg-gradient-to-r from-sacred-green via-sacred-burgundy to-sacred-green" />
+);
+
+// Shared page shell: soft cream → white wash so every state reads as one page.
+const PageShell = ({ children }: { children: React.ReactNode }) => (
+  <div className="min-h-screen bg-gradient-to-b from-sacred-cream via-sacred-pink/10 to-white">
+    <div className="container py-12 md:py-16">{children}</div>
+  </div>
+);
 
 const SUCCESS_POLL_MAX = 60;
 
@@ -84,7 +99,7 @@ function SuccessPageContent() {
   const pollTimedOut = pollCount >= SUCCESS_POLL_MAX;
   const { toast } = useToast();
 
-  const { initiatePayment, isLoading: isPaymentLoading } = usePayment({
+  const { initiatePayment, isLoading: isPaymentLoading, isVerifying } = usePayment({
     onError: (err) => {
       toast({
         title: "Payment Error",
@@ -119,34 +134,36 @@ function SuccessPageContent() {
   // at all.
   if (!bookingId || !accessToken) {
     return (
-      <div className="container py-12">
+      <PageShell>
         <div className="max-w-lg mx-auto text-center">
-          <AlertCircle className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h1 className="text-2xl font-bold mb-4">No Booking Found</h1>
+          <div className="h-20 w-20 rounded-full bg-sacred-cream-dark flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="h-10 w-10 text-sacred-burgundy" />
+          </div>
+          <h1 className="text-3xl font-bold mb-3 text-sacred-burgundy">No Booking Found</h1>
           <p className="text-muted-foreground mb-8">
             It looks like you accessed this page without a booking reference.
           </p>
-          <Button asChild>
+          <Button asChild className="bg-sacred-green hover:bg-sacred-green-dark text-white">
             <Link href="/">
               <Home className="mr-2 h-4 w-4" />
               Go Home
             </Link>
           </Button>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   // Loading state
   if (isLoading) {
     return (
-      <div className="container py-12">
+      <PageShell>
         <div className="max-w-lg mx-auto text-center">
-          <Loader2 className="h-16 w-16 mx-auto text-primary animate-spin mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Loading Booking...</h1>
+          <Loader2 className="h-16 w-16 mx-auto text-sacred-green animate-spin mb-4" />
+          <h1 className="text-2xl font-bold mb-2 text-sacred-burgundy">Loading Booking...</h1>
           <p className="text-muted-foreground">Please wait while we fetch your booking details.</p>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -154,27 +171,29 @@ function SuccessPageContent() {
   if (error || !booking) {
     const isNetworkError = error?.message?.includes("connect") || error?.message?.includes("timed out");
     return (
-      <div className="container py-12">
+      <PageShell>
         <div className="max-w-lg mx-auto text-center">
-          <AlertCircle className="h-16 w-16 mx-auto text-destructive mb-4" />
-          <h1 className="text-2xl font-bold mb-4">
+          <div className="h-20 w-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="h-10 w-10 text-destructive" />
+          </div>
+          <h1 className="text-3xl font-bold mb-3 text-sacred-burgundy">
             {isNetworkError ? "Connection Error" : "Booking Not Found"}
           </h1>
           <p className="text-muted-foreground mb-8">
             {isNetworkError
-              ? "We couldn\u2019t reach the server. Please check your connection and try again."
-              : "We couldn\u2019t find this booking. It may have expired or the link is invalid."}
+              ? "We couldn’t reach the server. Please check your connection and try again."
+              : "We couldn’t find this booking. It may have expired or the link is invalid."}
           </p>
           <div className="flex gap-4 justify-center">
-            <Button variant="outline" onClick={() => refetch()}>
+            <Button variant="outline" className="border-sacred-green text-sacred-green hover:bg-sacred-cream" onClick={() => refetch()}>
               Try Again
             </Button>
-            <Button asChild>
+            <Button asChild className="bg-sacred-green hover:bg-sacred-green-dark text-white">
               <Link href="/">Go Home</Link>
             </Button>
           </div>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -189,17 +208,18 @@ function SuccessPageContent() {
   const isExpired = booking.status === "EXPIRED";
 
   return (
-    <div className="container py-12">
+    <PageShell>
+      <PaymentVerifyingOverlay show={isVerifying} />
       <div className="max-w-2xl mx-auto">
         {/* Success Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-10">
           {isConfirmed ? (
             <>
-              <div className="h-20 w-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="h-10 w-10 text-green-600" />
+              <div className="h-24 w-24 rounded-full bg-sacred-green/10 ring-8 ring-sacred-green/5 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="h-12 w-12 text-sacred-green" />
               </div>
-              <h1 className="text-3xl font-bold mb-2">Booking Confirmed!</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 text-sacred-burgundy">Booking Confirmed!</h1>
+              <p className="text-muted-foreground max-w-md mx-auto">
                 {isEvent
                   ? "A confirmation has been sent to your email and WhatsApp."
                   : "Your booking has been confirmed. See you soon!"
@@ -208,66 +228,67 @@ function SuccessPageContent() {
             </>
           ) : isPending ? (
             <>
-              <div className="h-20 w-20 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-6">
-                <Clock className="h-10 w-10 text-yellow-600" />
+              <div className="h-24 w-24 rounded-full bg-amber-100 ring-8 ring-amber-50 flex items-center justify-center mx-auto mb-6">
+                <Clock className="h-12 w-12 text-amber-600" />
               </div>
-              <h1 className="text-3xl font-bold mb-2">Complete Your Payment</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 text-sacred-burgundy">Complete Your Payment</h1>
+              <p className="text-muted-foreground max-w-md mx-auto">
                 Your booking is reserved. Please complete payment to confirm.
               </p>
             </>
           ) : isFailed ? (
             <>
-              <div className="h-20 w-20 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-6">
-                <XCircle className="h-10 w-10 text-red-600" />
+              <div className="h-24 w-24 rounded-full bg-red-100 ring-8 ring-red-50 flex items-center justify-center mx-auto mb-6">
+                <XCircle className="h-12 w-12 text-red-600" />
               </div>
-              <h1 className="text-3xl font-bold mb-2">Payment Failed</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 text-sacred-burgundy">Payment Failed</h1>
+              <p className="text-muted-foreground max-w-md mx-auto">
                 Your payment could not be processed. Please try again or use a different payment method.
               </p>
             </>
           ) : isExpired ? (
             <>
-              <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-6">
-                <AlertCircle className="h-10 w-10 text-gray-500" />
+              <div className="h-24 w-24 rounded-full bg-gray-100 ring-8 ring-gray-50 flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="h-12 w-12 text-gray-500" />
               </div>
-              <h1 className="text-3xl font-bold mb-2">Booking Expired</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 text-sacred-burgundy">Booking Expired</h1>
+              <p className="text-muted-foreground max-w-md mx-auto">
                 This booking has expired. Please create a new booking.
               </p>
             </>
           ) : isRequested ? (
             <>
-              <div className="h-20 w-20 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="h-10 w-10 text-blue-600" />
+              <div className="h-24 w-24 rounded-full bg-sacred-pink/20 ring-8 ring-sacred-pink/10 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="h-12 w-12 text-sacred-burgundy" />
               </div>
-              <h1 className="text-3xl font-bold mb-2">Request Submitted!</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 text-sacred-burgundy">Request Submitted!</h1>
+              <p className="text-muted-foreground max-w-md mx-auto">
                 We&apos;ll review your request and contact you within 24 hours.
               </p>
             </>
           ) : (
             <>
-              <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-6">
-                <Ticket className="h-10 w-10 text-gray-600" />
+              <div className="h-24 w-24 rounded-full bg-sacred-cream-dark ring-8 ring-sacred-cream flex items-center justify-center mx-auto mb-6">
+                <Ticket className="h-12 w-12 text-sacred-green" />
               </div>
-              <h1 className="text-3xl font-bold mb-2">Booking Details</h1>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 text-sacred-burgundy">Booking Details</h1>
             </>
           )}
         </div>
 
         {/* Booking Details Card */}
-        <Card className="mb-6">
+        <Card className="mb-6 overflow-hidden border-sacred-cream-dark shadow-sm">
+          <AccentBar />
           <CardHeader>
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start gap-4">
               <div>
-                <CardTitle>
+                <CardTitle className="text-sacred-burgundy">
                   {isClass && booking.classSession?.title}
                   {isEvent && booking.event?.title}
                   {isSpace && "Space Booking Request"}
                 </CardTitle>
-                <CardDescription>
-                  Booking ID: {booking.id.slice(0, 8).toUpperCase()}
+                <CardDescription className="mt-1">
+                  Booking ID: <span className="font-mono font-medium text-foreground">{booking.id.slice(0, 8).toUpperCase()}</span>
                 </CardDescription>
               </div>
               {getStatusBadge(booking.status)}
@@ -277,7 +298,9 @@ function SuccessPageContent() {
             {/* Date & Time */}
             {(isClass || isEvent) && (
               <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-primary mt-0.5" />
+                <div className="h-9 w-9 rounded-lg bg-sacred-green/10 flex items-center justify-center flex-shrink-0">
+                  <Calendar className="h-5 w-5 text-sacred-green" />
+                </div>
                 <div>
                   <p className="font-medium">
                     {formatDate(isClass ? booking.classSession!.startsAt : booking.event!.startsAt)}
@@ -293,7 +316,9 @@ function SuccessPageContent() {
             {/* Venue (for events) */}
             {isEvent && booking.event?.venue && (
               <div className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-primary mt-0.5" />
+                <div className="h-9 w-9 rounded-lg bg-sacred-green/10 flex items-center justify-center flex-shrink-0">
+                  <MapPin className="h-5 w-5 text-sacred-green" />
+                </div>
                 <div>
                   <p className="font-medium">{booking.event.venue}</p>
                 </div>
@@ -305,7 +330,9 @@ function SuccessPageContent() {
               <>
                 {booking.spaceRequest.purpose && (
                   <div className="flex items-start gap-3">
-                    <Calendar className="h-5 w-5 text-primary mt-0.5" />
+                    <div className="h-9 w-9 rounded-lg bg-sacred-green/10 flex items-center justify-center flex-shrink-0">
+                      <Calendar className="h-5 w-5 text-sacred-green" />
+                    </div>
                     <div>
                       <p className="font-medium">Purpose</p>
                       <p className="text-sm text-muted-foreground">
@@ -315,7 +342,9 @@ function SuccessPageContent() {
                   </div>
                 )}
                 <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-primary mt-0.5" />
+                  <div className="h-9 w-9 rounded-lg bg-sacred-green/10 flex items-center justify-center flex-shrink-0">
+                    <Clock className="h-5 w-5 text-sacred-green" />
+                  </div>
                   <div>
                     <p className="font-medium">Status</p>
                     <p className="text-sm text-muted-foreground">
@@ -328,28 +357,39 @@ function SuccessPageContent() {
               </>
             )}
 
-            <Separator />
+            <Separator className="bg-sacred-cream-dark" />
 
             {/* Customer Details */}
             <div className="space-y-2">
-              <p className="font-medium">{booking.customerName}</p>
+              <p className="font-medium text-sacred-burgundy">{booking.customerName}</p>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4" />
+                <Mail className="h-4 w-4 text-sacred-green" />
                 {booking.customerEmail}
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
+                <Phone className="h-4 w-4 text-sacred-green" />
                 {booking.customerPhone}
               </div>
             </div>
 
+            {/* Seats (multi-seat bookings) */}
+            {(isClass || isEvent) && (booking.quantity ?? 1) > 1 && (
+              <div className="flex justify-between items-center">
+                <span className="font-medium flex items-center gap-2">
+                  <Users className="h-4 w-4 text-sacred-green" />
+                  {isEvent ? "Passes" : "Seats"}
+                </span>
+                <span className="text-sm text-muted-foreground">{booking.quantity}</span>
+              </div>
+            )}
+
             {/* Price */}
             {booking.amountPaise && (
               <>
-                <Separator />
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Amount</span>
-                  <span className="text-xl font-bold text-primary">
+                <Separator className="bg-sacred-cream-dark" />
+                <div className="flex justify-between items-center rounded-lg bg-sacred-cream px-4 py-3">
+                  <span className="font-medium text-sacred-burgundy">Amount</span>
+                  <span className="text-2xl font-bold text-sacred-green">
                     {formatPrice(booking.amountPaise)}
                   </span>
                 </div>
@@ -360,24 +400,25 @@ function SuccessPageContent() {
 
         {/* Payment Section (for pending payments) */}
         {isPending && (
-          <Card className="mb-6 border-yellow-500">
+          <Card className="mb-6 overflow-hidden border-amber-300 shadow-sm">
+            <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-amber-500" />
             <CardHeader>
-              <CardTitle>Complete Payment</CardTitle>
+              <CardTitle className="text-sacred-burgundy">Complete Payment</CardTitle>
               <CardDescription>
                 Your booking will be confirmed once payment is received.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {pollTimedOut && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-800">
+                <div className="bg-sacred-cream border border-sacred-cream-dark rounded-lg p-4 mb-4">
+                  <p className="text-sm text-sacred-burgundy">
                     <strong>Verification is taking longer than usual.</strong> If you&apos;ve already paid,
                     your booking will be confirmed shortly. You can refresh this page to check.
                   </p>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-2"
+                    className="mt-2 border-sacred-green text-sacred-green hover:bg-sacred-cream-dark"
                     onClick={() => {
                       setPollCount(0);
                       refetch();
@@ -390,12 +431,12 @@ function SuccessPageContent() {
               )}
               {!pollTimedOut && !isPaymentLoading && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin text-sacred-green" />
                   Checking payment status...
                 </div>
               )}
               <Button
-                className="w-full"
+                className="w-full bg-sacred-green hover:bg-sacred-green-dark text-white"
                 disabled={isPaymentLoading || !accessToken}
                 onClick={() => initiatePayment(booking.id, accessToken!)}
               >
@@ -408,7 +449,8 @@ function SuccessPageContent() {
                   `Pay ${booking.amountPaise ? formatPrice(booking.amountPaise) : ""}`
                 )}
               </Button>
-              <p className="text-xs text-center text-muted-foreground mt-2">
+              <p className="text-xs text-center text-muted-foreground mt-2 flex items-center justify-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5 text-sacred-green" />
                 Secure payment via Razorpay (UPI, Cards, Net Banking)
               </p>
             </CardContent>
@@ -417,9 +459,10 @@ function SuccessPageContent() {
 
         {/* Retry Payment (for failed payments) */}
         {isFailed && (
-          <Card className="mb-6 border-red-500">
+          <Card className="mb-6 overflow-hidden border-red-300 shadow-sm">
+            <div className="h-1.5 w-full bg-gradient-to-r from-red-400 to-red-500" />
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-sacred-burgundy">
                 <XCircle className="h-5 w-5 text-red-500" />
                 Payment Failed
               </CardTitle>
@@ -429,7 +472,7 @@ function SuccessPageContent() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Button
-                className="w-full"
+                className="w-full bg-sacred-green hover:bg-sacred-green-dark text-white"
                 onClick={() => {
                   const returnUrl = isClass ? "/classes" : "/events";
                   window.location.href = returnUrl;
@@ -443,24 +486,25 @@ function SuccessPageContent() {
         )}
 
         {/* What's Next */}
-        <Card>
+        <Card className="overflow-hidden border-sacred-cream-dark shadow-sm">
+          <AccentBar />
           <CardHeader>
-            <CardTitle>What's Next?</CardTitle>
+            <CardTitle className="text-sacred-burgundy">What&apos;s Next?</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3 text-sm">
               {isConfirmed && isClass && (
                 <>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
-                    <span>You'll receive a confirmation email with all details</span>
+                    <CheckCircle2 className="h-4 w-4 text-sacred-green mt-0.5 flex-shrink-0" />
+                    <span>You&apos;ll receive a confirmation email with all details</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-sacred-green mt-0.5 flex-shrink-0" />
                     <span>Arrive 10 minutes before the class starts</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-sacred-green mt-0.5 flex-shrink-0" />
                     <span>Bring your booking ID for verification</span>
                   </li>
                 </>
@@ -468,15 +512,15 @@ function SuccessPageContent() {
               {isConfirmed && isEvent && (
                 <>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
-                    <span>You'll receive a confirmation email and WhatsApp message with all details</span>
+                    <CheckCircle2 className="h-4 w-4 text-sacred-green mt-0.5 flex-shrink-0" />
+                    <span>You&apos;ll receive a confirmation email and WhatsApp message with all details</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-sacred-green mt-0.5 flex-shrink-0" />
                     <span>Arrive on time - the venue address is in your confirmation</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-sacred-green mt-0.5 flex-shrink-0" />
                     <span>Bring your booking ID for verification at the entrance</span>
                   </li>
                 </>
@@ -484,27 +528,27 @@ function SuccessPageContent() {
               {isRequested && (
                 <>
                   <li className="flex items-start gap-2">
-                    <Clock className="h-4 w-4 text-blue-500 mt-0.5" />
+                    <Clock className="h-4 w-4 text-sacred-burgundy mt-0.5 flex-shrink-0" />
                     <span>Our team will review your request within 24 hours</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Phone className="h-4 w-4 text-blue-500 mt-0.5" />
-                    <span>We'll contact you via WhatsApp/call to confirm</span>
+                    <Phone className="h-4 w-4 text-sacred-burgundy mt-0.5 flex-shrink-0" />
+                    <span>We&apos;ll contact you via WhatsApp/call to confirm</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-blue-500 mt-0.5" />
-                    <span>Once confirmed, you'll receive payment details</span>
+                    <CheckCircle2 className="h-4 w-4 text-sacred-burgundy mt-0.5 flex-shrink-0" />
+                    <span>Once confirmed, you&apos;ll receive payment details</span>
                   </li>
                 </>
               )}
               {isPending && (
                 <>
                   <li className="flex items-start gap-2">
-                    <Clock className="h-4 w-4 text-yellow-500 mt-0.5" />
+                    <Clock className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
                     <span>Complete your payment to confirm the booking</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Clock className="h-4 w-4 text-yellow-500 mt-0.5" />
+                    <Clock className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
                     <span>Booking expires if not paid within 30 minutes</span>
                   </li>
                 </>
@@ -512,18 +556,18 @@ function SuccessPageContent() {
               {isFailed && (
                 <>
                   <li className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-red-500 mt-0.5" />
+                    <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
                     <span>No money was deducted from your account</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <RefreshCw className="h-4 w-4 text-red-500 mt-0.5" />
+                    <RefreshCw className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
                     <span>You can create a new booking and try again</span>
                   </li>
                 </>
               )}
               {isExpired && (
                 <li className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-gray-500 mt-0.5" />
+                  <AlertCircle className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
                   <span>Please create a new booking to proceed</span>
                 </li>
               )}
@@ -533,7 +577,7 @@ function SuccessPageContent() {
 
         {/* Back to Home */}
         <div className="text-center mt-8">
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="border-sacred-green text-sacred-green hover:bg-sacred-cream">
             <Link href="/">
               <Home className="mr-2 h-4 w-4" />
               Back to Home
@@ -541,17 +585,19 @@ function SuccessPageContent() {
           </Button>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
 
 export default function SuccessPage() {
   return (
     <Suspense fallback={
-      <div className="container py-12">
-        <div className="max-w-lg mx-auto text-center">
-          <Loader2 className="h-16 w-16 mx-auto text-primary animate-spin mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Loading...</h1>
+      <div className="min-h-screen bg-gradient-to-b from-sacred-cream via-sacred-pink/10 to-white">
+        <div className="container py-12">
+          <div className="max-w-lg mx-auto text-center">
+            <Loader2 className="h-16 w-16 mx-auto text-sacred-green animate-spin mb-4" />
+            <h1 className="text-2xl font-bold mb-2 text-sacred-burgundy">Loading...</h1>
+          </div>
         </div>
       </div>
     }>

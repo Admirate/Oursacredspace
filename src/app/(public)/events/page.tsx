@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, MapPin, Users, Loader2, AlertCircle, Ticket, ArrowRight } from "lucide-react";
+import { Calendar, MapPin, Users, Loader2, AlertCircle, Ticket, ArrowRight, Minus, Plus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,6 +17,7 @@ import { api } from "@/lib/api";
 import { usePayment } from "@/hooks/usePayment";
 import type { Event } from "@/types";
 import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
+import { PaymentVerifyingOverlay } from "@/components/shared/PaymentVerifyingOverlay";
 
 const HERO_VIDEO_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/videos/events.mp4";
 const HERO_POSTER_URL = "https://umxpjtfekclktbtomiaz.supabase.co/storage/v1/object/public/Assets/images/eventHero.png";
@@ -241,7 +242,13 @@ const EventCard = ({
   const [isHovered, setIsHovered] = useState(false);
   const effectiveEnd = event.endsAt ? new Date(event.endsAt) : new Date(event.startsAt);
   const isPast = effectiveEnd < new Date();
-  const passesRemaining = event.capacity ? event.capacity - (event.passesIssued || 0) : null;
+  // Derived from confirmed + pending bookings (seat-summed), returned by the
+  // API. Falls back to the legacy passesIssued only if the API field is absent.
+  const bookedCount = event.bookedCount ?? event.passesIssued ?? 0;
+  const passesRemaining =
+    event.capacity != null
+      ? (event.availableSpots ?? Math.max(0, event.capacity - bookedCount))
+      : null;
   const isSoldOut = passesRemaining !== null && passesRemaining <= 0;
 
   return (
@@ -261,7 +268,7 @@ const EventCard = ({
       onClick={() => !isPast && !isSoldOut && onBook(event)}
       role="button"
       tabIndex={0}
-      aria-label={`Get pass for ${event.title}`}
+      aria-label={`Book ${event.title}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -324,7 +331,7 @@ const EventCard = ({
               transitionDelay: '100ms',
             }}
           >
-            {isPast ? "Past" : isSoldOut ? "Sold Out" : passesRemaining ? `${passesRemaining} passes left` : "Available"}
+            {isPast ? "Past" : isSoldOut ? "Sold Out" : passesRemaining ? `${passesRemaining} spots left` : "Available"}
           </span>
           <span 
             className="bg-white/95 text-gray-900 px-3 py-1 rounded-full text-lg font-bold shadow-lg transition-all duration-300"
@@ -373,7 +380,7 @@ const EventCard = ({
             {event.capacity && (
               <div className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
-                <span>{event.passesIssued || 0}/{event.capacity}</span>
+                <span>{bookedCount}/{event.capacity}</span>
               </div>
             )}
           </div>
@@ -399,7 +406,7 @@ const EventCard = ({
             >
               {isPast ? "Event Ended" : isSoldOut ? "Sold Out" : (
                 <>
-                  Get Pass
+                  Book Now
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </>
               )}
@@ -423,6 +430,7 @@ const EventCardSkeleton = () => (
 
 export default function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [quantity, setQuantity] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -437,7 +445,7 @@ export default function EventsPage() {
     queryFn: api.getEvents,
   });
 
-  const { initiatePayment, isLoading: isPaymentLoading, error: paymentError } = usePayment({
+  const { initiatePayment, isLoading: isPaymentLoading, isVerifying, error: paymentError } = usePayment({
     onError: (err) => {
       toast({
         title: "Payment Error",
@@ -488,7 +496,11 @@ export default function EventsPage() {
       setIsDialogOpen(false);
       form.reset();
       if (response.data.requiresPayment) {
-        toast({ title: "Pass Reserved!", description: "Opening payment..." });
+        toast(
+          response.data.resumed
+            ? { title: "Resuming your booking", description: "Opening payment..." }
+            : { title: "Pass Reserved!", description: "Opening payment..." }
+        );
         // SECURITY (SEC-006): pass the one-time accessToken alongside the
         // bookingId so createRazorpayOrder and the /success page can fetch
         // the booking.
@@ -513,16 +525,31 @@ export default function EventsPage() {
 
   const handleBook = (event: Event) => {
     setSelectedEvent(event);
+    setQuantity(1);
     setIsDialogOpen(true);
   };
 
+  // Max passes bookable in one go: capped at 10 (server limit) and at the
+  // passes actually remaining for a capacity-limited event.
+  const selectedBooked = selectedEvent
+    ? (selectedEvent.bookedCount ?? selectedEvent.passesIssued ?? 0)
+    : 0;
+  const selectedAvailable =
+    selectedEvent && selectedEvent.capacity != null
+      ? (selectedEvent.availableSpots ?? Math.max(0, selectedEvent.capacity - selectedBooked))
+      : null;
+  const maxQty = Math.max(1, Math.min(10, selectedAvailable ?? 10));
+  const totalPaise = selectedEvent ? selectedEvent.pricePaise * quantity : 0;
+
   const handleSubmit = (formData: BookingFormData) => {
     if (!selectedEvent || isSubmitting) return;
+    const qty = Math.max(1, Math.min(quantity, maxQty));
     setIsSubmitting(true);
 
     bookingMutation.mutate({
       type: "EVENT",
       eventId: selectedEvent.id,
+      quantity: qty,
       name: formData.customerName,
       email: formData.customerEmail,
       phone: `+91${formData.customerPhone}`,
@@ -532,6 +559,7 @@ export default function EventsPage() {
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setSelectedEvent(null);
+    setQuantity(1);
     setIsSubmitting(false);
     form.reset();
   };
@@ -540,6 +568,7 @@ export default function EventsPage() {
 
   return (
     <div>
+      <PaymentVerifyingOverlay show={isVerifying} />
       {/* Hero Section */}
       <section className="relative bg-[#FFE5EC] h-[calc(100vh-88px)] overflow-hidden group">
         <HeroBackgroundVideo
@@ -564,8 +593,8 @@ export default function EventsPage() {
             }`}
             style={{ transitionDelay: "600ms" }}
           >
-            Join our exciting community events. Get your pass instantly
-            with QR code delivered to your WhatsApp!
+            Join our exciting community events. Reserve your spot and
+            secure your booking in just a few clicks.
           </p>
         </div>
       </section>
@@ -806,7 +835,7 @@ export default function EventsPage() {
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Get Pass for {selectedEvent?.title}</DialogTitle>
+            <DialogTitle>Book {selectedEvent?.title}</DialogTitle>
             <DialogDescription asChild>
               <div>
                 {selectedEvent ? (
@@ -871,7 +900,7 @@ export default function EventsPage() {
                 name="customerPhone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>WhatsApp Number</FormLabel>
+                    <FormLabel>Phone Number</FormLabel>
                     <FormControl>
                       <div className="flex">
                         <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">
@@ -886,14 +915,54 @@ export default function EventsPage() {
                       </div>
                     </FormControl>
                     <FormMessage />
-                    <p className="text-xs text-muted-foreground">
-                      Your QR pass will be sent to this WhatsApp number
-                    </p>
                   </FormItem>
                 )}
               />
 
-              <div className="flex gap-3 pt-4">
+              {/* Quantity selector */}
+              <div>
+                <FormLabel>Seats</FormLabel>
+                <div className="mt-2 flex items-center justify-between rounded-md border border-input p-2">
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={quantity <= 1}
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      aria-label="Decrease seats"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-6 text-center font-semibold tabular-nums">{quantity}</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={quantity >= maxQty}
+                      onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+                      aria-label="Increase seats"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedAvailable !== null ? `${selectedAvailable} available` : "Max 10"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="flex items-center justify-between border-t pt-3">
+                <span className="text-sm text-muted-foreground">
+                  {quantity} × {selectedEvent ? formatPrice(selectedEvent.pricePaise) : ""}
+                </span>
+                <span className="text-lg font-bold text-primary">{formatPrice(totalPaise)}</span>
+              </div>
+
+              <div className="flex gap-3 pt-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -913,7 +982,7 @@ export default function EventsPage() {
                       {isPaymentLoading ? "Opening Payment..." : "Processing..."}
                     </>
                   ) : (
-                    "Get Pass & Pay"
+                    "Confirm & Pay"
                   )}
                 </Button>
               </div>

@@ -113,20 +113,20 @@ export default function TermsAndConditionsPage() {
             </ul>
 
             <h3 className="font-medium text-sacred-burgundy mt-4 mb-2">
-              4.3 Event Passes
+              4.3 Event Bookings
             </h3>
             <ul className="list-disc pl-6 space-y-1.5">
               <li>
-                Upon successful payment for events, a unique digital pass with a QR
-                code will be generated.
+                Upon successful payment for events, a booking confirmation will be
+                sent to you via WhatsApp or email.
               </li>
               <li>
-                Event passes are non-transferable and valid only for the named
+                Event bookings are non-transferable and valid only for the named
                 attendee.
               </li>
               <li>
-                You must present your pass (digital or printed) for entry at the
-                event venue.
+                Please carry a valid photo ID and your booking confirmation for
+                entry at the event venue.
               </li>
             </ul>
           </div>

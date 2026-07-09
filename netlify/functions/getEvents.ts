@@ -39,25 +39,27 @@ export const handler: Handler = async (event) => {
       },
       orderBy: { startsAt: "asc" },
       take: 100,
-      include: {
-        _count: {
-          select: {
-            bookings: {
-              where: {
-                status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
-                deletedAt: null,
-              },
-            },
-          },
-        },
-      },
     });
 
+    // Multi-seat aware: booked = SUM(quantity) of active bookings per event,
+    // not a row count. One booking may hold several passes.
+    const grouped = await prisma.booking.groupBy({
+      by: ["eventId"],
+      where: {
+        eventId: { in: events.map((e) => e.id) },
+        status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
+        deletedAt: null,
+      },
+      _sum: { quantity: true },
+    });
+    const bookedByEvent = new Map(
+      grouped.map((g) => [g.eventId, g._sum.quantity ?? 0])
+    );
+
     const eventsWithAvailability = events.map((e) => {
-      const bookedCount = e._count.bookings;
+      const bookedCount = bookedByEvent.get(e.id) ?? 0;
       const availableSpots = e.capacity !== null ? Math.max(0, e.capacity - bookedCount) : null;
-      const { _count, ...rest } = e;
-      return { ...rest, bookedCount, availableSpots };
+      return { ...e, bookedCount, availableSpots };
     });
 
     return {

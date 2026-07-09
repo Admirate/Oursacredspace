@@ -43,6 +43,9 @@ const createBookingSchema = z.object({
       message: "Invalid phone number",
     }),
   email: z.string().email().max(254).toLowerCase(),
+  // Multi-seat: default 1, hard cap of 10 seats per booking to bound abuse.
+  // Actual availability is enforced against remaining capacity below.
+  quantity: z.number().int().min(1).max(10).optional().default(1),
   classSessionId: z.string().min(1).max(30).optional(),
   eventId: z.string().min(1).max(30).optional(),
   preferredSlots: z.array(z.string().max(100)).max(10).optional(),
@@ -92,12 +95,14 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      const [classSession, classBookedCount] = await Promise.all([
+      const [classSession, classBooked] = await Promise.all([
         prisma.classSession.findUnique({
           where: { id: validatedData.classSessionId },
           select: { id: true, active: true, capacity: true, pricePaise: true, deletedAt: true },
         }),
-        prisma.booking.count({
+        // Sum of seats already reserved (multi-seat aware), not a row count.
+        prisma.booking.aggregate({
+          _sum: { quantity: true },
           where: {
             classSessionId: validatedData.classSessionId,
             status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
@@ -105,6 +110,7 @@ const _handler: Handler = async (event) => {
           },
         }),
       ]);
+      const classBookedSeats = classBooked._sum.quantity ?? 0;
 
       if (!classSession) {
         return {
@@ -128,18 +134,25 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      if (classSession.capacity !== null && classBookedCount >= classSession.capacity) {
+      if (
+        classSession.capacity !== null &&
+        classBookedSeats + validatedData.quantity > classSession.capacity
+      ) {
+        const remaining = Math.max(0, classSession.capacity - classBookedSeats);
         return {
           statusCode: 400,
           headers,
           body: JSON.stringify({
             success: false,
-            error: "This class is fully booked",
+            error:
+              remaining === 0
+                ? "This class is fully booked"
+                : `Only ${remaining} spot${remaining === 1 ? "" : "s"} left for this class`,
           }),
         };
       }
 
-      amountPaise = classSession.pricePaise;
+      amountPaise = classSession.pricePaise * validatedData.quantity;
     }
 
     // === Handle EVENT booking ===
@@ -155,12 +168,14 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      const [eventRecord, eventBookedCount] = await Promise.all([
+      const [eventRecord, eventBooked] = await Promise.all([
         prisma.event.findUnique({
           where: { id: validatedData.eventId },
           select: { id: true, active: true, capacity: true, pricePaise: true, deletedAt: true },
         }),
-        prisma.booking.count({
+        // Sum of seats already reserved (multi-seat aware), not a row count.
+        prisma.booking.aggregate({
+          _sum: { quantity: true },
           where: {
             eventId: validatedData.eventId,
             status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
@@ -168,6 +183,7 @@ const _handler: Handler = async (event) => {
           },
         }),
       ]);
+      const eventBookedSeats = eventBooked._sum.quantity ?? 0;
 
       if (!eventRecord) {
         return {
@@ -191,18 +207,25 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      if (eventRecord.capacity !== null && eventBookedCount >= eventRecord.capacity) {
+      if (
+        eventRecord.capacity !== null &&
+        eventBookedSeats + validatedData.quantity > eventRecord.capacity
+      ) {
+        const remaining = Math.max(0, eventRecord.capacity - eventBookedSeats);
         return {
           statusCode: 400,
           headers,
           body: JSON.stringify({
             success: false,
-            error: "This event is fully booked",
+            error:
+              remaining === 0
+                ? "This event is fully booked"
+                : `Only ${remaining} pass${remaining === 1 ? "" : "es"} left for this event`,
           }),
         };
       }
 
-      amountPaise = eventRecord.pricePaise;
+      amountPaise = eventRecord.pricePaise * validatedData.quantity;
     }
 
     // === Handle SPACE booking ===
@@ -267,17 +290,61 @@ const _handler: Handler = async (event) => {
 
     const existingBooking = await prisma.booking.findFirst({
       where: duplicateWhere,
-      select: { id: true },
+      select: { id: true, status: true, type: true, amountPaise: true },
     });
     if (existingBooking) {
+      // RESUME PAYMENT UX: If the collision is with the caller's own
+      // *unpaid* CLASS/EVENT booking, don't dead-end them — let them resume
+      // payment. The email+phone match is the same authentication bar the
+      // duplicate check already enforces (phone is not publicly enumerable),
+      // so we treat a match as the same person returning.
+      //
+      // The original one-time access token is unrecoverable (only its hash
+      // was persisted), so we rotate it: issue a fresh token bound to the
+      // existing booking. Any older in-flight checkout using the previous
+      // token is invalidated — acceptable, since only one payment can
+      // succeed for the booking anyway.
+      const isResumable =
+        existingBooking.status === BookingStatus.PENDING_PAYMENT &&
+        (existingBooking.type === BookingType.CLASS ||
+          existingBooking.type === BookingType.EVENT);
+
+      if (isResumable) {
+        const resumeToken = generateBookingAccessToken();
+        await prisma.booking.update({
+          where: { id: existingBooking.id },
+          data: { accessTokenHash: hashToken(resumeToken) },
+        });
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            data: {
+              bookingId: existingBooking.id,
+              accessToken: resumeToken,
+              type: existingBooking.type,
+              amount: existingBooking.amountPaise,
+              requiresPayment: existingBooking.amountPaise > 0,
+              // Signals the client that this is an existing booking being
+              // continued rather than a freshly created one.
+              resumed: true,
+            },
+          }),
+        };
+      }
+
+      // Already CONFIRMED, or an open SPACE request: nothing to resume. Return
+      // a clear, non-leaky message (never echo the bookingId / access token).
+      const message =
+        existingBooking.status === BookingStatus.CONFIRMED
+          ? "You already have a confirmed booking for this. Please check your email for the confirmation."
+          : "We already have an active request from you for this. We'll be in touch shortly — please contact us if you need to make a change.";
       return {
         statusCode: 409,
         headers,
-        body: JSON.stringify({
-          success: false,
-          error:
-            "An active booking already exists for this email and phone. Please check your inbox for the confirmation link, or contact us if you cannot find it.",
-        }),
+        body: JSON.stringify({ success: false, error: message }),
       };
     }
 
@@ -290,14 +357,15 @@ const _handler: Handler = async (event) => {
           select: { capacity: true },
         });
         if (cs?.capacity !== null && cs?.capacity !== undefined) {
-          const count = await tx.booking.count({
+          const agg = await tx.booking.aggregate({
+            _sum: { quantity: true },
             where: {
               classSessionId: validatedData.classSessionId,
               status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
               deletedAt: null,
             },
           });
-          if (count >= cs.capacity) {
+          if ((agg._sum.quantity ?? 0) + validatedData.quantity > cs.capacity) {
             throw new Error("CLASS_FULL");
           }
         }
@@ -309,14 +377,15 @@ const _handler: Handler = async (event) => {
           select: { capacity: true },
         });
         if (ev?.capacity !== null && ev?.capacity !== undefined) {
-          const count = await tx.booking.count({
+          const agg = await tx.booking.aggregate({
+            _sum: { quantity: true },
             where: {
               eventId: validatedData.eventId,
               status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
               deletedAt: null,
             },
           });
-          if (count >= ev.capacity) {
+          if ((agg._sum.quantity ?? 0) + validatedData.quantity > ev.capacity) {
             throw new Error("EVENT_FULL");
           }
         }
@@ -360,6 +429,7 @@ const _handler: Handler = async (event) => {
           customerEmail: validatedData.email,
           amountPaise,
           currency: "INR",
+          quantity: validatedData.quantity,
           classSessionId: validatedData.classSessionId,
           eventId: validatedData.eventId,
           spaceRequestId,

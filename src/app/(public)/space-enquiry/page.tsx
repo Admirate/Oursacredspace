@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, Clock, Loader2, CheckCircle2, MapPin, Info, ArrowLeft } from "lucide-react";
+import { CalendarIcon, Clock, Loader2, CheckCircle2, MapPin, Info, ArrowLeft, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,11 @@ const SPACE_FEATURES = [
   "Accessible entrance",
 ];
 
+// Thin brand gradient bar that sits flush at the top edge of a Card.
+const AccentBar = () => (
+  <div className="h-1.5 w-full bg-gradient-to-r from-sacred-green via-sacred-burgundy to-sacred-green" />
+);
+
 export default function SpaceEnquiryPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const { toast } = useToast();
@@ -126,33 +131,47 @@ export default function SpaceEnquiryPage() {
 
   if (isSuccess) {
     return (
-      <div className="container py-12">
-        <div className="max-w-lg mx-auto text-center">
-          <div className="h-20 w-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="h-10 w-10 text-green-600" />
-          </div>
-          <h1 className="text-3xl font-bold mb-4">Request Submitted!</h1>
-          <p className="text-muted-foreground mb-8">
-            Thank you for your interest in booking our space. Our team will review 
-            your request and contact you within 24 hours to confirm availability 
-            and discuss details.
-          </p>
-          <div className="bg-muted rounded-lg p-6 text-left mb-8">
-            <h3 className="font-semibold mb-3">What happens next?</h3>
-            <ol className="space-y-2 text-sm text-muted-foreground">
-              <li>1. Our team reviews your request</li>
-              <li>2. We&apos;ll call/WhatsApp you to confirm availability</li>
-              <li>3. Once confirmed, you&apos;ll receive payment details</li>
-              <li>4. After payment, your booking is confirmed!</li>
-            </ol>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button onClick={() => setIsSuccess(false)} variant="outline">
-              Submit Another Request
-            </Button>
-            <Button asChild>
-              <Link href="/book-space">Back to Spaces</Link>
-            </Button>
+      <div className="min-h-screen bg-gradient-to-b from-sacred-cream via-sacred-pink/10 to-white">
+        <div className="container py-12 md:py-16">
+          <div className="max-w-lg mx-auto text-center">
+            <div className="h-24 w-24 rounded-full bg-sacred-green/10 ring-8 ring-sacred-green/5 flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 className="h-12 w-12 text-sacred-green" />
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 text-sacred-burgundy">Request Submitted!</h1>
+            <p className="text-muted-foreground mb-8">
+              Thank you for your interest in booking our space. Our team will review
+              your request and contact you within 24 hours to confirm availability
+              and discuss details.
+            </p>
+            <Card className="overflow-hidden border-sacred-cream-dark text-left mb-8 shadow-sm">
+              <AccentBar />
+              <CardContent className="p-6">
+                <h3 className="font-semibold mb-4 text-sacred-burgundy">What happens next?</h3>
+                <ol className="space-y-3 text-sm">
+                  {[
+                    "Our team reviews your request",
+                    "We'll call/WhatsApp you to confirm availability",
+                    "Once confirmed, you'll receive payment details",
+                    "After payment, your booking is confirmed!",
+                  ].map((step, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-sacred-green text-xs font-semibold text-white">
+                        {i + 1}
+                      </span>
+                      <span className="text-muted-foreground pt-0.5">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </CardContent>
+            </Card>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button onClick={() => setIsSuccess(false)} variant="outline" className="border-sacred-green text-sacred-green hover:bg-sacred-cream">
+                Submit Another Request
+              </Button>
+              <Button asChild className="bg-sacred-green hover:bg-sacred-green-dark text-white">
+                <Link href="/book-space">Back to Spaces</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -160,136 +179,166 @@ export default function SpaceEnquiryPage() {
   }
 
   return (
-    <div className="container py-12">
-      {/* Back Link */}
-      <Link 
-        href="/book-space" 
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Spaces
-      </Link>
+    <div className="min-h-screen bg-gradient-to-b from-sacred-cream via-sacred-pink/10 to-white">
+      <div className="container py-12 md:py-16">
+        {/* Back Link */}
+        <Link
+          href="/book-space"
+          className="inline-flex items-center gap-2 text-sm text-sacred-green hover:text-sacred-green-dark mb-8 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Spaces
+        </Link>
 
-      {/* Header */}
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">Space Enquiry</h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Reserve our creative space for your meetings, workshops, events, or 
-          personal projects. Submit a request and we'll get back to you within 24 hours.
-        </p>
-      </div>
+        {/* Header */}
+        <div className="text-center mb-12">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sacred-pink/20 px-4 py-1.5 text-sm font-medium text-sacred-burgundy mb-4">
+            <Sparkles className="h-4 w-4" />
+            Our Sacred Space
+          </span>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-sacred-burgundy">Space Enquiry</h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Reserve our creative space for your meetings, workshops, events, or
+            personal projects. Submit a request and we&apos;ll get back to you within 24 hours.
+          </p>
+        </div>
 
-      <div className="grid lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Book Our Space</CardTitle>
-              <CardDescription>
-                Fill in your details and preferences. We&apos;ll review your request and get back to you within 24 hours.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                  <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="lg:col-span-2">
+            <Card className="overflow-hidden border-sacred-cream-dark shadow-sm">
+              <AccentBar />
+              <CardHeader>
+                <CardTitle className="text-sacred-burgundy">Book Our Space</CardTitle>
+                <CardDescription>
+                  Fill in your details and preferences. We&apos;ll review your request and get back to you within 24 hours.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="customerName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Full Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter your full name" className="focus-visible:ring-sacred-green" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="customerEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="you@example.com" className="focus-visible:ring-sacred-green" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
                     <FormField
                       control={form.control}
-                      name="customerName"
+                      name="customerPhone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Full Name</FormLabel>
+                          <FormLabel>Phone Number</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter your full name" {...field} />
+                            <div className="flex">
+                              <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-sacred-cream text-sacred-burgundy text-sm font-medium">
+                                +91
+                              </span>
+                              <Input className="rounded-l-none focus-visible:ring-sacred-green" placeholder="9876543210" maxLength={10} {...field} />
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="customerEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="you@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
 
-                  <FormField
-                    control={form.control}
-                    name="customerPhone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <div className="flex">
-                            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">
-                              +91
-                            </span>
-                            <Input className="rounded-l-none" placeholder="9876543210" maxLength={10} {...field} />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="preferredDate"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Preferred Date</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="preferredDate"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Preferred Date</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full pl-3 text-left font-normal",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {field.value ? format(field.value, "PPP") : "Pick a date"}
+                                    <CalendarIcon className="ml-auto h-4 w-4 text-sacred-green" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={field.onChange}
+                                  disabled={(date) => date < new Date()}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="preferredTime"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Preferred Time</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full pl-3 text-left font-normal",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value ? format(field.value, "PPP") : "Pick a date"}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
+                                <SelectTrigger className="focus:ring-sacred-green">
+                                  <SelectValue placeholder="Select time" />
+                                </SelectTrigger>
                               </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={field.onChange}
-                                disabled={(date) => date < new Date()}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                              <SelectContent>
+                                {TIME_SLOTS.map((slot) => (
+                                  <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
                     <FormField
                       control={form.control}
-                      name="preferredTime"
+                      name="duration"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Preferred Time</FormLabel>
+                          <FormLabel>Duration</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select time" />
+                              <SelectTrigger className="focus:ring-sacred-green">
+                                <SelectValue placeholder="Select duration" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {TIME_SLOTS.map((slot) => (
-                                <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                              {DURATION_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -297,140 +346,126 @@ export default function SpaceEnquiryPage() {
                         </FormItem>
                       )}
                     />
-                  </div>
 
-                  <FormField
-                    control={form.control}
-                    name="duration"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Duration</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select duration" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {DURATION_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="purpose"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Purpose</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Describe how you plan to use the space..." className="min-h-[100px]" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          E.g., team meeting, workshop, photo shoot, private event
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="attendees"
+                      name="purpose"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Expected Attendees (optional)</FormLabel>
+                          <FormLabel>Purpose</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="e.g., 10" {...field} />
+                            <Textarea placeholder="Describe how you plan to use the space..." className="min-h-[100px] focus-visible:ring-sacred-green" {...field} />
                           </FormControl>
+                          <FormDescription>
+                            E.g., team meeting, workshop, photo shoot, private event
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="specialRequirements"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Special Requirements (optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., projector, whiteboard" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="attendees"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Expected Attendees (optional)</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="e.g., 10" className="focus-visible:ring-sacred-green" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="specialRequirements"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Special Requirements (optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., projector, whiteboard" className="focus-visible:ring-sacred-green" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <Button type="submit" className="w-full bg-sacred-green hover:bg-sacred-green-dark text-white" disabled={bookingMutation.isPending}>
+                      {bookingMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        "Submit Enquiry"
                       )}
-                    />
-                  </div>
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </div>
 
-                  <Button type="submit" className="w-full" disabled={bookingMutation.isPending}>
-                    {bookingMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      "Submit Enquiry"
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Info Sidebar */}
+          <div className="space-y-6">
+            <Card className="overflow-hidden border-sacred-cream-dark shadow-sm">
+              <AccentBar />
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sacred-burgundy">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sacred-green/10">
+                    <MapPin className="h-5 w-5 text-sacred-green" />
+                  </span>
+                  Space Features
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2.5">
+                  {SPACE_FEATURES.map((feature) => (
+                    <li key={feature} className="flex items-center text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-sacred-green mr-2 flex-shrink-0" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
 
-        {/* Info Sidebar */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
-                Space Features
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {SPACE_FEATURES.map((feature) => (
-                  <li key={feature} className="flex items-center text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+            <Card className="overflow-hidden border-sacred-cream-dark shadow-sm">
+              <AccentBar />
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sacred-burgundy">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sacred-green/10">
+                    <Clock className="h-5 w-5 text-sacred-green" />
+                  </span>
+                  Availability
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p><strong className="text-sacred-burgundy">Monday - Friday:</strong> 9 AM - 9 PM</p>
+                <p><strong className="text-sacred-burgundy">Saturday:</strong> 10 AM - 6 PM</p>
+                <p><strong className="text-sacred-burgundy">Sunday:</strong> By appointment</p>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" />
-                Availability
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <p><strong>Monday - Friday:</strong> 9 AM - 9 PM</p>
-              <p><strong>Saturday:</strong> 10 AM - 6 PM</p>
-              <p><strong>Sunday:</strong> By appointment</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Info className="h-5 w-5 text-primary" />
-                Pricing
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>Pricing varies based on duration and requirements. We'll share a quote when we contact you.</p>
-              <p className="font-medium text-foreground">Starting from ₹500/hour</p>
-            </CardContent>
-          </Card>
+            <Card className="overflow-hidden border-sacred-cream-dark shadow-sm bg-gradient-to-br from-sacred-green/5 to-sacred-cream">
+              <AccentBar />
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sacred-burgundy">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sacred-green/10">
+                    <Info className="h-5 w-5 text-sacred-green" />
+                  </span>
+                  Pricing
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-muted-foreground">
+                <p>Pricing varies based on duration and requirements. We&apos;ll share a quote when we contact you.</p>
+                <p className="text-lg font-bold text-sacred-green">Starting from ₹500/hour</p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

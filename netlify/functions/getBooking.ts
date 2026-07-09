@@ -95,6 +95,7 @@ const _handler: Handler = async (event) => {
         customerPhone: true,
         amountPaise: true,
         currency: true,
+        quantity: true,
         createdAt: true,
         classSession: {
           select: { title: true, startsAt: true, duration: true, location: true },

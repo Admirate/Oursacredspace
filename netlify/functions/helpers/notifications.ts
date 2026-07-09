@@ -8,6 +8,25 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const WHATSAPP_API_URL = "https://graph.facebook.com/v21.0";
 const FROM_EMAIL = process.env.EMAIL_FROM || "Our Sacred Space <noreply@oursacredspace.in>";
 
+// Cap how long a provider call may block the (user-facing) confirmation path.
+// verifyPayment awaits notifications before returning, so a slow/hung provider
+// would otherwise stall the success redirect.
+const EMAIL_TIMEOUT_MS = 4000;
+const WHATSAPP_TIMEOUT_MS = 4000;
+
+// A credential that is missing or still a placeholder ("re_placeholder",
+// "placeholder_token", etc.) must NOT trigger a real HTTP call — those calls
+// fail slowly and add seconds of latency for nothing.
+const isPlaceholder = (v?: string): boolean => !v || v.toLowerCase().includes("placeholder");
+
+const withTimeout = <T>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+  Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+
 /**
  * SECURITY (SEC-009): Escape HTML special characters to prevent XSS/injection
  * in email templates. All user-supplied values MUST pass through this before
@@ -58,8 +77,8 @@ function formatTime(date: Date): string {
 // ─── Email ──────────────────────────────────────────────
 
 async function sendConfirmationEmail(booking: BookingWithRelations): Promise<boolean> {
-  if (!process.env.RESEND_API_KEY) {
-    logger.warn("RESEND_API_KEY not set, skipping email", { bookingId: booking.id });
+  if (isPlaceholder(process.env.RESEND_API_KEY)) {
+    logger.warn("RESEND_API_KEY not configured, skipping email", { bookingId: booking.id });
     return false;
   }
 
@@ -75,7 +94,8 @@ async function sendConfirmationEmail(booking: BookingWithRelations): Promise<boo
     : (booking.event?.venue ?? "TBA");
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await withTimeout(
+      resend.emails.send({
       from: FROM_EMAIL,
       to: booking.customerEmail,
       subject: `Booking Confirmed — ${escapeHtml(title)}`,
@@ -89,7 +109,10 @@ async function sendConfirmationEmail(booking: BookingWithRelations): Promise<boo
         venue: escapeHtml(venue),
         amount: escapeHtml(formatPrice(booking.amountPaise)),
       }),
-    });
+      }),
+      EMAIL_TIMEOUT_MS,
+      "resend email"
+    );
 
     if (error) {
       logger.error("Resend email failed", new Error(error.message), { bookingId: booking.id });
@@ -180,8 +203,8 @@ function buildConfirmationHtml(data: {
 // ─── WhatsApp ───────────────────────────────────────────
 
 async function sendWhatsAppConfirmation(booking: BookingWithRelations): Promise<boolean> {
-  if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
-    logger.warn("WhatsApp credentials not set, skipping", { bookingId: booking.id });
+  if (isPlaceholder(process.env.WHATSAPP_TOKEN) || isPlaceholder(process.env.WHATSAPP_PHONE_NUMBER_ID)) {
+    logger.warn("WhatsApp credentials not configured, skipping", { bookingId: booking.id });
     return false;
   }
 
@@ -194,11 +217,14 @@ async function sendWhatsAppConfirmation(booking: BookingWithRelations): Promise<
     ? (booking.classSession?.location ?? "TBA")
     : (booking.event?.venue ?? "TBA");
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
   try {
     const response = await fetch(
       `${WHATSAPP_API_URL}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
@@ -241,6 +267,8 @@ async function sendWhatsAppConfirmation(booking: BookingWithRelations): Promise<
   } catch (err) {
     logger.error("WhatsApp send exception", err, { bookingId: booking.id });
     return false;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
