@@ -83,6 +83,16 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
         const { orderId, keyId, amount, currency, customerName, customerEmail, customerPhone } =
           orderResponse.data;
 
+        // Without this, a missing/blank server-side RAZORPAY_KEY_ID reaches
+        // Checkout as `key: undefined`. Razorpay answers its `preferences` call
+        // with 401 and shows the customer an opaque "Payment Failed" alert,
+        // which reads as a declined card rather than a broken deployment.
+        if (!keyId || !orderId) {
+          throw new Error(
+            "Payments are temporarily unavailable. Please try again later or contact us."
+          );
+        }
+
         setState((prev) => ({ ...prev, isCreatingOrder: false }));
 
         // Open Razorpay checkout
@@ -161,11 +171,15 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
             },
           },
           // Auto-close the checkout after 4 minutes. This MUST stay below the
-          // server-side unpaid-booking expiry window (pg_cron expires
-          // PENDING_PAYMENT bookings after 5 min). If checkout outlived that
-          // window, a payment could capture against an already-EXPIRED booking
-          // and the confirmation path would skip it — charging the customer
-          // without confirming. Keep checkout timeout < expiry window.
+          // seat hold REMAINING on the booking when checkout opens. If checkout
+          // outlived the hold, a payment could capture against an already-
+          // EXPIRED booking and the confirmation path would refuse it —
+          // charging the customer without confirming.
+          //
+          // createRazorpayOrder guarantees the invariant server-side via
+          // ensureCheckoutWindow(), which pushes the hold out to comfortably
+          // exceed this timeout before an order is created. Keep the two in
+          // sync: CHECKOUT_TIMEOUT_MS in netlify/functions/helpers/bookingHold.ts.
           timeout: 240,
           notes: {
             bookingId,

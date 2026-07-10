@@ -88,6 +88,16 @@ model Booking {
   // SUM of quantity across active bookings, not a row count.
   quantity        Int           @default(1)
 
+  // When this unpaid booking stops reserving its seats. NULL for SPACE
+  // bookings, which reserve nothing.
+  //
+  // This is an absolute instant rather than `createdAt + a constant` because
+  // the window has to be EXTENDABLE. A resume-payment link is emailed against
+  // an already-aging booking, and checkout may be opened long after creation;
+  // deriving the deadline from createdAt made both race the original 5-minute
+  // window and die. See helpers/bookingHold.ts.
+  holdExpiresAt   DateTime?     @map("hold_expires_at") @db.Timestamptz(3)
+
   cancelledAt     DateTime?     @map("cancelled_at") @db.Timestamptz(3)
   cancelReason    String?       @map("cancel_reason")
 
@@ -125,6 +135,7 @@ model Booking {
   @@index([eventId, status, deletedAt])
   @@index([classSessionId, customerEmail, status])
   @@index([eventId, customerEmail, status])
+  @@index([status, holdExpiresAt])
   @@map("bookings")
 }
 

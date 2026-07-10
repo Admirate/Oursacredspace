@@ -56,6 +56,14 @@ const formatTime = (date: string): string => {
   });
 };
 
+/** "4m 09s" — the seat hold remaining on an unpaid booking. */
+const formatCountdown = (ms: number): string => {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins}m ${String(secs).padStart(2, "0")}s`;
+};
+
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "CONFIRMED":
@@ -141,6 +149,30 @@ function SuccessPageContent() {
   });
 
   const booking = data?.data;
+
+  // The seat hold is an absolute deadline on the row, so the client can render
+  // it honestly instead of quoting a hard-coded duration. Polling stops after
+  // SUCCESS_POLL_MAX ticks (~2 min), which used to leave a live "Pay" button on
+  // a booking that had already expired server-side; this local clock keeps the
+  // UI truthful regardless of whether we are still polling.
+  const status = booking?.status;
+  const holdExpiresAt = booking?.holdExpiresAt;
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (status !== "PENDING_PAYMENT" || !holdExpiresAt) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [status, holdExpiresAt]);
+
+  const holdMsLeft = holdExpiresAt ? new Date(holdExpiresAt).getTime() - now : null;
+  const holdLapsed = holdMsLeft !== null && holdMsLeft <= 0;
+
+  // The moment the hold lapses, ask the server for the real status so the page
+  // settles on the authoritative "Expired" state rather than our local guess.
+  useEffect(() => {
+    if (holdLapsed && status === "PENDING_PAYMENT") refetch();
+  }, [holdLapsed, status, refetch]);
 
   // The token is resolved in an effect (sessionStorage / URL), so on the very
   // first render it is legitimately still null. Show the loading state until
@@ -456,30 +488,57 @@ function SuccessPageContent() {
                   </Button>
                 </div>
               )}
-              {!pollTimedOut && !isPaymentLoading && (
+              {!pollTimedOut && !isPaymentLoading && !holdLapsed && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
                   <Loader2 className="h-3 w-3 animate-spin text-sacred-green" />
                   Checking payment status...
                 </div>
               )}
-              <Button
-                className="w-full bg-sacred-green hover:bg-sacred-green-dark text-white"
-                disabled={isPaymentLoading || !accessToken}
-                onClick={() => initiatePayment(booking.id, accessToken!)}
-              >
-                {isPaymentLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Opening Payment...
-                  </>
-                ) : (
-                  `Pay ${booking.amountPaise ? formatPrice(booking.amountPaise) : ""}`
-                )}
-              </Button>
-              <p className="text-xs text-center text-muted-foreground mt-2 flex items-center justify-center gap-1">
-                <ShieldCheck className="h-3.5 w-3.5 text-sacred-green" />
-                Secure payment via Razorpay (UPI, Cards, Net Banking)
-              </p>
+              {holdLapsed ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-700">
+                    <strong>This booking has expired.</strong> We could not hold your
+                    {isEvent ? " passes" : " seats"} any longer. Please book again — no
+                    money was taken.
+                  </p>
+                  <Button
+                    className="w-full mt-3 bg-sacred-green hover:bg-sacred-green-dark text-white"
+                    onClick={() => {
+                      window.location.href = isClass ? "/classes" : "/events";
+                    }}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Book Again
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button
+                    className="w-full bg-sacred-green hover:bg-sacred-green-dark text-white"
+                    disabled={isPaymentLoading || !accessToken}
+                    onClick={() => initiatePayment(booking.id, accessToken!)}
+                  >
+                    {isPaymentLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Opening Payment...
+                      </>
+                    ) : (
+                      `Pay ${booking.amountPaise ? formatPrice(booking.amountPaise) : ""}`
+                    )}
+                  </Button>
+                  {holdMsLeft !== null && (
+                    <p className="text-xs text-center text-amber-700 mt-2">
+                      {isEvent ? "Passes" : "Seats"} held for{" "}
+                      <strong className="font-mono">{formatCountdown(holdMsLeft)}</strong>
+                    </p>
+                  )}
+                  <p className="text-xs text-center text-muted-foreground mt-2 flex items-center justify-center gap-1">
+                    <ShieldCheck className="h-3.5 w-3.5 text-sacred-green" />
+                    Secure payment via Razorpay (UPI, Cards, Net Banking)
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
@@ -576,7 +635,14 @@ function SuccessPageContent() {
                   </li>
                   <li className="flex items-start gap-2">
                     <Clock className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                    <span>Booking expires if not paid within 30 minutes</span>
+                    {/* The hold is an absolute deadline on the booking and can be
+                        extended (e.g. by a resume-payment link), so quote the
+                        real instant rather than a fixed duration. */}
+                    <span>
+                      {holdExpiresAt
+                        ? `Your ${isEvent ? "passes are" : "seats are"} held until ${formatTime(holdExpiresAt)}`
+                        : "Your booking is held until payment is completed"}
+                    </span>
                   </li>
                 </>
               )}

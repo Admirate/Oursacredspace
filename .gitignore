@@ -107,3 +107,6 @@ bun.lockb
 # Cursor AI
 .cursorignore
 .cursor/
+
+# Purge-script snapshots — contain customer PII, never commit
+backups/

@@ -26,8 +26,11 @@ jest.mock("../netlify/functions/helpers/security", () => ({
 }));
 
 const mockOrdersCreate = jest.fn();
+const mockOrdersFetch = jest.fn();
 jest.mock("razorpay", () =>
-  jest.fn().mockImplementation(() => ({ orders: { create: mockOrdersCreate } }))
+  jest.fn().mockImplementation(() => ({
+    orders: { create: mockOrdersCreate, fetch: mockOrdersFetch },
+  }))
 );
 
 import { handler } from "../netlify/functions/createRazorpayOrder";
@@ -70,6 +73,9 @@ beforeEach(() => {
   process.env.RAZORPAY_KEY_SECRET = "secret";
   (prisma.payment.findFirst as jest.Mock).mockResolvedValue(null);
   mockOrdersCreate.mockResolvedValue({ id: "order_new" });
+  // A stored order is reusable only if Razorpay confirms it under the current
+  // credentials; default to a healthy, unpaid, amount-matching order.
+  mockOrdersFetch.mockResolvedValue({ status: "created", amount: 50000, currency: "INR" });
   (prisma.payment.create as jest.Mock).mockResolvedValue({ id: "pmt_1" });
 });
 
@@ -138,7 +144,112 @@ describe("createRazorpayOrder", () => {
 
     expect((res as any).statusCode).toBe(200);
     expect(body.data.orderId).toBe("order_existing");
+    expect(mockOrdersFetch).toHaveBeenCalledWith("order_existing");
     expect(mockOrdersCreate).not.toHaveBeenCalled();
+  });
+
+  it("reuses an order whose previous payment attempt failed", async () => {
+    (prisma.booking.findFirst as jest.Mock).mockResolvedValue(makeBooking());
+    (prisma.payment.findFirst as jest.Mock).mockResolvedValue({
+      razorpayOrderId: "order_existing",
+      amountPaise: 50000,
+      currency: "INR",
+    });
+    // Razorpay supports retrying a failed payment on the same order.
+    mockOrdersFetch.mockResolvedValue({ status: "attempted", amount: 50000, currency: "INR" });
+
+    const res = await handler(makeEvent(validBody), {} as any);
+
+    expect(JSON.parse((res as any).body).data.orderId).toBe("order_existing");
+    expect(mockOrdersCreate).not.toHaveBeenCalled();
+  });
+
+  // The regression: an order created under one environment's key, retried by an
+  // environment holding a different (or malformed) key. Handing that pair to
+  // Checkout makes Razorpay 401 in the browser — "Oops! Something went wrong."
+  describe("stored order that does not belong to the current credentials", () => {
+    beforeEach(() => {
+      (prisma.booking.findFirst as jest.Mock).mockResolvedValue(makeBooking());
+      (prisma.payment.findFirst as jest.Mock).mockResolvedValue({
+        razorpayOrderId: "order_from_another_account",
+        amountPaise: 50000,
+        currency: "INR",
+      });
+    });
+
+    it("mints a fresh order when the stored one cannot be fetched", async () => {
+      mockOrdersFetch.mockRejectedValue(
+        Object.assign(new Error("Unauthorized"), { statusCode: 401 })
+      );
+
+      const res = await handler(makeEvent(validBody), {} as any);
+      const body = JSON.parse((res as any).body);
+
+      expect((res as any).statusCode).toBe(200);
+      // Never hand the browser an order the serving key cannot use.
+      expect(body.data.orderId).toBe("order_new");
+      expect(body.data.keyId).toBe("rzp_test_key");
+      expect(mockOrdersCreate).toHaveBeenCalled();
+    });
+
+    it("mints a fresh order when the stored one's amount has drifted", async () => {
+      mockOrdersFetch.mockResolvedValue({ status: "created", amount: 999, currency: "INR" });
+
+      const res = await handler(makeEvent(validBody), {} as any);
+
+      expect(JSON.parse((res as any).body).data.orderId).toBe("order_new");
+      expect(mockOrdersCreate).toHaveBeenCalled();
+    });
+  });
+
+  // Reopening checkout on a paid order charges the customer a second time.
+  it("refuses to reopen checkout on an order Razorpay already marks paid", async () => {
+    (prisma.booking.findFirst as jest.Mock).mockResolvedValue(makeBooking());
+    (prisma.payment.findFirst as jest.Mock).mockResolvedValue({
+      razorpayOrderId: "order_paid",
+      amountPaise: 50000,
+      currency: "INR",
+    });
+    mockOrdersFetch.mockResolvedValue({ status: "paid", amount: 50000, currency: "INR" });
+
+    const res = await handler(makeEvent(validBody), {} as any);
+    const body = JSON.parse((res as any).body);
+
+    expect((res as any).statusCode).toBe(409);
+    expect(body.error).toMatch(/already been paid/i);
+    expect(mockOrdersCreate).not.toHaveBeenCalled();
+  });
+
+  // `keyId: undefined` reaches Checkout as `key: undefined`; Razorpay answers
+  // its preferences call with 401 and the customer sees "Payment Failed".
+  describe("missing Razorpay credentials", () => {
+    it.each(["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"])("fails closed when %s is unset", async (v) => {
+      delete process.env[v];
+      (prisma.booking.findFirst as jest.Mock).mockResolvedValue(makeBooking());
+
+      const res = await handler(makeEvent(validBody), {} as any);
+      const body = JSON.parse((res as any).body);
+
+      expect((res as any).statusCode).toBe(500);
+      expect(body.error).toBe("Server configuration error");
+      expect(mockOrdersCreate).not.toHaveBeenCalled();
+    });
+
+    it("treats a whitespace-only key as unset rather than shipping it", async () => {
+      process.env.RAZORPAY_KEY_ID = "   ";
+      (prisma.booking.findFirst as jest.Mock).mockResolvedValue(makeBooking());
+
+      expect((await handler(makeEvent(validBody), {} as any) as any).statusCode).toBe(500);
+    });
+
+    it("trims a stray-whitespace key rather than sending it to the browser", async () => {
+      process.env.RAZORPAY_KEY_ID = "  rzp_test_key\n";
+      (prisma.booking.findFirst as jest.Mock).mockResolvedValue(makeBooking());
+
+      const res = await handler(makeEvent(validBody), {} as any);
+
+      expect(JSON.parse((res as any).body).data.keyId).toBe("rzp_test_key");
+    });
   });
 
   it("requires an access token", async () => {

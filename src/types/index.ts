@@ -38,6 +38,9 @@ export interface Booking {
   currency?: string;
   quantity?: number;
 
+  /** When an unpaid booking stops holding its seats. Null for SPACE bookings. */
+  holdExpiresAt?: string | null;
+
   cancelledAt?: string | null;
   cancelReason?: string | null;
   version?: number;

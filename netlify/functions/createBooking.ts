@@ -13,7 +13,14 @@ import {
 import { isDbRateLimited } from "./helpers/dbRateLimit";
 import { withSentry } from "./helpers/logger";
 import { sendResumePaymentLink } from "./helpers/notifications";
-import { occupiesSeatWhere, expireStaleHolds, holdHasExpired, lockResourceForBooking } from "./helpers/bookingHold";
+import {
+  occupiesSeatWhere,
+  expireStaleHolds,
+  holdHasExpired,
+  lockResourceForBooking,
+  newHoldExpiry,
+  refreshHoldForResume,
+} from "./helpers/bookingHold";
 
 /**
  * SECURITY (SEC-005, SEC-006): Per-booking access token.
@@ -28,7 +35,11 @@ const generateBookingAccessToken = (): string =>
 const createBookingSchema = z.object({
   type: z.nativeEnum(BookingType),
   name: z.string().min(2).max(100).trim()
-    .regex(/^[\p{L}\p{M}'\-.\s]+$/u, "Name contains invalid characters"),
+    .regex(/^[\p{L}\p{M}'\-.\s]+$/u, "Name contains invalid characters")
+    // Collapse internal runs of whitespace so "Megha  Dash" and "Megha Dash"
+    // are the same attendee. The duplicate check compares on this value, so
+    // normalising here keeps stored and compared names consistent.
+    .transform((val) => val.replace(/\s+/g, " ")),
   phone: z
     .string()
     .transform((val) => {
@@ -265,19 +276,29 @@ const _handler: Handler = async (event) => {
     // bookingId, then chain to getBooking / createRazorpayOrder for full PII.
     //
     // The fix has two parts:
-    //   1. Require BOTH customerEmail AND customerPhone to match before we
-    //      consider a request a duplicate of an existing booking. Phone is
-    //      not enumerable from public data so an attacker would need to know
-    //      both fields for the targeted victim.
+    //   1. Require customerEmail AND customerPhone AND customerName to match
+    //      before we consider a request a duplicate. Phone and name are not
+    //      enumerable from public data, so an attacker would need all three
+    //      fields for the targeted victim. Adding name only NARROWS what counts
+    //      as a duplicate, so it cannot weaken the property above.
     //   2. Even on a confirmed duplicate, do NOT echo back the existing
     //      bookingId or access token (we only have the token's hash). The
     //      response is a generic 409 advising the caller to check their
     //      email. Legitimate double-click retries surface as a clear error
     //      while the original (slower) request finishes and produces the
     //      real bookingId + token.
+    //
+    // The attendee — not the contact details — is what is being booked. One
+    // household routinely books several people from a single email and phone
+    // (a parent booking for two children). Keying identity on email+phone alone
+    // made the second attendee look like a duplicate of the first and blocked
+    // the booking outright. Match on the name too, case-insensitively, so a
+    // double-click still collapses (same name) while a genuinely different
+    // attendee books normally.
     const duplicateWhere: Record<string, unknown> = {
       customerEmail: validatedData.email,
       customerPhone: validatedData.phone,
+      customerName: { equals: validatedData.name, mode: "insensitive" },
       deletedAt: null,
     };
     // Only a booking that is CONFIRMED or still holding its seats counts as a
@@ -303,6 +324,7 @@ const _handler: Handler = async (event) => {
       where: duplicateWhere,
       select: {
         id: true, status: true, type: true, amountPaise: true, createdAt: true,
+        holdExpiresAt: true,
         customerName: true, customerEmail: true,
       },
     });
@@ -322,7 +344,7 @@ const _handler: Handler = async (event) => {
       // when the sweep failed.
       const isResumable =
         existingBooking.status === BookingStatus.PENDING_PAYMENT &&
-        !holdHasExpired(existingBooking.createdAt) &&
+        !holdHasExpired(existingBooking) &&
         (existingBooking.type === BookingType.CLASS ||
           existingBooking.type === BookingType.EVENT);
 
@@ -351,6 +373,30 @@ const _handler: Handler = async (event) => {
           return resumeEmailResponse;
         }
 
+        // Extend the seat hold BEFORE sending. The booking is already aging —
+        // its original 5-minute hold was measured from creation — so a link
+        // emailed now would be dead (or expiring) by the time it is delivered,
+        // read and clicked. RESUME_HOLD_MS gives the customer a realistic
+        // window; createRazorpayOrder tops it up again when checkout opens.
+        //
+        // Safe because the hold has NOT lapsed (isResumable checked), so the
+        // seat was never released back to inventory — we are keeping a
+        // reservation, not taking a new one.
+        const refreshedHold = await refreshHoldForResume(existingBooking);
+        if (!refreshedHold) {
+          // Confirmed, expired or cancelled between the read above and here.
+          // Nothing to resume; don't email a link to a dead booking.
+          return {
+            statusCode: 409,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error:
+                "Your previous booking attempt is no longer available. Please start a new booking.",
+            }),
+          };
+        }
+
         // Send FIRST, persist the rotated hash only on success — so a delivery
         // failure never invalidates the customer's existing link without
         // handing them a working replacement.
@@ -373,8 +419,10 @@ const _handler: Handler = async (event) => {
         );
 
         if (sendResult.ok) {
-          await prisma.booking.update({
-            where: { id: existingBooking.id },
+          // Guarded like every other write on this row: a booking confirmed or
+          // expired concurrently must not have its token rotated out.
+          await prisma.booking.updateMany({
+            where: { id: existingBooking.id, status: BookingStatus.PENDING_PAYMENT },
             data: { accessTokenHash: hashToken(resumeToken) },
           });
         }
@@ -489,6 +537,9 @@ const _handler: Handler = async (event) => {
           amountPaise,
           currency: "INR",
           quantity: validatedData.quantity,
+          // SPACE bookings reserve no inventory, so they hold nothing.
+          holdExpiresAt:
+            validatedData.type === BookingType.SPACE ? null : newHoldExpiry(),
           classSessionId: validatedData.classSessionId,
           eventId: validatedData.eventId,
           spaceRequestId,

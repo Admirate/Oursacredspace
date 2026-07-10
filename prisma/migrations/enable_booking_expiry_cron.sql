@@ -12,17 +12,21 @@
 --
 -- DEFENCE IN DEPTH
 -- The authoritative fix lives in netlify/functions/helpers/bookingHold.ts:
--- capacity queries ignore PENDING_PAYMENT bookings older than BOOKING_HOLD_MS
--- at read time, so inventory is correct even if this job never runs. This job
--- keeps the persisted `status` column honest for admin views, dashboard stats,
--- and the duplicate/resume check, and sweeps rows that no booking request
--- happens to touch.
+-- capacity queries ignore PENDING_PAYMENT bookings whose hold_expires_at has
+-- passed, so inventory is correct even if this job never runs. This job keeps
+-- the persisted `status` column honest for admin views, dashboard stats, and
+-- the duplicate/resume check, and sweeps rows that no booking request happens
+-- to touch.
 --
--- INVARIANT
--- Keep this window (5 minutes) in lockstep with BOOKING_HOLD_MS, and strictly
--- GREATER than the Razorpay checkout `timeout` in src/hooks/usePayment.ts
--- (currently 240s / 4 min). If checkout could outlive the hold, a payment
--- would capture against a booking whose seats were already released.
+-- IMPORTANT
+-- Expire on `hold_expires_at`, never on `created_at + 5 minutes`. The hold is
+-- an extendable deadline: a resume-payment link grants RESUME_HOLD_MS, and
+-- opening checkout tops the hold up so it outlasts the Razorpay checkout
+-- `timeout`. A created_at-based sweep would expire those bookings out from
+-- under an open checkout modal — capturing a payment against seats it had just
+-- released, which is exactly the bug this column was added to fix.
+--
+-- Requires prisma/migrations/add_booking_hold_expires_at.sql to have been run.
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
@@ -44,8 +48,12 @@ SELECT cron.schedule(
           cancelled_at = NOW(),
           cancel_reason = 'Auto-expired: payment not completed within the hold window'
       WHERE status = 'PENDING_PAYMENT'
-        AND created_at < NOW() - INTERVAL '5 minutes'
         AND deleted_at IS NULL
+        AND (
+          hold_expires_at <= NOW()
+          -- Legacy rows written before hold_expires_at existed.
+          OR (hold_expires_at IS NULL AND created_at < NOW() - INTERVAL '5 minutes')
+        )
       RETURNING id
     )
     INSERT INTO status_history (id, booking_id, from_status, to_status, changed_by, reason, created_at)
@@ -55,15 +63,15 @@ SELECT cron.schedule(
       'PENDING_PAYMENT',
       'EXPIRED',
       'SYSTEM',
-      'Auto-expired: payment not completed within 5 minutes',
+      'Auto-expired: payment not completed within the hold window',
       NOW()
     FROM expired;
   $$
 );
 
--- Supports the WHERE clause above. Present already if migration-v2.sql ran.
-CREATE INDEX IF NOT EXISTS idx_booking_pending_expiry
-  ON bookings(created_at)
+-- Supports the WHERE clause above.
+CREATE INDEX IF NOT EXISTS idx_booking_pending_hold_expiry
+  ON bookings(hold_expires_at)
   WHERE status = 'PENDING_PAYMENT';
 
 -- Verify: should list one active job.

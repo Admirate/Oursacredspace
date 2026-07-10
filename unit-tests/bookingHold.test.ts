@@ -9,46 +9,205 @@ jest.mock("../netlify/functions/helpers/logger", () => ({
 
 import {
   BOOKING_HOLD_MS,
+  RESUME_HOLD_MS,
+  CHECKOUT_TIMEOUT_MS,
+  MIN_CHECKOUT_WINDOW_MS,
+  ABSOLUTE_HOLD_CEILING_MS,
   holdCutoff,
   holdHasExpired,
+  newHoldExpiry,
   occupiesSeatWhere,
   expireStaleHolds,
   lockResourceForBooking,
+  ensureCheckoutWindow,
+  refreshHoldForResume,
 } from "../netlify/functions/helpers/bookingHold";
 import { prisma } from "./__mocks__/prisma";
 import { logger } from "../netlify/functions/helpers/logger";
 
-// Mirrors the Razorpay checkout `timeout` in src/hooks/usePayment.ts.
-const CHECKOUT_TIMEOUT_MS = 240 * 1000;
-
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60 * 1000);
+const msFromNow = (ms: number) => new Date(Date.now() + ms);
 
 beforeEach(() => {
   jest.clearAllMocks();
   (prisma.$transaction as jest.Mock).mockImplementation((fn: any) => fn(prisma));
   (prisma.booking.findMany as jest.Mock).mockResolvedValue([]);
+  (prisma.booking.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 });
 
 describe("hold window invariant", () => {
   // If the hold could lapse before checkout closes, Razorpay could capture a
   // payment against seats we already released. This is the load-bearing
   // constraint behind the whole design; assert it rather than trusting a comment.
-  it("outlives the Razorpay checkout timeout", () => {
+  it("reserves more than the Razorpay checkout timeout for a fresh booking", () => {
     expect(BOOKING_HOLD_MS).toBeGreaterThan(CHECKOUT_TIMEOUT_MS);
+  });
+
+  it("requires a checkout window strictly larger than the checkout timeout", () => {
+    expect(MIN_CHECKOUT_WINDOW_MS).toBeGreaterThan(CHECKOUT_TIMEOUT_MS);
+  });
+
+  // ensureCheckoutWindow tops a hold up to BOOKING_HOLD_MS. That top-up is
+  // useless unless a full hold clears the window it is meant to guarantee.
+  it("can always satisfy the checkout window by granting a full hold", () => {
+    expect(BOOKING_HOLD_MS).toBeGreaterThanOrEqual(MIN_CHECKOUT_WINDOW_MS);
+  });
+
+  it("gives an emailed resume link far longer than a fresh booking", () => {
+    expect(RESUME_HOLD_MS).toBeGreaterThan(BOOKING_HOLD_MS);
+    expect(ABSOLUTE_HOLD_CEILING_MS).toBeGreaterThan(RESUME_HOLD_MS);
   });
 });
 
 describe("holdHasExpired", () => {
-  it("is false for a booking created just now", () => {
-    expect(holdHasExpired(new Date())).toBe(false);
+  it("is false while the stored deadline is in the future", () => {
+    expect(
+      holdHasExpired({ createdAt: new Date(), holdExpiresAt: msFromNow(60_000) })
+    ).toBe(false);
   });
 
-  it("is false just inside the window", () => {
-    expect(holdHasExpired(new Date(Date.now() - (BOOKING_HOLD_MS - 5000)))).toBe(false);
+  it("is true once the stored deadline has passed", () => {
+    expect(
+      holdHasExpired({ createdAt: minutesAgo(20), holdExpiresAt: msFromNow(-1000) })
+    ).toBe(true);
   });
 
-  it("is true just outside the window", () => {
-    expect(holdHasExpired(new Date(Date.now() - (BOOKING_HOLD_MS + 5000)))).toBe(true);
+  // The regression this column exists to prevent: a booking reached via an
+  // emailed resume link is old but its hold was refreshed, so it is still live.
+  // Deriving the deadline from createdAt declared these dead on arrival.
+  it("is false for an old booking whose hold was extended", () => {
+    expect(
+      holdHasExpired({ createdAt: minutesAgo(25), holdExpiresAt: msFromNow(RESUME_HOLD_MS) })
+    ).toBe(false);
+  });
+
+  describe("legacy rows written before holdExpiresAt existed", () => {
+    it("falls back to createdAt + BOOKING_HOLD_MS (inside the window)", () => {
+      const createdAt = new Date(Date.now() - (BOOKING_HOLD_MS - 5000));
+      expect(holdHasExpired({ createdAt, holdExpiresAt: null })).toBe(false);
+    });
+
+    it("falls back to createdAt + BOOKING_HOLD_MS (outside the window)", () => {
+      const createdAt = new Date(Date.now() - (BOOKING_HOLD_MS + 5000));
+      expect(holdHasExpired({ createdAt, holdExpiresAt: null })).toBe(true);
+    });
+  });
+});
+
+describe("newHoldExpiry", () => {
+  it("defaults to BOOKING_HOLD_MS from now", () => {
+    const delta = newHoldExpiry().getTime() - Date.now();
+    expect(delta).toBeGreaterThan(BOOKING_HOLD_MS - 1000);
+    expect(delta).toBeLessThanOrEqual(BOOKING_HOLD_MS);
+  });
+
+  it("honours an explicit window", () => {
+    const delta = newHoldExpiry(RESUME_HOLD_MS).getTime() - Date.now();
+    expect(delta).toBeGreaterThan(RESUME_HOLD_MS - 1000);
+  });
+});
+
+describe("ensureCheckoutWindow", () => {
+  const live = () => ({
+    id: "bkg-1",
+    createdAt: minutesAgo(1),
+    holdExpiresAt: msFromNow(10_000), // live, but nowhere near enough for checkout
+  });
+
+  it("extends a hold that is too short to outlast the checkout modal", async () => {
+    const granted = await ensureCheckoutWindow(live());
+
+    expect(granted).not.toBeNull();
+    expect(granted!.getTime()).toBeGreaterThanOrEqual(Date.now() + MIN_CHECKOUT_WINDOW_MS);
+
+    const arg = (prisma.booking.updateMany as jest.Mock).mock.calls[0][0];
+    expect(arg.where).toMatchObject({ id: "bkg-1", status: "PENDING_PAYMENT" });
+    expect(arg.data.holdExpiresAt).toBeInstanceOf(Date);
+  });
+
+  it("leaves an already-sufficient hold untouched", async () => {
+    const granted = await ensureCheckoutWindow({
+      id: "bkg-1",
+      createdAt: minutesAgo(1),
+      holdExpiresAt: msFromNow(RESUME_HOLD_MS),
+    });
+
+    expect(granted).not.toBeNull();
+    // No write: shortening or churning a healthy hold buys nothing.
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  // Reviving a lapsed hold would re-take a seat that is back in inventory and
+  // may already have been sold to someone else.
+  it("refuses to revive a hold that already lapsed", async () => {
+    const granted = await ensureCheckoutWindow({
+      id: "bkg-1",
+      createdAt: minutesAgo(30),
+      holdExpiresAt: msFromNow(-1000),
+    });
+
+    expect(granted).toBeNull();
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses once the absolute ceiling leaves too little room for checkout", async () => {
+    const granted = await ensureCheckoutWindow({
+      id: "bkg-1",
+      // Ceiling is createdAt + ABSOLUTE_HOLD_CEILING_MS, which is ~10s away:
+      // not enough for a full checkout window, so no order may be created.
+      createdAt: new Date(Date.now() - (ABSOLUTE_HOLD_CEILING_MS - 10_000)),
+      holdExpiresAt: msFromNow(5_000),
+    });
+
+    expect(granted).toBeNull();
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  // A booking confirmed or expired between our read and the write must not be
+  // resurrected: updateMany re-checks status under the row lock and matches 0.
+  it("returns null when the guarded update matches no row", async () => {
+    (prisma.booking.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+
+    expect(await ensureCheckoutWindow(live())).toBeNull();
+  });
+});
+
+describe("refreshHoldForResume", () => {
+  it("grants the long resume window to a live booking", async () => {
+    const granted = await refreshHoldForResume({
+      id: "bkg-1",
+      createdAt: minutesAgo(4),
+      holdExpiresAt: msFromNow(30_000),
+    });
+
+    expect(granted).not.toBeNull();
+    // Comfortably longer than the 5-minute window an emailed link used to race.
+    expect(granted!.getTime()).toBeGreaterThan(Date.now() + BOOKING_HOLD_MS);
+  });
+
+  it("never revives a booking whose hold already lapsed", async () => {
+    const granted = await refreshHoldForResume({
+      id: "bkg-1",
+      createdAt: minutesAgo(30),
+      holdExpiresAt: msFromNow(-1),
+    });
+
+    expect(granted).toBeNull();
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("clamps the new deadline to the absolute ceiling", async () => {
+    const createdAt = new Date(Date.now() - (ABSOLUTE_HOLD_CEILING_MS - 2 * 60 * 1000));
+    const granted = await refreshHoldForResume({
+      id: "bkg-1",
+      createdAt,
+      holdExpiresAt: msFromNow(60_000),
+    });
+
+    expect(granted).not.toBeNull();
+    expect(granted!.getTime()).toBeLessThanOrEqual(
+      createdAt.getTime() + ABSOLUTE_HOLD_CEILING_MS
+    );
   });
 });
 
@@ -88,32 +247,52 @@ describe("lockResourceForBooking", () => {
 });
 
 describe("occupiesSeatWhere", () => {
+  // The clause whose deadline lives on the row (the normal case).
+  const storedClause = () =>
+    occupiesSeatWhere().OR.find(
+      (c: any) => c.status === "PENDING_PAYMENT" && c.holdExpiresAt?.gt
+    ) as any;
+
+  // The fallback clause for rows written before holdExpiresAt existed.
+  const legacyClause = () =>
+    occupiesSeatWhere().OR.find(
+      (c: any) => c.status === "PENDING_PAYMENT" && c.holdExpiresAt === null
+    ) as any;
+
   it("counts CONFIRMED bookings regardless of age", () => {
-    const where = occupiesSeatWhere();
-    expect(where.OR).toContainEqual({ status: "CONFIRMED" });
+    expect(occupiesSeatWhere().OR).toContainEqual({ status: "CONFIRMED" });
   });
 
-  it("counts unpaid bookings only inside the hold window", () => {
+  it("counts unpaid bookings whose stored deadline has not passed", () => {
     const before = Date.now();
-    const where = occupiesSeatWhere();
-    const pending = where.OR.find((c: any) => c.status === "PENDING_PAYMENT") as any;
+    const clause = storedClause();
 
-    expect(pending).toBeDefined();
-    // The cutoff must be BOOKING_HOLD_MS in the past, not "any time".
-    const cutoff = pending.createdAt.gte.getTime();
-    expect(cutoff).toBeLessThanOrEqual(before - BOOKING_HOLD_MS + 50);
-    expect(cutoff).toBeGreaterThanOrEqual(before - BOOKING_HOLD_MS - 1000);
+    expect(clause).toBeDefined();
+    // Compared against NOW, not against createdAt — that is the whole point.
+    const gt = clause.holdExpiresAt.gt.getTime();
+    expect(gt).toBeGreaterThanOrEqual(before - 1000);
+    expect(gt).toBeLessThanOrEqual(Date.now() + 1000);
+  });
+
+  // Without this clause a legacy row would match nothing, silently stop
+  // occupying its seat, and let us overbook.
+  it("still honours legacy rows via createdAt + BOOKING_HOLD_MS", () => {
+    const clause = legacyClause();
+
+    expect(clause).toBeDefined();
+    const cutoff = clause.createdAt.gte.getTime();
+    expect(cutoff).toBeLessThanOrEqual(Date.now() - BOOKING_HOLD_MS + 1000);
+    expect(cutoff).toBeGreaterThanOrEqual(Date.now() - BOOKING_HOLD_MS - 1000);
   });
 
   it("excludes soft-deleted bookings", () => {
     expect(occupiesSeatWhere().deletedAt).toBeNull();
   });
 
-  it("recomputes the cutoff on each call rather than freezing at import", () => {
-    const first = (occupiesSeatWhere().OR[1] as any).createdAt.gte.getTime();
-    const later = new Date(Date.now() + 60_000);
-    jest.spyOn(Date, "now").mockReturnValue(later.getTime());
-    const second = (occupiesSeatWhere().OR[1] as any).createdAt.gte.getTime();
+  it("recomputes the deadline on each call rather than freezing at import", () => {
+    const first = storedClause().holdExpiresAt.gt.getTime();
+    jest.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
+    const second = storedClause().holdExpiresAt.gt.getTime();
     (Date.now as jest.Mock).mockRestore();
 
     expect(second).toBeGreaterThan(first);
@@ -172,8 +351,25 @@ describe("expireStaleHolds", () => {
     expect(where.status).toBe("PENDING_PAYMENT");
     expect(where.deletedAt).toBeNull();
     expect(where.classSessionId).toBe("cls-9");
-    expect(where.createdAt.lt.getTime()).toBeLessThanOrEqual(
-      holdCutoff().getTime() + 1000
+
+    // Stale = stored deadline passed, or a legacy row past the old fixed window.
+    const [stored, legacy] = where.OR;
+    expect(stored.holdExpiresAt.lte.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+    expect(legacy.holdExpiresAt).toBeNull();
+    expect(legacy.createdAt.lt.getTime()).toBeLessThanOrEqual(holdCutoff().getTime() + 1000);
+  });
+
+  // An extended hold (resume link, or a checkout top-up) must survive the sweep,
+  // otherwise the sweep re-creates the bug the deadline column was added to fix.
+  it("does not sweep a booking whose hold was extended into the future", async () => {
+    await expireStaleHolds({ eventId: "evt-1" });
+
+    const where = (prisma.booking.findMany as jest.Mock).mock.calls[0][0].where;
+    const stillHeld = { holdExpiresAt: msFromNow(RESUME_HOLD_MS) };
+
+    // The stored clause requires holdExpiresAt <= now; a future deadline fails it.
+    expect(stillHeld.holdExpiresAt.getTime()).toBeGreaterThan(
+      where.OR[0].holdExpiresAt.lte.getTime()
     );
   });
 

@@ -97,6 +97,9 @@ const _handler: Handler = async (event) => {
         currency: true,
         quantity: true,
         createdAt: true,
+        // Drives the countdown + Pay-button state on /success, so the UI can
+        // stop offering payment the moment the seat hold lapses.
+        holdExpiresAt: true,
         classSession: {
           select: { title: true, startsAt: true, duration: true, location: true },
         },
