@@ -688,7 +688,6 @@ export default function AdminEventsPage() {
                           <TableHead>Event</TableHead>
                           <TableHead>Date & Time</TableHead>
                           <TableHead>Venue</TableHead>
-                          <TableHead>Passes</TableHead>
                           <TableHead>Price</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
@@ -718,7 +717,6 @@ export default function AdminEventsPage() {
                             </TableCell>
                             <TableCell className="text-sm">{formatDateRange(event.startsAt, event.endsAt)}</TableCell>
                             <TableCell>{event.venue}</TableCell>
-                            <TableCell>{event.passesIssued || 0}{event.capacity && `/${event.capacity}`}</TableCell>
                             <TableCell>{formatPrice(event.pricePaise)}</TableCell>
                             <TableCell>
                               {event.isExpired && !event.active ? (
@@ -813,7 +811,6 @@ export default function AdminEventsPage() {
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-muted-foreground pl-0.5">
                           <div><span className="font-medium text-foreground">Date:</span> {formatDateRange(event.startsAt, event.endsAt)}</div>
                           <div><span className="font-medium text-foreground">Venue:</span> {event.venue}</div>
-                          <div><span className="font-medium text-foreground">Passes:</span> {event.passesIssued || 0}{event.capacity ? `/${event.capacity}` : ""}</div>
                           <div><span className="font-medium text-foreground">Price:</span> {formatPrice(event.pricePaise)}</div>
                         </div>
                       </div>

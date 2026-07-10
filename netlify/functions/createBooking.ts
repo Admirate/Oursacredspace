@@ -12,7 +12,7 @@ import {
 } from "./helpers/security";
 import { isDbRateLimited } from "./helpers/dbRateLimit";
 import { withSentry } from "./helpers/logger";
-import { sendResumePaymentLink } from "./helpers/notifications";
+import { sendResumePaymentLink, sendSpaceRequestNotification } from "./helpers/notifications";
 import {
   occupiesSeatWhere,
   expireStaleHolds,
@@ -559,6 +559,26 @@ const _handler: Handler = async (event) => {
 
       return { booking: newBooking, accessToken };
     });
+
+    // Notify the venue team of a new space request. Awaited (Netlify would kill
+    // a detached promise once the function returns) with its own internal
+    // timeout, but fully guarded — a notification failure must never fail the
+    // customer's submission.
+    if (validatedData.type === BookingType.SPACE) {
+      try {
+        await sendSpaceRequestNotification({
+          bookingId: booking.booking.id,
+          customerName: validatedData.name,
+          customerEmail: validatedData.email,
+          customerPhone: validatedData.phone,
+          preferredSlots: validatedData.preferredSlots ?? [],
+          purpose: validatedData.purpose,
+          notes: validatedData.notes,
+        });
+      } catch (notifyErr) {
+        console.error("Space request notification failed:", notifyErr);
+      }
+    }
 
     return {
       statusCode: 200,

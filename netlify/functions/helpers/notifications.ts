@@ -6,6 +6,22 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_EMAIL = process.env.EMAIL_FROM || "Our Sacred Space <noreply@oursacredspace.in>";
 
+// Publicly-hosted brand logo (Supabase Storage CDN). Email clients require an
+// absolute URL to a hosted image — base64/CID data is stripped by Gmail et al.
+// Same asset the site header uses (Assets/brand/logo.png).
+const EMAIL_LOGO_URL = `${(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://umxpjtfekclktbtomiaz.supabase.co"
+).replace(/\/$/, "")}/storage/v1/object/public/Assets/brand/logo.png`;
+
+// Shared branded header: the watercolor logo on a white band with a thin green
+// accent. Reused by every transactional template so branding stays consistent.
+const emailHeader = (): string => `
+    <tr>
+      <td style="background:#ffffff;padding:24px 32px;text-align:center;border-bottom:3px solid #2d5016;">
+        <img src="${EMAIL_LOGO_URL}" width="200" alt="Our Sacred Space" style="display:block;margin:0 auto;width:200px;max-width:80%;height:auto;border:0;" />
+      </td>
+    </tr>`;
+
 // Cap how long the email provider call may block the (user-facing) confirmation
 // path. verifyPayment awaits notifications before returning, so a slow/hung
 // provider would otherwise stall the success redirect.
@@ -187,11 +203,7 @@ function buildConfirmationHtml(data: {
 <body style="margin:0;padding:0;background-color:#faf9f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
     <!-- Header -->
-    <tr>
-      <td style="background:#2d5016;padding:28px 32px;text-align:center;">
-        <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:600;">Our Sacred Space</h1>
-      </td>
-    </tr>
+    ${emailHeader()}
     <!-- Body -->
     <tr>
       <td style="padding:32px;">
@@ -338,11 +350,7 @@ function buildResumeLinkHtml(data: {
 </head>
 <body style="margin:0;padding:0;background-color:#faf9f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-    <tr>
-      <td style="background:#2d5016;padding:28px 32px;text-align:center;">
-        <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:600;">Our Sacred Space</h1>
-      </td>
-    </tr>
+    ${emailHeader()}
     <tr>
       <td style="padding:32px;">
         <h2 style="color:#2d5016;margin:0 0 8px;font-size:20px;">Finish your booking</h2>
@@ -359,6 +367,181 @@ function buildResumeLinkHtml(data: {
           This link is unique to your booking — please don't forward it. If you
           didn't request this, you can safely ignore this email; no payment will
           be taken.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 32px;border-top:1px solid #eee;text-align:center;">
+        <p style="margin:0;color:#999;font-size:12px;">
+          Our Sacred Space · Secunderabad · <a href="https://www.oursacredspace.in" style="color:#2d5016;">oursacredspace.in</a>
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ─── Space-request admin notification ───────────────────
+
+interface SpaceRequestNotification {
+  bookingId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  preferredSlots: string[];
+  purpose?: string | null;
+  notes?: string | null;
+}
+
+/**
+ * Recipient(s) for space-rental request notifications. Prefers the dedicated
+ * SPACE_REQUEST_NOTIFY_EMAIL (comma-separated for multiple), and falls back to
+ * the first ADMIN_ALLOWED_EMAILS entry so notifications still land somewhere
+ * sensible before the dedicated var is configured. Returns undefined when no
+ * recipient is configured at all.
+ */
+function spaceRequestRecipients(): string[] | undefined {
+  const explicit = process.env.SPACE_REQUEST_NOTIFY_EMAIL
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (explicit && explicit.length > 0) return explicit;
+
+  const admins = process.env.ADMIN_ALLOWED_EMAILS
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return admins && admins.length > 0 ? [admins[0]] : undefined;
+}
+
+/**
+ * Notify the venue team that a new space-rental request came in. Sent to
+ * spaceRequestRecipients() with the customer set as reply-to, so the team can
+ * reply straight to the requester. Fire-and-forget from createBooking — a
+ * failure here must never block the customer's submission.
+ */
+export async function sendSpaceRequestNotification(
+  req: SpaceRequestNotification
+): Promise<ChannelResult> {
+  const to = spaceRequestRecipients();
+  if (!to) {
+    const reason =
+      "No SPACE_REQUEST_NOTIFY_EMAIL or ADMIN_ALLOWED_EMAILS configured — space-request notification NOT sent. " +
+      "Set SPACE_REQUEST_NOTIFY_EMAIL in this environment (Netlify dashboard for prod; .env + RESTART `netlify dev` for local).";
+    logger.error("Space-request notify skipped: no recipient", new Error(reason), {
+      bookingId: req.bookingId,
+    });
+    return { ok: false, reason };
+  }
+
+  if (isPlaceholder(process.env.RESEND_API_KEY)) {
+    const reason =
+      "RESEND_API_KEY is missing or a placeholder — space-request notification NOT sent.";
+    logger.error("EMAIL MISCONFIGURED: cannot send space-request notification", new Error(reason), {
+      bookingId: req.bookingId,
+    });
+    return { ok: false, reason };
+  }
+
+  try {
+    const { error } = await withTimeout(
+      resend.emails.send({
+        from: FROM_EMAIL,
+        to,
+        // Let the team hit "Reply" and reach the requester directly.
+        replyTo: req.customerEmail,
+        subject: `New space request — ${escapeHtml(req.customerName)}`,
+        html: buildSpaceRequestHtml({
+          bookingId: escapeHtml(req.bookingId),
+          customerName: escapeHtml(req.customerName),
+          customerEmail: escapeHtml(req.customerEmail),
+          customerPhone: escapeHtml(req.customerPhone),
+          preferredSlots: req.preferredSlots.map((s) => escapeHtml(s)),
+          purpose: req.purpose ? escapeHtml(req.purpose) : null,
+          notes: req.notes ? escapeHtml(req.notes) : null,
+        }),
+      }),
+      EMAIL_TIMEOUT_MS,
+      "resend space-request email"
+    );
+
+    if (error) {
+      const reason = `Resend API error: ${error.name ? `${error.name}: ` : ""}${error.message}`;
+      logger.error("Space-request email failed", new Error(reason), {
+        bookingId: req.bookingId,
+        to: to.join(","),
+      });
+      return { ok: false, reason };
+    }
+
+    try {
+      await prisma.notificationLog.create({
+        data: {
+          bookingId: req.bookingId,
+          channel: "EMAIL",
+          templateName: "space_request_admin_notification",
+          to: to.join(","),
+          status: "SENT",
+        },
+      });
+    } catch (logErr) {
+      logger.error("Space-request notification log failed", logErr, { bookingId: req.bookingId });
+    }
+
+    return { ok: true };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    logger.error("Space-request email exception", err, { bookingId: req.bookingId });
+    return { ok: false, reason: `Space-request email exception: ${reason}` };
+  }
+}
+
+function buildSpaceRequestHtml(data: {
+  bookingId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  preferredSlots: string[];
+  purpose: string | null;
+  notes: string | null;
+}): string {
+  const row = (label: string, value: string) => `
+          <tr><td style="padding:8px 20px;">
+            <p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">${label}</p>
+            <p style="margin:4px 0 0;color:#333;font-size:14px;">${value}</p>
+          </td></tr>`;
+  const slots =
+    data.preferredSlots.length > 0
+      ? data.preferredSlots.join("<br>")
+      : "—";
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#faf9f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    ${emailHeader()}
+    <tr>
+      <td style="padding:32px;">
+        <h2 style="color:#2d5016;margin:0 0 8px;font-size:20px;">New Space Request</h2>
+        <p style="color:#555;margin:0 0 24px;font-size:15px;line-height:1.5;">
+          A new space-rental request has been submitted. Details below — reply to this email to reach ${data.customerName} directly.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f7f4;border-radius:8px;padding:20px;">
+          ${row("Name", data.customerName)}
+          ${row("Email", data.customerEmail)}
+          ${row("Phone", data.customerPhone)}
+          ${row("Preferred date / time", slots)}
+          ${row("Purpose", data.purpose ?? "—")}
+          ${data.notes ? row("Notes", data.notes) : ""}
+          ${row("Request ID", data.bookingId)}
+        </table>
+        <p style="color:#555;margin:24px 0 0;font-size:13px;line-height:1.6;">
+          Manage this request in the admin dashboard under Space Requests.
         </p>
       </td>
     </tr>
