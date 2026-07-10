@@ -118,7 +118,7 @@ export default function TermsAndConditionsPage() {
             <ul className="list-disc pl-6 space-y-1.5">
               <li>
                 Upon successful payment for events, a booking confirmation will be
-                sent to you via WhatsApp or email.
+                sent to you via email.
               </li>
               <li>
                 Event bookings are non-transferable and valid only for the named

@@ -195,37 +195,71 @@ const _handler: Handler = async (event) => {
     }
 
     // 5. Atomic update — mirrors razorpayWebhook's payment.captured flow.
+    //
+    // There are three distinct outcomes here, and conflating them is a money
+    // bug: "confirmed" (we flipped it), "already_confirmed" (the webhook beat
+    // us to it — genuinely idempotent), and "unconfirmable" (Razorpay captured
+    // the payment but the booking can no longer be confirmed, e.g. it expired
+    // or was cancelled while the customer sat in the checkout modal). Only the
+    // first two are successes. The third means the customer has been charged
+    // for nothing and needs a refund.
     const result = await prisma.$transaction(async (tx) => {
-      const currentPayment = await tx.payment.findUnique({
-        where: { id: payment.id },
-        select: { status: true },
+      // SEC (concurrency): verifyPayment and razorpayWebhook can run this exact
+      // flow for the same payment at the same time. A read-then-write on
+      // `status === CREATED` races under READ COMMITTED — both read CREATED,
+      // both proceed, and the booking is confirmed twice (duplicate email +
+      // duplicate statusHistory row).
+      //
+      // Instead, claim the payment atomically: `updateMany ... WHERE status =
+      // CREATED` takes a row lock and RE-EVALUATES the predicate against the
+      // latest committed row, so exactly one caller flips CREATED -> PAID and
+      // gets count 1. The loser gets count 0 and runs no side effects.
+      const claim = await tx.payment.updateMany({
+        where: { id: payment.id, status: PaymentStatus.CREATED },
+        data: { razorpayPaymentId, status: PaymentStatus.PAID },
       });
 
-      if (currentPayment?.status !== PaymentStatus.CREATED) {
-        return { skipped: true as const };
+      if (claim.count === 0) {
+        // We lost the race, or the payment was never CREATED. Report the real
+        // state so the caller can distinguish idempotent success from a
+        // captured-but-unconfirmable charge.
+        const [p, b] = await Promise.all([
+          tx.payment.findUnique({ where: { id: payment.id }, select: { status: true } }),
+          tx.booking.findUnique({ where: { id: booking.id }, select: { status: true } }),
+        ]);
+        if (p?.status === PaymentStatus.PAID && b?.status === BookingStatus.CONFIRMED) {
+          return { outcome: "already_confirmed" as const };
+        }
+        return {
+          outcome: "unconfirmable" as const,
+          paymentStatus: p?.status ?? null,
+          bookingStatus: b?.status ?? null,
+        };
       }
 
-      const currentBooking = await tx.booking.findUnique({
-        where: { id: booking.id },
-        select: { status: true },
-      });
-
-      if (currentBooking?.status !== BookingStatus.PENDING_PAYMENT) {
-        return { skipped: true as const };
-      }
-
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          razorpayPaymentId,
-          status: PaymentStatus.PAID,
-        },
-      });
-
-      await tx.booking.update({
-        where: { id: booking.id },
+      // We won the claim and the payment is now PAID. Confirm the booking, but
+      // only if it is still awaiting payment — it may have expired/cancelled
+      // while the customer sat in checkout. Guard the booking update the same
+      // way so a concurrent state change can't be clobbered.
+      const confirm = await tx.booking.updateMany({
+        where: { id: booking.id, status: BookingStatus.PENDING_PAYMENT },
         data: { status: BookingStatus.CONFIRMED },
       });
+
+      if (confirm.count === 0) {
+        // Captured, but the booking can't be confirmed. Payment is correctly
+        // PAID (the money was taken); the unconfirmable handler below records
+        // the refund trail. Re-read the booking status for the audit row.
+        const b = await tx.booking.findUnique({
+          where: { id: booking.id },
+          select: { status: true },
+        });
+        return {
+          outcome: "unconfirmable" as const,
+          paymentStatus: PaymentStatus.PAID,
+          bookingStatus: b?.status ?? null,
+        };
+      }
 
       await tx.statusHistory.create({
         data: {
@@ -237,12 +271,74 @@ const _handler: Handler = async (event) => {
         },
       });
 
-      return { skipped: false as const };
+      return { outcome: "confirmed" as const };
     });
 
-    // 6. Fire-and-forget notifications. The booking is already CONFIRMED;
-    //    a notification failure must not bubble up to the user.
-    if (!result.skipped) {
+    // 6. Captured, but the booking cannot be confirmed. Do not tell the
+    //    customer this succeeded. Leave a reconciliation trail so support can
+    //    find the payment, and raise a Sentry alert for the refund.
+    if (result.outcome === "unconfirmable") {
+      // Attach the Razorpay payment id to our Payment row so the charge is
+      // traceable from the booking. updateMany (not update) so a row that
+      // already carries an id is a no-op rather than a unique-constraint throw.
+      await prisma.payment
+        .updateMany({
+          where: { id: payment.id, razorpayPaymentId: null },
+          data: { razorpayPaymentId },
+        })
+        .catch((e) => {
+          logger.error("Could not attach razorpayPaymentId to unconfirmable payment", e, {
+            bookingId: booking.id,
+            razorpayPaymentId,
+          });
+        });
+
+      await prisma.statusHistory
+        .create({
+          data: {
+            bookingId: booking.id,
+            fromStatus: result.bookingStatus ?? "UNKNOWN",
+            toStatus: result.bookingStatus ?? "UNKNOWN",
+            changedBy: "SYSTEM",
+            reason: `REFUND REQUIRED: payment ${razorpayPaymentId} captured against booking in status ${result.bookingStatus ?? "UNKNOWN"}`,
+          },
+        })
+        .catch((e) => {
+          logger.error("Could not write refund-required audit row", e, { bookingId: booking.id });
+        });
+
+      logger.payment("anomaly", {
+        type: "captured_payment_unconfirmable_booking",
+        bookingId: booking.id,
+        razorpayOrderId,
+        razorpayPaymentId,
+        bookingStatus: result.bookingStatus,
+        paymentStatus: result.paymentStatus,
+      });
+
+      logSecurityEvent("SUSPICIOUS_REQUEST", {
+        type: "captured_payment_unconfirmable_booking",
+        bookingId: booking.id,
+        razorpayOrderId,
+      });
+
+      return {
+        statusCode: 409,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error:
+            "Your payment was received, but this booking is no longer available to confirm. " +
+            "We have logged this and a refund will be issued. Please contact support with " +
+            `payment reference ${razorpayPaymentId}.`,
+        }),
+      };
+    }
+
+    // 7. Fire-and-forget notifications. The booking is already CONFIRMED;
+    //    a notification failure must not bubble up to the user. Skipped when
+    //    the webhook won the race, since it already sent the confirmation.
+    if (result.outcome === "confirmed") {
       try {
         await sendBookingConfirmation(payment.booking);
       } catch (notifErr) {
@@ -260,7 +356,7 @@ const _handler: Handler = async (event) => {
         data: {
           bookingId: booking.id,
           status: "CONFIRMED",
-          alreadyProcessed: result.skipped,
+          alreadyProcessed: result.outcome === "already_confirmed",
         },
       }),
     };

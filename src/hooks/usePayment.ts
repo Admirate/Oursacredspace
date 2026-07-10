@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { api } from "@/lib/api";
+import { stashBookingToken } from "@/lib/bookingToken";
 import { RAZORPAY_CONFIG } from "@/lib/constants";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types";
 
@@ -126,9 +127,10 @@ export const usePayment = (options: UsePaymentOptions = {}) => {
 
               inFlightRef.current = false;
               options.onSuccess?.(response);
-              router.push(
-                `/success?bookingId=${encodeURIComponent(bookingId)}&token=${encodeURIComponent(accessToken)}`
-              );
+              // SECURITY (finding #7): pass the token via sessionStorage, not
+              // the URL, so it doesn't land in history or URL telemetry.
+              stashBookingToken(bookingId, accessToken);
+              router.push(`/success?bookingId=${encodeURIComponent(bookingId)}`);
             } catch (verifyError) {
               inFlightRef.current = false;
               const msg =

@@ -46,9 +46,19 @@ const makeClass = (overrides: any = {}) => ({
   capacity: 20,
   pricePaise: 50000,
   deletedAt: null,
-  _count: { bookings: 3 },
   ...overrides,
 });
+
+/**
+ * Availability is multi-seat aware: the handler sums `quantity` across active
+ * bookings via booking.groupBy, so a single booking may hold several seats.
+ * Stub the grouped sum rather than a row count.
+ */
+const stubBookedSeats = (seats: number, classSessionId = "cls-1") => {
+  (prisma.booking.groupBy as jest.Mock).mockResolvedValue(
+    seats > 0 ? [{ classSessionId, _sum: { quantity: seats } }] : []
+  );
+};
 
 describe("getClasses handler", () => {
   beforeEach(() => jest.clearAllMocks());
@@ -74,8 +84,9 @@ describe("getClasses handler", () => {
   // ── Successful fetch ──
 
   it("returns 200 with classes and computed availability", async () => {
-    const cls = makeClass({ capacity: 20, _count: { bookings: 5 } });
+    const cls = makeClass({ capacity: 20 });
     (prisma.classSession.findMany as jest.Mock).mockResolvedValue([cls]);
+    stubBookedSeats(5);
 
     const response = await handler(makeEvent(), {} as any);
     expect(response!.statusCode).toBe(200);
@@ -87,9 +98,26 @@ describe("getClasses handler", () => {
     expect(body.data[0].availableSpots).toBe(15);
   });
 
-  it("returns null availableSpots when capacity is null (unlimited)", async () => {
-    const cls = makeClass({ capacity: null, _count: { bookings: 10 } });
+  // A single booking may reserve several seats — availability must reflect the
+  // summed quantity, not the number of booking rows.
+  it("counts summed seat quantity, not booking rows", async () => {
+    const cls = makeClass({ capacity: 20 });
     (prisma.classSession.findMany as jest.Mock).mockResolvedValue([cls]);
+    // Two bookings holding 4 and 6 seats => 10 seats taken.
+    (prisma.booking.groupBy as jest.Mock).mockResolvedValue([
+      { classSessionId: "cls-1", _sum: { quantity: 10 } },
+    ]);
+
+    const response = await handler(makeEvent(), {} as any);
+    const body = JSON.parse(response!.body!);
+    expect(body.data[0].bookedCount).toBe(10);
+    expect(body.data[0].availableSpots).toBe(10);
+  });
+
+  it("returns null availableSpots when capacity is null (unlimited)", async () => {
+    const cls = makeClass({ capacity: null });
+    (prisma.classSession.findMany as jest.Mock).mockResolvedValue([cls]);
+    stubBookedSeats(10);
 
     const response = await handler(makeEvent(), {} as any);
     const body = JSON.parse(response!.body!);
@@ -97,21 +125,24 @@ describe("getClasses handler", () => {
   });
 
   it("clamps availableSpots to 0 when overbooked", async () => {
-    const cls = makeClass({ capacity: 5, _count: { bookings: 8 } });
+    const cls = makeClass({ capacity: 5 });
     (prisma.classSession.findMany as jest.Mock).mockResolvedValue([cls]);
+    stubBookedSeats(8);
 
     const response = await handler(makeEvent(), {} as any);
     const body = JSON.parse(response!.body!);
     expect(body.data[0].availableSpots).toBe(0);
   });
 
-  it("strips _count from response", async () => {
-    const cls = makeClass();
+  it("reports zero booked seats when a class has no bookings", async () => {
+    const cls = makeClass({ capacity: 20 });
     (prisma.classSession.findMany as jest.Mock).mockResolvedValue([cls]);
+    stubBookedSeats(0);
 
     const response = await handler(makeEvent(), {} as any);
     const body = JSON.parse(response!.body!);
-    expect(body.data[0]._count).toBeUndefined();
+    expect(body.data[0].bookedCount).toBe(0);
+    expect(body.data[0].availableSpots).toBe(20);
   });
 
   // ── Filtering logic (default: active only) ──

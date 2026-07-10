@@ -1,6 +1,7 @@
 import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
 import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS, getPublicHeaders } from "./helpers/security";
+import { occupiesSeatWhere } from "./helpers/bookingHold";
 
 export const handler: Handler = async (event) => {
   // SECURITY: Use origin-validated CORS headers
@@ -44,12 +45,14 @@ export const handler: Handler = async (event) => {
 
     // Multi-seat aware: booked = SUM(quantity) of active bookings per class,
     // not a row count. One booking may hold several seats.
+    //
+    // Unpaid bookings only count while inside their hold window — otherwise an
+    // abandoned checkout would show the class as full forever.
     const grouped = await prisma.booking.groupBy({
       by: ["classSessionId"],
       where: {
         classSessionId: { in: classes.map((c) => c.id) },
-        status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
-        deletedAt: null,
+        ...occupiesSeatWhere(),
       },
       _sum: { quantity: true },
     });

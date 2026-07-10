@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+import { stashBookingToken } from "@/lib/bookingToken";
 import { usePayment } from "@/hooks/usePayment";
 import type { Event } from "@/types";
 import { HeroBackgroundVideo } from "@/components/shared/HeroBackgroundVideo";
@@ -495,22 +496,32 @@ export default function EventsPage() {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       setIsDialogOpen(false);
       form.reset();
-      if (response.data.requiresPayment) {
-        toast(
-          response.data.resumed
-            ? { title: "Resuming your booking", description: "Opening payment..." }
-            : { title: "Pass Reserved!", description: "Opening payment..." }
-        );
+      // SECURITY (SEC-004): a resume collision returns no bookingId/token — the
+      // link was emailed to the booking's own address. Tell the user to check
+      // their inbox instead of opening payment.
+      if (response.data.resumeEmailSent) {
+        setIsSubmitting(false);
+        toast({
+          title: "Check your email",
+          description:
+            "You already have a pending booking — we've emailed you a secure link to complete payment.",
+        });
+        return;
+      }
+      if (response.data.requiresPayment && response.data.bookingId && response.data.accessToken) {
+        toast({ title: "Pass Reserved!", description: "Opening payment..." });
         // SECURITY (SEC-006): pass the one-time accessToken alongside the
         // bookingId so createRazorpayOrder and the /success page can fetch
         // the booking.
         initiatePayment(response.data.bookingId, response.data.accessToken);
-      } else {
+      } else if (response.data.bookingId && response.data.accessToken) {
         setIsSubmitting(false);
         toast({ title: "Pass Reserved!", description: "Your booking has been submitted." });
+        // SECURITY (finding #7): token via sessionStorage, not the URL.
+        stashBookingToken(response.data.bookingId, response.data.accessToken);
         window.location.href = `/success?bookingId=${encodeURIComponent(
           response.data.bookingId
-        )}&token=${encodeURIComponent(response.data.accessToken)}`;
+        )}`;
       }
     },
     onError: (error: Error) => {

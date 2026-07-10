@@ -28,7 +28,9 @@ export const useCreateBooking = (options: UseCreateBookingOptions = {}) => {
       return response.data;
     },
     onSuccess: (data) => {
-      options.onSuccess?.(data.bookingId);
+      // A resume-email response carries no bookingId (SEC-004); only fire the
+      // callback for a freshly created booking.
+      if (data.bookingId) options.onSuccess?.(data.bookingId);
     },
     onError: (error: Error) => {
       options.onError?.(error);

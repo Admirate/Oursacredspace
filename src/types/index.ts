@@ -187,22 +187,24 @@ export interface CreateBookingRequest {
 export interface CreateBookingResponse {
   success: boolean;
   data: {
-    bookingId: string;
     /**
-     * SECURITY (SEC-005, SEC-006): One-time access token returned at
-     * booking creation. Must be passed to getBooking and
-     * createRazorpayOrder to access the booking's PII / payment.
+     * SECURITY (SEC-005, SEC-006): Present ONLY for a freshly created booking,
+     * where the caller supplied their own details. Absent when the response is
+     * a resume-email acknowledgement (`resumeEmailSent`), because the token for
+     * an existing booking is delivered by email, never in this body.
      */
-    accessToken: string;
-    type: BookingType;
-    amount: number;
+    bookingId?: string;
+    accessToken?: string;
+    type?: BookingType;
+    amount?: number;
     requiresPayment: boolean;
     /**
-     * True when this response continues an existing unpaid booking (the
-     * customer re-submitted the same email/phone for the same class/event)
-     * rather than creating a new one. Used only for UX messaging.
+     * SECURITY (SEC-004): True when the request collided with an existing
+     * unpaid booking. The resume link has been emailed to the booking's own
+     * address; no bookingId or token is returned. The client should tell the
+     * user to check their email rather than opening payment directly.
      */
-    resumed?: boolean;
+    resumeEmailSent?: boolean;
   };
   error?: string;
 }

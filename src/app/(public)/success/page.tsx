@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { usePayment } from "@/hooks/usePayment";
 import { api } from "@/lib/api";
+import { readTokenFromUrlOrStore } from "@/lib/bookingToken";
 import { POLLING_INTERVAL } from "@/lib/constants";
 import { PaymentVerifyingOverlay } from "@/components/shared/PaymentVerifyingOverlay";
 
@@ -91,10 +92,23 @@ const SUCCESS_POLL_MAX = 60;
 function SuccessPageContent() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("bookingId");
-  // SECURITY (SEC-005): The success page now requires the per-booking
-  // access token returned by createBooking. Without it the backend returns
-  // 404 and we render the "Booking Not Found" state.
-  const accessToken = searchParams.get("token");
+  // SECURITY (SEC-005 / finding #7): the success page requires the per-booking
+  // access token, but it must NOT live in the URL. In-app navigation stashes it
+  // in sessionStorage; an emailed resume link carries it once in the URL, which
+  // we consume and strip. `urlToken` is read only to hand it to the resolver.
+  const urlToken = searchParams.get("token");
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [tokenResolved, setTokenResolved] = useState(false);
+
+  useEffect(() => {
+    if (!bookingId) {
+      setTokenResolved(true);
+      return;
+    }
+    setAccessToken(readTokenFromUrlOrStore(bookingId, urlToken));
+    setTokenResolved(true);
+  }, [bookingId, urlToken]);
+
   const [pollCount, setPollCount] = useState(0);
   const pollTimedOut = pollCount >= SUCCESS_POLL_MAX;
   const { toast } = useToast();
@@ -127,6 +141,19 @@ function SuccessPageContent() {
   });
 
   const booking = data?.data;
+
+  // The token is resolved in an effect (sessionStorage / URL), so on the very
+  // first render it is legitimately still null. Show the loading state until
+  // resolution completes to avoid flashing "No Booking Found".
+  if (!tokenResolved) {
+    return (
+      <PageShell>
+        <div className="max-w-lg mx-auto text-center py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-sacred-burgundy mx-auto" />
+        </div>
+      </PageShell>
+    );
+  }
 
   // No booking ID or no access token -> render the same "missing reference"
   // state. We deliberately do not distinguish between the two: a leaked
@@ -221,7 +248,7 @@ function SuccessPageContent() {
               <h1 className="text-3xl md:text-4xl font-bold mb-2 text-sacred-burgundy">Booking Confirmed!</h1>
               <p className="text-muted-foreground max-w-md mx-auto">
                 {isEvent
-                  ? "A confirmation has been sent to your email and WhatsApp."
+                  ? "A confirmation has been sent to your email."
                   : "Your booking has been confirmed. See you soon!"
                 }
               </p>
@@ -513,7 +540,7 @@ function SuccessPageContent() {
                 <>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-sacred-green mt-0.5 flex-shrink-0" />
-                    <span>You&apos;ll receive a confirmation email and WhatsApp message with all details</span>
+                    <span>You&apos;ll receive a confirmation email with all details</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-sacred-green mt-0.5 flex-shrink-0" />

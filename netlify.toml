@@ -35,11 +35,11 @@
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     # Restrict browser features
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(self)"
-    # Content Security Policy
-    # NOTE: 'unsafe-inline' is required by Next.js inline hydration scripts.
-    # To remove it, implement nonce-based CSP via Next.js middleware.
-    # 'unsafe-eval' was removed (SEC-015) — re-add ONLY if Razorpay checkout is re-enabled.
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' https://*.supabase.co blob:; connect-src 'self' https://*.supabase.co https://*.razorpay.com wss://*.supabase.co; frame-src https://api.razorpay.com https://checkout.razorpay.com https://www.openstreetmap.org https://www.google.com https://maps.google.com; object-src 'none'; base-uri 'self';"
+    # NOTE: Content-Security-Policy is intentionally NOT set here. It is defined
+    # in next.config.mjs (async headers) so it can differ by environment —
+    # 'unsafe-eval' is required by React/Turbopack in dev but must be excluded
+    # in production (SEC-015). Setting it here too would emit two CSP headers,
+    # and the browser enforces their intersection, re-breaking local dev.
 
 # Cache static assets
 [[headers]]

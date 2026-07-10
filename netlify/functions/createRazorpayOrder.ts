@@ -11,6 +11,7 @@ import {
 } from "./helpers/security";
 import { isDbRateLimited } from "./helpers/dbRateLimit";
 import { withSentry } from "./helpers/logger";
+import { holdHasExpired } from "./helpers/bookingHold";
 import Razorpay from "razorpay";
 
 const razorpay = new Razorpay({
@@ -74,7 +75,7 @@ const _handler: Handler = async (event) => {
       where: { id: bookingId, accessTokenHash },
       select: {
         id: true, status: true, type: true,
-        amountPaise: true, currency: true,
+        amountPaise: true, currency: true, createdAt: true,
         customerName: true, customerEmail: true, customerPhone: true,
       },
     });
@@ -90,6 +91,21 @@ const _handler: Handler = async (event) => {
         body: JSON.stringify({
           success: false,
           error: "This booking is not eligible for payment. It may have already been paid or expired.",
+        }),
+      };
+    }
+
+    // The booking still reads PENDING_PAYMENT but its hold has lapsed, so its
+    // seats are back in inventory. Opening checkout here would invite a capture
+    // against a seat we no longer reserve — verifyPayment would then refuse to
+    // confirm and we would owe a refund. Refuse before any money moves.
+    if (holdHasExpired(booking.createdAt)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: "This booking has expired. Please start a new booking.",
         }),
       };
     }

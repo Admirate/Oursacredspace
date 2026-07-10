@@ -89,7 +89,9 @@ describe("adminUpdateSpaceRequest handler", () => {
       data: { status: "PENDING_PAYMENT" },
     });
 
-    expect(prisma.notificationLog.create).toHaveBeenCalled();
+    // WhatsApp notifications were removed — approving a space request no longer
+    // creates a (previously dead, PENDING/WHATSAPP) notification log.
+    expect(prisma.notificationLog.create).not.toHaveBeenCalled();
   });
 
   it("declines a space request and syncs booking to DECLINED", async () => {

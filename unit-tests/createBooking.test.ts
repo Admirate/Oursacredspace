@@ -6,6 +6,14 @@ jest.mock("../netlify/functions/helpers/prisma", () =>
 
 jest.mock("../netlify/functions/helpers/logger", () => ({
   withSentry: (_name: string, fn: any) => fn,
+  // bookingHold's expireStaleHolds logs via `logger`; without this the helper's
+  // own catch block throws on `logger.error` and every handler returns 500.
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    payment: jest.fn(),
+  },
 }));
 
 // createBooking rate-limits via the DB-backed limiter (isDbRateLimited), not
@@ -13,6 +21,11 @@ jest.mock("../netlify/functions/helpers/logger", () => ({
 // without exercising the real $transaction/rateLimitEntry path.
 jest.mock("../netlify/functions/helpers/dbRateLimit", () => ({
   isDbRateLimited: jest.fn().mockResolvedValue(false),
+}));
+
+// SEC-004: the resume path emails a link instead of returning a token.
+jest.mock("../netlify/functions/helpers/notifications", () => ({
+  sendResumePaymentLink: jest.fn().mockResolvedValue({ ok: true }),
 }));
 
 jest.mock("../netlify/functions/helpers/security", () => ({
@@ -35,6 +48,7 @@ jest.mock("../netlify/functions/helpers/security", () => ({
 import { handler } from "../netlify/functions/createBooking";
 import { prisma } from "./__mocks__/prisma";
 import { isDbRateLimited } from "../netlify/functions/helpers/dbRateLimit";
+import { sendResumePaymentLink } from "../netlify/functions/helpers/notifications";
 
 const makeEvent = (overrides: Partial<HandlerEvent> = {}): HandlerEvent => ({
   rawUrl: "http://localhost:8888/.netlify/functions/createBooking",
@@ -105,6 +119,19 @@ const makeBooking = (overrides: any = {}) => ({
   ...overrides,
 });
 
+/**
+ * Capacity is enforced against the SUM of `quantity` across active bookings
+ * (booking.aggregate), not a row count — one booking may hold several seats.
+ * The handler calls aggregate twice: once up front, and again inside the
+ * transaction to re-check under concurrency. A single mockResolvedValue
+ * answers both reads.
+ */
+const stubBookedSeats = (seats: number) => {
+  (prisma.booking.aggregate as jest.Mock).mockResolvedValue({
+    _sum: { quantity: seats },
+  });
+};
+
 describe("createBooking handler", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -113,6 +140,7 @@ describe("createBooking handler", () => {
     // implementations. Reset the duplicate-check default each test so a
     // truthy value set by the duplicate test does not leak into later tests.
     (prisma.booking.findFirst as jest.Mock).mockResolvedValue(null);
+    stubBookedSeats(0);
   });
 
   // ── HTTP guards ──
@@ -221,7 +249,7 @@ describe("createBooking handler", () => {
 
   it("returns 400 when class is fully booked", async () => {
     (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass({ capacity: 10 }));
-    (prisma.booking.count as jest.Mock).mockResolvedValue(10);
+    stubBookedSeats(10);
     const response = await handler(
       makeEvent({ body: JSON.stringify(validClassBody) }),
       {} as any
@@ -233,7 +261,7 @@ describe("createBooking handler", () => {
 
   it("returns 200 for valid CLASS booking", async () => {
     (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
-    (prisma.booking.count as jest.Mock).mockResolvedValue(5);
+    stubBookedSeats(5);
     (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
     (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
 
@@ -253,14 +281,19 @@ describe("createBooking handler", () => {
     expect(body.data.accessToken.length).toBeGreaterThanOrEqual(40);
   });
 
-  // SEC-004: Duplicate-check must not leak an existing bookingId. It must
-  // return a 409 with a generic message regardless of whether email-only
-  // matches. The new logic also requires phone to match before treating a
-  // request as a duplicate.
-  it("returns 409 without leaking bookingId when an active duplicate exists", async () => {
+  // SEC-004: Duplicate-check must not leak an existing bookingId. A booking
+  // that is already CONFIRMED has nothing to resume, so it must return a 409
+  // with a generic message. The check also requires phone to match before
+  // treating a request as a duplicate.
+  it("returns 409 without leaking bookingId when a confirmed duplicate exists", async () => {
     (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
-    (prisma.booking.count as jest.Mock).mockResolvedValue(0);
-    (prisma.booking.findFirst as jest.Mock).mockResolvedValue({ id: "bkg-existing-001" });
+    stubBookedSeats(0);
+    (prisma.booking.findFirst as jest.Mock).mockResolvedValue({
+      id: "bkg-existing-001",
+      status: "CONFIRMED",
+      type: "CLASS",
+      amountPaise: 50000,
+    });
 
     const response = await handler(
       makeEvent({ body: JSON.stringify(validClassBody) }),
@@ -270,7 +303,7 @@ describe("createBooking handler", () => {
     expect(response!.statusCode).toBe(409);
     const body = JSON.parse(response!.body!);
     expect(body.success).toBe(false);
-    expect(body.error).toMatch(/already exists/i);
+    expect(body.error).toMatch(/already have a confirmed booking/i);
     expect(JSON.stringify(body)).not.toContain("bkg-existing-001");
     // The duplicate query must include BOTH customerEmail AND customerPhone.
     const findFirstCall = (prisma.booking.findFirst as jest.Mock).mock.calls[0][0];
@@ -280,11 +313,13 @@ describe("createBooking handler", () => {
         customerPhone: "+919876543210",
       })
     );
+    // Neither an access token nor a booking id may be minted for a duplicate.
+    expect(prisma.booking.update).not.toHaveBeenCalled();
   });
 
   it("allows booking when class has unlimited capacity (null)", async () => {
     (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass({ capacity: null }));
-    (prisma.booking.count as jest.Mock).mockResolvedValue(0);
+    stubBookedSeats(0);
     (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
     (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
 
@@ -336,7 +371,7 @@ describe("createBooking handler", () => {
 
   it("returns 400 when event is fully booked", async () => {
     (prisma.event.findUnique as jest.Mock).mockResolvedValue(makeEvent_({ capacity: 50 }));
-    (prisma.booking.count as jest.Mock).mockResolvedValue(50);
+    stubBookedSeats(50);
     const response = await handler(
       makeEvent({ body: JSON.stringify(validEventBody) }),
       {} as any
@@ -348,7 +383,7 @@ describe("createBooking handler", () => {
 
   it("returns 200 for valid EVENT booking", async () => {
     (prisma.event.findUnique as jest.Mock).mockResolvedValue(makeEvent_());
-    (prisma.booking.count as jest.Mock).mockResolvedValue(10);
+    stubBookedSeats(10);
     (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking({ type: "EVENT" }));
     (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
 
@@ -439,7 +474,7 @@ describe("createBooking handler", () => {
 
   it("returns 400 with CLASS_FULL when transaction throws CLASS_FULL", async () => {
     (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
-    (prisma.booking.count as jest.Mock).mockResolvedValue(5);
+    stubBookedSeats(5);
     (prisma.$transaction as jest.Mock).mockRejectedValue(new Error("CLASS_FULL"));
 
     const response = await handler(
@@ -454,7 +489,7 @@ describe("createBooking handler", () => {
 
   it("returns 400 with EVENT_FULL when transaction throws EVENT_FULL", async () => {
     (prisma.event.findUnique as jest.Mock).mockResolvedValue(makeEvent_());
-    (prisma.booking.count as jest.Mock).mockResolvedValue(10);
+    stubBookedSeats(10);
     (prisma.$transaction as jest.Mock).mockRejectedValue(new Error("EVENT_FULL"));
 
     const response = await handler(
@@ -487,7 +522,7 @@ describe("createBooking handler", () => {
 
   it("creates a statusHistory record on successful booking", async () => {
     (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
-    (prisma.booking.count as jest.Mock).mockResolvedValue(0);
+    stubBookedSeats(0);
     (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
     (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
 
@@ -502,5 +537,225 @@ describe("createBooking handler", () => {
         }),
       })
     );
+  });
+
+  // ── Unpaid-booking hold window (denial-of-inventory) ──
+
+  describe("seat hold window", () => {
+    const pendingClause = (call: any) =>
+      call.where.OR?.find((c: any) => c.status === "PENDING_PAYMENT");
+
+    it("excludes hold-expired unpaid bookings from the capacity count", async () => {
+      (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+      (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
+      (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
+
+      await handler(makeEvent({ body: JSON.stringify(validClassBody) }), {} as any);
+
+      // Without this bound, abandoned bookings would hold seats forever and an
+      // attacker could exhaust a class's capacity for free.
+      const aggCall = (prisma.booking.aggregate as jest.Mock).mock.calls[0][0];
+      const pending = pendingClause(aggCall);
+      expect(pending).toBeDefined();
+      expect(pending.createdAt.gte).toBeInstanceOf(Date);
+      expect(aggCall.where.OR).toContainEqual({ status: "CONFIRMED" });
+    });
+
+    it("row-locks the class inside the transaction before the capacity re-check", async () => {
+      (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+      (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
+      (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
+
+      // Record the order of the lock ($queryRaw FOR UPDATE) and the in-tx
+      // aggregate. The lock MUST come first, or two racing bookings both read a
+      // stale count and overbook the last seat.
+      const order: string[] = [];
+      (prisma.$queryRaw as jest.Mock).mockImplementation((strings: any) => {
+        if (String(strings?.join?.("")).includes("FOR UPDATE")) order.push("lock");
+        return Promise.resolve([]);
+      });
+      // Aggregate is called both pre-tx and in-tx; tag every call, we only need
+      // to see a lock precede the last (in-tx) one.
+      (prisma.booking.aggregate as jest.Mock).mockImplementation(() => {
+        order.push("aggregate");
+        return Promise.resolve({ _sum: { quantity: 0 } });
+      });
+
+      await handler(makeEvent({ body: JSON.stringify(validClassBody) }), {} as any);
+
+      expect(order).toContain("lock");
+      // The lock precedes the final (transactional) aggregate.
+      expect(order.indexOf("lock")).toBeLessThan(order.lastIndexOf("aggregate"));
+    });
+
+    it("sweeps stale holds for the class before counting seats", async () => {
+      (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+      (prisma.booking.findMany as jest.Mock).mockResolvedValue([{ id: "bkg-stale" }]);
+      (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
+      (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
+
+      await handler(makeEvent({ body: JSON.stringify(validClassBody) }), {} as any);
+
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "EXPIRED" }),
+        })
+      );
+    });
+
+    it("still creates the booking when the stale-hold sweep fails", async () => {
+      (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+      // The read-time filter already protects capacity, so a sweep failure
+      // must not fail the customer's booking.
+      (prisma.booking.findMany as jest.Mock).mockRejectedValue(new Error("DB down"));
+      (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
+      (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
+
+      const response = await handler(
+        makeEvent({ body: JSON.stringify(validClassBody) }),
+        {} as any
+      );
+
+      expect(response!.statusCode).toBe(200);
+    });
+
+    // SEC-004: the resume path must NOT return the bookingId or a token in the
+    // response body — both are the PII-disclosure vector. It emails the link to
+    // the booking's own address instead.
+    it("emails the resume link and leaks neither bookingId nor token", async () => {
+      (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+      (prisma.booking.findFirst as jest.Mock).mockResolvedValue({
+        id: "bkg-existing-001",
+        status: "PENDING_PAYMENT",
+        type: "CLASS",
+        amountPaise: 50000,
+        createdAt: new Date(), // fresh hold
+        customerName: "Arjun Kumar",
+        customerEmail: "arjun@example.com",
+      });
+      (prisma.booking.update as jest.Mock).mockResolvedValue({});
+
+      const response = await handler(
+        makeEvent({ body: JSON.stringify(validClassBody) }),
+        {} as any
+      );
+
+      expect(response!.statusCode).toBe(200);
+      const raw = response!.body!;
+      const body = JSON.parse(raw);
+
+      expect(body.data.resumeEmailSent).toBe(true);
+      // The response must be free of anything that unlocks the booking.
+      expect(body.data.bookingId).toBeUndefined();
+      expect(body.data.accessToken).toBeUndefined();
+      expect(raw).not.toContain("bkg-existing-001");
+
+      // The link was emailed to the booking's own address, not the caller.
+      expect(sendResumePaymentLink).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "bkg-existing-001",
+          customerEmail: "arjun@example.com",
+        }),
+        expect.stringContaining("/success?bookingId=bkg-existing-001&token=")
+      );
+    });
+
+    it("rotates the token only after the email is accepted for delivery", async () => {
+      (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+      (prisma.booking.findFirst as jest.Mock).mockResolvedValue({
+        id: "bkg-existing-001",
+        status: "PENDING_PAYMENT",
+        type: "CLASS",
+        amountPaise: 50000,
+        createdAt: new Date(),
+        customerName: "Arjun Kumar",
+        customerEmail: "arjun@example.com",
+      });
+      (prisma.booking.update as jest.Mock).mockResolvedValue({});
+
+      // Email delivery fails — the token must NOT be rotated, or we would break
+      // the customer's existing link without delivering a replacement.
+      (sendResumePaymentLink as jest.Mock).mockResolvedValueOnce({ ok: false, reason: "down" });
+
+      const response = await handler(
+        makeEvent({ body: JSON.stringify(validClassBody) }),
+        {} as any
+      );
+
+      // Still generic — the failure must not be distinguishable by the caller.
+      const body = JSON.parse(response!.body!);
+      expect(body.data.resumeEmailSent).toBe(true);
+      expect(prisma.booking.update).not.toHaveBeenCalled();
+    });
+
+    it("does not email or rotate when resume attempts are rate limited", async () => {
+      (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+      (prisma.booking.findFirst as jest.Mock).mockResolvedValue({
+        id: "bkg-existing-001",
+        status: "PENDING_PAYMENT",
+        type: "CLASS",
+        amountPaise: 50000,
+        createdAt: new Date(),
+        customerName: "Arjun Kumar",
+        customerEmail: "arjun@example.com",
+      });
+
+      // First call = booking rate-limit gate (allow), second = resume gate (block).
+      (isDbRateLimited as jest.Mock)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+
+      const response = await handler(
+        makeEvent({ body: JSON.stringify(validClassBody) }),
+        {} as any
+      );
+
+      const body = JSON.parse(response!.body!);
+      // Same generic body, but no email bomb and no token rotation.
+      expect(body.data.resumeEmailSent).toBe(true);
+      expect(sendResumePaymentLink).not.toHaveBeenCalled();
+      expect(prisma.booking.update).not.toHaveBeenCalled();
+    });
+
+    // Belt and braces: if the sweep failed, a stale row can still surface here.
+    // Its seats are already back in inventory, so issuing a fresh token would
+    // let the customer pay for a seat we may have resold.
+    it("refuses to resume an unpaid booking whose hold has lapsed", async () => {
+      (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+      (prisma.booking.findFirst as jest.Mock).mockResolvedValue({
+        id: "bkg-existing-001",
+        status: "PENDING_PAYMENT",
+        type: "CLASS",
+        amountPaise: 50000,
+        createdAt: new Date(Date.now() - 10 * 60 * 1000), // 10 min old
+      });
+
+      const response = await handler(
+        makeEvent({ body: JSON.stringify(validClassBody) }),
+        {} as any
+      );
+
+      expect(response!.statusCode).toBe(409);
+      const body = JSON.parse(response!.body!);
+      expect(body.error).toMatch(/expired before payment/i);
+      // No fresh access token may be minted for a dead hold.
+      expect(prisma.booking.update).not.toHaveBeenCalled();
+      expect(JSON.stringify(body)).not.toContain("bkg-existing-001");
+    });
+
+    it("does not let an expired attempt permanently block a rebooking", async () => {
+      (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass());
+      (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
+      (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
+
+      await handler(makeEvent({ body: JSON.stringify(validClassBody) }), {} as any);
+
+      // The duplicate probe must ignore hold-expired rows, otherwise a customer
+      // who abandoned a checkout could never book that class again.
+      const dupCall = (prisma.booking.findFirst as jest.Mock).mock.calls[0][0];
+      const pending = pendingClause(dupCall);
+      expect(pending).toBeDefined();
+      expect(pending.createdAt.gte).toBeInstanceOf(Date);
+    });
   });
 });

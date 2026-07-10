@@ -140,14 +140,9 @@ export const POLLING_MAX_ATTEMPTS = 15; // 30 seconds total
 export const POLLING_TIMEOUT = 30000; // 30 seconds
 
 // === WhatsApp Contact ===
+// NOTE: This is the public "Enquire on WhatsApp" CTA number (wa.me links), not
+// a notification channel. Automated WhatsApp notifications were removed;
+// booking confirmations are sent via email only.
 
 export const WHATSAPP_CONTACT_NUMBER = "919030613344"; // +91 90306 13344
-
-// === WhatsApp Templates (for reference) ===
-
-export const WHATSAPP_TEMPLATES = {
-  EVENT_CONFIRMED: "booking_event_confirmed",
-  CLASS_CONFIRMED: "booking_class_confirmed",
-  SPACE_CALL_SCHEDULED: "space_call_confirmed",
-} as const;
 

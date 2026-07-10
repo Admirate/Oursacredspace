@@ -12,6 +12,8 @@ import {
 } from "./helpers/security";
 import { isDbRateLimited } from "./helpers/dbRateLimit";
 import { withSentry } from "./helpers/logger";
+import { sendResumePaymentLink } from "./helpers/notifications";
+import { occupiesSeatWhere, expireStaleHolds, holdHasExpired, lockResourceForBooking } from "./helpers/bookingHold";
 
 /**
  * SECURITY (SEC-005, SEC-006): Per-booking access token.
@@ -95,6 +97,11 @@ const _handler: Handler = async (event) => {
         };
       }
 
+      // Release seats held by abandoned checkouts before counting. Best-effort:
+      // occupiesSeatWhere() below already excludes them from the count, so a
+      // failure here cannot cause an overbooking.
+      await expireStaleHolds({ classSessionId: validatedData.classSessionId });
+
       const [classSession, classBooked] = await Promise.all([
         prisma.classSession.findUnique({
           where: { id: validatedData.classSessionId },
@@ -105,8 +112,7 @@ const _handler: Handler = async (event) => {
           _sum: { quantity: true },
           where: {
             classSessionId: validatedData.classSessionId,
-            status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
-            deletedAt: null,
+            ...occupiesSeatWhere(),
           },
         }),
       ]);
@@ -168,6 +174,9 @@ const _handler: Handler = async (event) => {
         };
       }
 
+      // See the CLASS branch: release abandoned holds before counting.
+      await expireStaleHolds({ eventId: validatedData.eventId });
+
       const [eventRecord, eventBooked] = await Promise.all([
         prisma.event.findUnique({
           where: { id: validatedData.eventId },
@@ -178,8 +187,7 @@ const _handler: Handler = async (event) => {
           _sum: { quantity: true },
           where: {
             eventId: validatedData.eventId,
-            status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
-            deletedAt: null,
+            ...occupiesSeatWhere(),
           },
         }),
       ]);
@@ -272,12 +280,15 @@ const _handler: Handler = async (event) => {
       customerPhone: validatedData.phone,
       deletedAt: null,
     };
+    // Only a booking that is CONFIRMED or still holding its seats counts as a
+    // duplicate. An abandoned, hold-expired attempt must not dead-end the
+    // customer with a 409 forever — they are entitled to book again.
     if (validatedData.type === BookingType.CLASS) {
       duplicateWhere.classSessionId = validatedData.classSessionId;
-      duplicateWhere.status = { in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED] };
+      duplicateWhere.OR = occupiesSeatWhere().OR;
     } else if (validatedData.type === BookingType.EVENT) {
       duplicateWhere.eventId = validatedData.eventId;
-      duplicateWhere.status = { in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED] };
+      duplicateWhere.OR = occupiesSeatWhere().OR;
     } else if (validatedData.type === BookingType.SPACE) {
       // SPACE bookings are created as REQUESTED (no payment). The previous
       // check keyed on the just-created spaceRequestId (always unique) AND on
@@ -290,57 +301,98 @@ const _handler: Handler = async (event) => {
 
     const existingBooking = await prisma.booking.findFirst({
       where: duplicateWhere,
-      select: { id: true, status: true, type: true, amountPaise: true },
+      select: {
+        id: true, status: true, type: true, amountPaise: true, createdAt: true,
+        customerName: true, customerEmail: true,
+      },
     });
     if (existingBooking) {
-      // RESUME PAYMENT UX: If the collision is with the caller's own
-      // *unpaid* CLASS/EVENT booking, don't dead-end them — let them resume
-      // payment. The email+phone match is the same authentication bar the
-      // duplicate check already enforces (phone is not publicly enumerable),
-      // so we treat a match as the same person returning.
+      // RESUME PAYMENT: the collision is with an existing *unpaid* CLASS/EVENT
+      // booking. A match on email+phone is NOT proof of identity — both are
+      // knowable about a victim — so we must not hand the caller anything that
+      // unlocks the booking. Instead we email a fresh resume link to the
+      // booking's OWN email address (SEC-004). The response never contains the
+      // bookingId or an access token, so an attacker probing with a victim's
+      // email+phone learns nothing and gains no access to their PII.
       //
-      // The original one-time access token is unrecoverable (only its hash
-      // was persisted), so we rotate it: issue a fresh token bound to the
-      // existing booking. Any older in-flight checkout using the previous
-      // token is invalidated — acceptable, since only one payment can
-      // succeed for the booking anyway.
+      // A booking whose hold has lapsed is NOT resumable: its seats have been
+      // released back to inventory (and may already be sold), so reviving it
+      // would let someone pay for a seat we no longer have. The sweep above
+      // will normally have flipped it to EXPIRED already; this check holds even
+      // when the sweep failed.
       const isResumable =
         existingBooking.status === BookingStatus.PENDING_PAYMENT &&
+        !holdHasExpired(existingBooking.createdAt) &&
         (existingBooking.type === BookingType.CLASS ||
           existingBooking.type === BookingType.EVENT);
 
       if (isResumable) {
-        const resumeToken = generateBookingAccessToken();
-        await prisma.booking.update({
-          where: { id: existingBooking.id },
-          data: { accessTokenHash: hashToken(resumeToken) },
-        });
-
-        return {
+        // Generic, non-leaky response used for every outcome below (sent,
+        // rate-limited, or send-failed). It reveals nothing about whether the
+        // booking exists — the same body an attacker and the real owner see.
+        const resumeEmailResponse = {
           statusCode: 200,
           headers,
           body: JSON.stringify({
             success: true,
             data: {
-              bookingId: existingBooking.id,
-              accessToken: resumeToken,
-              type: existingBooking.type,
-              amount: existingBooking.amountPaise,
+              // Deliberately no bookingId / accessToken. The link is emailed.
+              resumeEmailSent: true,
               requiresPayment: existingBooking.amountPaise > 0,
-              // Signals the client that this is an existing booking being
-              // continued rather than a freshly created one.
-              resumed: true,
             },
           }),
         };
+
+        // Bound resume emails per booking. Without this, an attacker who knows
+        // the email+phone could email-bomb the victim and repeatedly rotate the
+        // token out from under any in-flight checkout. Keyed on the booking id
+        // (the victim's booking), not the caller's IP.
+        if (await isDbRateLimited(`resume:${existingBooking.id}`, 3, 30 * 60 * 1000)) {
+          return resumeEmailResponse;
+        }
+
+        // Send FIRST, persist the rotated hash only on success — so a delivery
+        // failure never invalidates the customer's existing link without
+        // handing them a working replacement.
+        const resumeToken = generateBookingAccessToken();
+        const base =
+          process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+        const resumeUrl =
+          `${base.replace(/\/$/, "")}/success` +
+          `?bookingId=${encodeURIComponent(existingBooking.id)}` +
+          `&token=${encodeURIComponent(resumeToken)}`;
+
+        const sendResult = await sendResumePaymentLink(
+          {
+            id: existingBooking.id,
+            customerName: existingBooking.customerName,
+            customerEmail: existingBooking.customerEmail,
+            amountPaise: existingBooking.amountPaise,
+          },
+          resumeUrl
+        );
+
+        if (sendResult.ok) {
+          await prisma.booking.update({
+            where: { id: existingBooking.id },
+            data: { accessTokenHash: hashToken(resumeToken) },
+          });
+        }
+        // On failure we already logged inside sendResumePaymentLink; still
+        // return the generic body so the response can't be used to distinguish
+        // "email configured" from "not", or "booking exists" from "not".
+        return resumeEmailResponse;
       }
 
-      // Already CONFIRMED, or an open SPACE request: nothing to resume. Return
-      // a clear, non-leaky message (never echo the bookingId / access token).
+      // Already CONFIRMED, an expired hold, or an open SPACE request: nothing
+      // to resume. Return a clear, non-leaky message (never echo the bookingId
+      // / access token).
       const message =
         existingBooking.status === BookingStatus.CONFIRMED
           ? "You already have a confirmed booking for this. Please check your email for the confirmation."
-          : "We already have an active request from you for this. We'll be in touch shortly — please contact us if you need to make a change.";
+          : existingBooking.status === BookingStatus.PENDING_PAYMENT
+            ? "Your previous booking attempt expired before payment. Please start a new booking."
+            : "We already have an active request from you for this. We'll be in touch shortly — please contact us if you need to make a change.";
       return {
         statusCode: 409,
         headers,
@@ -350,6 +402,15 @@ const _handler: Handler = async (event) => {
 
     // Use a transaction with SELECT FOR UPDATE for atomic capacity check
     const booking = await prisma.$transaction(async (tx) => {
+      // SEC (concurrency): serialize bookings for this resource BEFORE the
+      // capacity re-check, so two requests racing for the last seat can't both
+      // read a stale count and both pass. Must be the first statement in the
+      // transaction. No-op for SPACE (no capacity).
+      await lockResourceForBooking(tx, {
+        classSessionId: validatedData.classSessionId,
+        eventId: validatedData.eventId,
+      });
+
       // Re-check capacity inside transaction to prevent race conditions
       if (validatedData.type === BookingType.CLASS && validatedData.classSessionId) {
         const cs = await tx.classSession.findUnique({
@@ -361,8 +422,7 @@ const _handler: Handler = async (event) => {
             _sum: { quantity: true },
             where: {
               classSessionId: validatedData.classSessionId,
-              status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
-              deletedAt: null,
+              ...occupiesSeatWhere(),
             },
           });
           if ((agg._sum.quantity ?? 0) + validatedData.quantity > cs.capacity) {
@@ -381,8 +441,7 @@ const _handler: Handler = async (event) => {
             _sum: { quantity: true },
             where: {
               eventId: validatedData.eventId,
-              status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
-              deletedAt: null,
+              ...occupiesSeatWhere(),
             },
           });
           if ((agg._sum.quantity ?? 0) + validatedData.quantity > ev.capacity) {

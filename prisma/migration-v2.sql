@@ -275,43 +275,16 @@ CREATE INDEX IF NOT EXISTS idx_booking_pending_expiry
 
 
 -- ============ PHASE 5C: PG_CRON BOOKING EXPIRATION ============
--- Run this separately once the pg_cron extension is enabled in Supabase.
--- Expires unpaid bookings older than 5 minutes, checked every minute.
+-- MOVED. This block used to sit here commented out, and so was never run —
+-- unpaid bookings held their seats forever.
 --
--- The single-statement CTE flips PENDING_PAYMENT -> EXPIRED and writes ONE
--- status_history row per booking in the same transaction, using UPDATE ...
--- RETURNING so only rows expired in THIS run get an audit entry (no
--- duplicate history rows across overlapping runs).
+-- The runnable version now lives in:
+--   prisma/migrations/enable_booking_expiry_cron.sql
 --
--- NOTE: keep this expiry window (5 min) strictly GREATER than the Razorpay
--- checkout `timeout` in src/hooks/usePayment.ts (currently 240s / 4 min) so a
--- payment can never capture against an already-expired booking.
---
--- CREATE EXTENSION IF NOT EXISTS pg_cron;
---
--- SELECT cron.schedule(
---   'expire-unpaid-bookings',
---   '* * * * *',
---   $$
---     WITH expired AS (
---       UPDATE bookings
---       SET status = 'EXPIRED'
---       WHERE status = 'PENDING_PAYMENT'
---       AND created_at < NOW() - INTERVAL '5 minutes'
---       RETURNING id
---     )
---     INSERT INTO status_history (id, booking_id, from_status, to_status, changed_by, reason, created_at)
---     SELECT
---       gen_random_uuid()::text,
---       id,
---       'PENDING_PAYMENT',
---       'EXPIRED',
---       'SYSTEM',
---       'Auto-expired: payment not completed within 5 minutes',
---       NOW()
---     FROM expired;
---   $$
--- );
+-- Apply it in the Supabase SQL Editor. Note that inventory correctness no
+-- longer depends on it: netlify/functions/helpers/bookingHold.ts excludes
+-- hold-expired bookings from every capacity query at read time. The cron job
+-- keeps the persisted `status` column in step with that rule.
 
 
 -- ============ VERIFICATION ============

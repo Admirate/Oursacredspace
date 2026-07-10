@@ -215,21 +215,18 @@ const _handler: Handler = async (event) => {
 
     // Handle payment captured (success)
     if (eventType === "payment.captured" || paymentStatus === "captured") {
-      // SECURITY: Use database transaction to ensure atomicity
-      // This prevents race conditions where concurrent webhooks could cause double processing
+      // SECURITY (concurrency): this webhook and the synchronous verifyPayment
+      // handler can process the same capture at the same time. A read-then-write
+      // on `status === CREATED` races under READ COMMITTED — both read CREATED
+      // and both confirm, producing a duplicate email and statusHistory row.
+      //
+      // Claim the payment atomically: `updateMany ... WHERE status = CREATED`
+      // re-checks the predicate under the row lock, so exactly one caller flips
+      // CREATED -> PAID (count 1) and runs the side effects; the other gets
+      // count 0 and skips.
       const result = await prisma.$transaction(async (tx) => {
-        // Double-check payment status inside transaction (prevents race condition)
-        const currentPayment = await tx.payment.findUnique({
-          where: { id: payment.id },
-          select: { status: true, razorpayPaymentId: true },
-        });
-        
-        if (currentPayment?.status !== PaymentStatus.CREATED) {
-          return { skipped: true, reason: "Payment already processed" };
-        }
-
-        await tx.payment.update({
-          where: { id: payment.id },
+        const claim = await tx.payment.updateMany({
+          where: { id: payment.id, status: PaymentStatus.CREATED },
           data: {
             razorpayPaymentId,
             status: PaymentStatus.PAID,
@@ -238,11 +235,23 @@ const _handler: Handler = async (event) => {
           },
         });
 
-        // Update booking status
-        await tx.booking.update({
-          where: { id: booking.id },
+        if (claim.count === 0) {
+          return { skipped: true, reason: "Payment already processed" };
+        }
+
+        // We won the claim. Confirm the booking only if it is still awaiting
+        // payment; guard it so a concurrent expiry/cancel isn't overwritten.
+        const confirm = await tx.booking.updateMany({
+          where: { id: booking.id, status: BookingStatus.PENDING_PAYMENT },
           data: { status: BookingStatus.CONFIRMED },
         });
+
+        if (confirm.count === 0) {
+          // Captured against a booking that is no longer PENDING_PAYMENT. The
+          // synchronous verifyPayment path owns refund alerting; here we simply
+          // avoid confirming or emailing a booking we couldn't transition.
+          return { skipped: true, reason: "Booking not confirmable" };
+        }
 
         await tx.statusHistory.create({
           data: {
@@ -266,7 +275,7 @@ const _handler: Handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: true }) };
       }
 
-      // === Send confirmation notifications (email + WhatsApp) ===
+      // === Send confirmation notification (email) ===
       // Notifications are best-effort; booking is already confirmed at this point.
       try {
         await sendBookingConfirmation(booking);

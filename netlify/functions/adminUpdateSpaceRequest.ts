@@ -4,8 +4,6 @@ import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
 import { isRateLimited, getClientIP, RATE_LIMITS, rateLimitResponse } from "./helpers/security";
 import { SpaceRequestStatus, BookingStatus } from "@prisma/client";
-// TODO: Uncomment when WhatsApp is configured
-// import { sendSpaceCallConfirmation } from "./helpers/sendWhatsApp";
 
 // Accept the status values that the frontend sends
 const updateSchema = z.object({
@@ -105,17 +103,6 @@ export const handler: Handler = async (event) => {
       await prisma.booking.update({
         where: { id: spaceRequest.booking.id },
         data: { status: newBookingStatus },
-      });
-    }
-
-    if (status === "APPROVED") {
-      await prisma.notificationLog.create({
-        data: {
-          channel: "WHATSAPP",
-          templateName: "space_approved",
-          to: spaceRequest.customerPhone,
-          status: "PENDING",
-        },
       });
     }
 

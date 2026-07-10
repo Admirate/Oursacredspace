@@ -1,18 +1,15 @@
 import { Resend } from "resend";
-import { sanitizeTemplateParam } from "./security";
 import { logger } from "./logger";
 import { prisma } from "./prisma";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const WHATSAPP_API_URL = "https://graph.facebook.com/v21.0";
 const FROM_EMAIL = process.env.EMAIL_FROM || "Our Sacred Space <noreply@oursacredspace.in>";
 
-// Cap how long a provider call may block the (user-facing) confirmation path.
-// verifyPayment awaits notifications before returning, so a slow/hung provider
-// would otherwise stall the success redirect.
+// Cap how long the email provider call may block the (user-facing) confirmation
+// path. verifyPayment awaits notifications before returning, so a slow/hung
+// provider would otherwise stall the success redirect.
 const EMAIL_TIMEOUT_MS = 4000;
-const WHATSAPP_TIMEOUT_MS = 4000;
 
 // A credential that is missing or still a placeholder ("re_placeholder",
 // "placeholder_token", etc.) must NOT trigger a real HTTP call — those calls
@@ -53,6 +50,22 @@ interface BookingWithRelations {
   event?: { title: string; startsAt: Date; venue: string; endsAt?: Date | null } | null;
 }
 
+/**
+ * Outcome of a single notification channel. `reason` carries the concrete
+ * failure cause (Resend error, timeout, missing credential, …) so it can be
+ * persisted to NotificationLog.error and surfaced in logs — a silent `false`
+ * is what made a missing RESEND_API_KEY take an hour to diagnose.
+ */
+interface ChannelResult {
+  ok: boolean;
+  reason?: string;
+}
+
+// Truncate a failure reason before persisting so a huge provider error body
+// can't bloat the NotificationLog row.
+const truncateReason = (reason: string): string =>
+  reason.length > 500 ? `${reason.slice(0, 497)}...` : reason;
+
 function formatPrice(paise: number): string {
   return `₹${(paise / 100).toLocaleString("en-IN")}`;
 }
@@ -76,15 +89,32 @@ function formatTime(date: Date): string {
 
 // ─── Email ──────────────────────────────────────────────
 
-async function sendConfirmationEmail(booking: BookingWithRelations): Promise<boolean> {
+async function sendConfirmationEmail(booking: BookingWithRelations): Promise<ChannelResult> {
   if (isPlaceholder(process.env.RESEND_API_KEY)) {
-    logger.warn("RESEND_API_KEY not configured, skipping email", { bookingId: booking.id });
-    return false;
+    // LOUD, actionable, and distinctive: the #1 cause of "customer didn't get
+    // a confirmation email" is this env var being missing in the runtime
+    // (production Netlify env, or a `netlify dev` server started before the
+    // key was added — env is read once at startup).
+    const reason =
+      "RESEND_API_KEY is missing or a placeholder — confirmation email NOT sent. " +
+      "Set RESEND_API_KEY in this environment (Netlify dashboard for prod; .env + RESTART `netlify dev` for local).";
+    logger.error("EMAIL MISCONFIGURED: RESEND_API_KEY not set", new Error(reason), {
+      bookingId: booking.id,
+      customerEmail: booking.customerEmail,
+    });
+    return { ok: false, reason };
   }
 
   const isClass = booking.type === "CLASS";
   const resource = isClass ? booking.classSession : booking.event;
-  if (!resource) return false;
+  if (!resource) {
+    const reason = `Booking has no ${isClass ? "classSession" : "event"} relation loaded — cannot build email`;
+    logger.error("Email skipped: missing booking relation", new Error(reason), {
+      bookingId: booking.id,
+      type: booking.type,
+    });
+    return { ok: false, reason };
+  }
 
   const title = resource.title;
   const date = formatDate(resource.startsAt);
@@ -115,14 +145,25 @@ async function sendConfirmationEmail(booking: BookingWithRelations): Promise<boo
     );
 
     if (error) {
-      logger.error("Resend email failed", new Error(error.message), { bookingId: booking.id });
-      return false;
+      // Resend resolves (not rejects) on API errors — e.g. unverified sending
+      // domain, invalid `from`, restricted key. Capture the full message.
+      const reason = `Resend API error: ${error.name ? `${error.name}: ` : ""}${error.message}`;
+      logger.error("Resend email failed", new Error(reason), {
+        bookingId: booking.id,
+        from: FROM_EMAIL,
+        to: booking.customerEmail,
+      });
+      return { ok: false, reason };
     }
 
-    return true;
+    return { ok: true };
   } catch (err) {
-    logger.error("Email send exception", err, { bookingId: booking.id });
-    return false;
+    // Thrown here means the withTimeout race fired or fetch threw (network /
+    // TLS). Distinguish the timeout so a too-aggressive EMAIL_TIMEOUT_MS is
+    // obvious rather than looking like a generic failure.
+    const reason = err instanceof Error ? err.message : String(err);
+    logger.error("Email send exception", err, { bookingId: booking.id, timeoutMs: EMAIL_TIMEOUT_MS });
+    return { ok: false, reason: `Email send exception: ${reason}` };
   }
 }
 
@@ -200,110 +241,174 @@ function buildConfirmationHtml(data: {
 </html>`;
 }
 
-// ─── WhatsApp ───────────────────────────────────────────
+// ─── Resume-payment link ────────────────────────────────
 
-async function sendWhatsAppConfirmation(booking: BookingWithRelations): Promise<boolean> {
-  if (isPlaceholder(process.env.WHATSAPP_TOKEN) || isPlaceholder(process.env.WHATSAPP_PHONE_NUMBER_ID)) {
-    logger.warn("WhatsApp credentials not configured, skipping", { bookingId: booking.id });
-    return false;
+interface ResumeLinkRecipient {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  amountPaise: number;
+}
+
+/**
+ * SECURITY (SEC-004): Deliver the resume-payment link to the booking's OWN
+ * email address rather than returning the access token in the HTTP response.
+ *
+ * The resume flow is reachable by anyone who knows a booking's email + phone.
+ * If the fresh access token were returned in the response body, that pair —
+ * neither of which is a secret — would yield the token, and through it the
+ * victim's full PII (getBooking) and payment surface. Routing the token
+ * through email means only the party who controls the inbox can act on it.
+ *
+ * Returns whether the mail was accepted for delivery. The caller must NOT
+ * persist the rotated token hash unless this succeeds, otherwise it would
+ * invalidate the customer's existing link without delivering a new one.
+ */
+export async function sendResumePaymentLink(
+  booking: ResumeLinkRecipient,
+  resumeUrl: string
+): Promise<ChannelResult> {
+  if (isPlaceholder(process.env.RESEND_API_KEY)) {
+    const reason =
+      "RESEND_API_KEY is missing or a placeholder — resume-payment link NOT sent.";
+    logger.error("EMAIL MISCONFIGURED: cannot send resume link", new Error(reason), {
+      bookingId: booking.id,
+    });
+    return { ok: false, reason };
   }
 
-  const isClass = booking.type === "CLASS";
-  const resource = isClass ? booking.classSession : booking.event;
-  if (!resource) return false;
-
-  const templateName = isClass ? "booking_class_confirmed" : "booking_event_confirmed";
-  const venue = isClass
-    ? (booking.classSession?.location ?? "TBA")
-    : (booking.event?.venue ?? "TBA");
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
   try {
-    const response = await fetch(
-      `${WHATSAPP_API_URL}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: booking.customerPhone.replace(/\D/g, ""),
-          type: "template",
-          template: {
-            name: templateName,
-            language: { code: "en" },
-            components: [
-              {
-                type: "body",
-                parameters: [
-                  { type: "text", text: sanitizeTemplateParam(booking.customerName) },
-                  { type: "text", text: sanitizeTemplateParam(resource.title) },
-                  { type: "text", text: sanitizeTemplateParam(formatDate(resource.startsAt), 50) },
-                  { type: "text", text: sanitizeTemplateParam(formatTime(resource.startsAt), 20) },
-                  { type: "text", text: sanitizeTemplateParam(venue) },
-                ],
-              },
-            ],
-          },
+    const { error } = await withTimeout(
+      resend.emails.send({
+        from: FROM_EMAIL,
+        to: booking.customerEmail,
+        subject: "Complete your booking payment — Our Sacred Space",
+        html: buildResumeLinkHtml({
+          customerName: escapeHtml(booking.customerName),
+          amount: escapeHtml(formatPrice(booking.amountPaise)),
+          // resumeUrl is a server-built absolute URL (origin + bookingId +
+          // token); it contains no user input, but escape defensively.
+          resumeUrl: escapeHtml(resumeUrl),
         }),
-      }
+      }),
+      EMAIL_TIMEOUT_MS,
+      "resend resume email"
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      logger.error("WhatsApp API error", new Error(data.error?.message || "Unknown"), {
-        bookingId: booking.id,
-        status: response.status,
-      });
-      return false;
+    if (error) {
+      const reason = `Resend API error: ${error.name ? `${error.name}: ` : ""}${error.message}`;
+      logger.error("Resume-link email failed", new Error(reason), { bookingId: booking.id });
+      return { ok: false, reason };
     }
 
-    return true;
+    // Record the send for audit/debugging parity with confirmation emails.
+    try {
+      await prisma.notificationLog.create({
+        data: {
+          bookingId: booking.id,
+          channel: "EMAIL",
+          templateName: "booking_resume_payment_link",
+          to: booking.customerEmail,
+          status: "SENT",
+        },
+      });
+    } catch (logErr) {
+      logger.error("Resume-link notification log failed", logErr, { bookingId: booking.id });
+    }
+
+    return { ok: true };
   } catch (err) {
-    logger.error("WhatsApp send exception", err, { bookingId: booking.id });
-    return false;
-  } finally {
-    clearTimeout(timeoutId);
+    const reason = err instanceof Error ? err.message : String(err);
+    logger.error("Resume-link email exception", err, { bookingId: booking.id });
+    return { ok: false, reason: `Resume-link email exception: ${reason}` };
   }
+}
+
+function buildResumeLinkHtml(data: {
+  customerName: string;
+  amount: string;
+  resumeUrl: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#faf9f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <tr>
+      <td style="background:#2d5016;padding:28px 32px;text-align:center;">
+        <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:600;">Our Sacred Space</h1>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px;">
+        <h2 style="color:#2d5016;margin:0 0 8px;font-size:20px;">Finish your booking</h2>
+        <p style="color:#555;margin:0 0 16px;font-size:15px;line-height:1.5;">
+          Hi ${data.customerName}, you have a booking waiting for payment of
+          <strong>${data.amount}</strong>. Use the button below to complete it securely.
+        </p>
+        <p style="margin:24px 0;text-align:center;">
+          <a href="${data.resumeUrl}" style="display:inline-block;background:#2d5016;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;font-weight:600;">
+            Complete Payment
+          </a>
+        </p>
+        <p style="color:#888;margin:16px 0 0;font-size:13px;line-height:1.6;">
+          This link is unique to your booking — please don't forward it. If you
+          didn't request this, you can safely ignore this email; no payment will
+          be taken.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 32px;border-top:1px solid #eee;text-align:center;">
+        <p style="margin:0;color:#999;font-size:12px;">
+          Our Sacred Space · Secunderabad · <a href="https://www.oursacredspace.in" style="color:#2d5016;">oursacredspace.in</a>
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 // ─── Combined ───────────────────────────────────────────
 
 export async function sendBookingConfirmation(booking: BookingWithRelations): Promise<void> {
-  const [emailSent, whatsappSent] = await Promise.allSettled([
-    sendConfirmationEmail(booking),
-    sendWhatsAppConfirmation(booking),
-  ]);
+  // Email is currently the only confirmation channel. (WhatsApp notifications
+  // were removed; re-add a channel here and OR its result into `sent` if one
+  // is reintroduced.)
+  const emailRes: ChannelResult = await sendConfirmationEmail(booking);
+  const sent = emailRes.ok;
 
-  const emailOk = emailSent.status === "fulfilled" && emailSent.value;
-  const waOk = whatsappSent.status === "fulfilled" && whatsappSent.value;
-
-  const channel = emailOk && waOk ? "BOTH" : emailOk ? "EMAIL" : waOk ? "WHATSAPP" : "NONE";
+  const errorText = !sent && emailRes.reason ? truncateReason(emailRes.reason) : null;
 
   try {
     await prisma.notificationLog.create({
       data: {
         bookingId: booking.id,
-        channel: emailOk ? "EMAIL" : "WHATSAPP",
+        channel: "EMAIL",
         templateName: `booking_${booking.type.toLowerCase()}_confirmed`,
         to: booking.customerEmail,
-        status: channel === "NONE" ? "FAILED" : "SENT",
+        status: sent ? "SENT" : "FAILED",
+        error: errorText,
       },
     });
   } catch (logErr) {
     logger.error("Notification log creation failed", logErr, { bookingId: booking.id });
   }
 
-  if (!emailOk && !waOk) {
-    logger.error("CRITICAL: All notifications failed for confirmed booking", new Error("No notification delivered"), {
-      bookingId: booking.id,
-      customerEmail: booking.customerEmail,
-      customerPhone: booking.customerPhone,
-    });
+  if (!sent) {
+    logger.error(
+      "CRITICAL: Confirmation email failed for confirmed booking",
+      new Error(errorText ?? "Email not delivered"),
+      {
+        bookingId: booking.id,
+        customerEmail: booking.customerEmail,
+        emailReason: emailRes.reason,
+      }
+    );
   }
 }

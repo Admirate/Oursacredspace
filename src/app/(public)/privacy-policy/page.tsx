@@ -87,7 +87,7 @@ export default function PrivacyPolicyPage() {
             <p className="mb-3">We use the information we collect to:</p>
             <ul className="list-disc pl-6 space-y-1.5">
               <li>Process and confirm your bookings for classes, events, and spaces.</li>
-              <li>Send booking confirmations and updates via WhatsApp or email.</li>
+              <li>Send booking confirmations and updates via email.</li>
               <li>Respond to your enquiries and provide customer support.</li>
               <li>Process payments securely through Razorpay.</li>
               <li>Improve our website, services, and user experience.</li>
@@ -113,8 +113,8 @@ export default function PrivacyPolicyPage() {
                 <strong>Supabase:</strong> For secure database and file storage.
               </li>
               <li>
-                <strong>WhatsApp (Meta):</strong> To send booking confirmations and
-                updates via the WhatsApp Business API.
+                <strong>Resend:</strong> To send transactional booking confirmation
+                and update emails.
               </li>
               <li>
                 <strong>Sentry:</strong> For error tracking and performance monitoring.

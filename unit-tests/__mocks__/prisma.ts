@@ -27,10 +27,21 @@ const mockPrisma: Record<string, any> = {
   booking: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
-    findMany: jest.fn(),
+    // Default [] so expireStaleHolds finds nothing to sweep unless a test says so.
+    findMany: jest.fn().mockResolvedValue([]),
     create: jest.fn(),
     update: jest.fn(),
     count: jest.fn(),
+    // Capacity is multi-seat aware: handlers sum `quantity` across active
+    // bookings rather than counting rows. createBooking/adminDashboardStats
+    // use aggregate; getClasses/getEvents use groupBy. Both need a default —
+    // an undefined method throws a synchronous TypeError inside the
+    // `Promise.all([...])` in createBooking, which strands the sibling
+    // promise as an unhandled rejection and kills the Jest worker.
+    aggregate: jest.fn().mockResolvedValue({ _sum: { quantity: 0 } }),
+    groupBy: jest.fn().mockResolvedValue([]),
+    // expireStaleHolds sweeps abandoned PENDING_PAYMENT holds before counting.
+    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
   spaceRequest: {
     findUnique: jest.fn(),
@@ -41,14 +52,19 @@ const mockPrisma: Record<string, any> = {
   },
   payment: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    // verifyPayment reconciles an unconfirmable capture via
+    // `updateMany(...).catch(...)` — must be a promise.
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   },
   notificationLog: {
     create: jest.fn(),
   },
   statusHistory: {
     create: jest.fn(),
+    createMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
   contactEnquiry: {
     findMany: jest.fn(),
