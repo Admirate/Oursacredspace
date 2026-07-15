@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  Search, 
-  Filter, 
-  Loader2, 
-  Calendar, 
-  Mail, 
+import {
+  Search,
+  Filter,
+  Loader2,
+  Calendar,
+  Mail,
   Phone,
   ChevronLeft,
   ChevronRight,
-  Eye
+  Eye,
+  Users
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,11 @@ const formatDateTime = (date: string): string => {
     hour12: true,
   });
 };
+
+// Seats/passes reserved by a booking. SPACE bookings reserve no seats, so they
+// show a dash. Legacy single-seat bookings have no quantity → treated as 1.
+const seatsDisplay = (type: string, quantity?: number): string =>
+  type === "SPACE" ? "–" : String(quantity ?? 1);
 
 const getStatusBadge = (status: string) => {
   const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
@@ -194,6 +200,7 @@ export default function AdminBookingsPage() {
                       <TableHead>Booking ID</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Type</TableHead>
+                      <TableHead>Seats</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Date</TableHead>
@@ -213,6 +220,7 @@ export default function AdminBookingsPage() {
                           </div>
                         </TableCell>
                         <TableCell>{getTypeBadge(booking.type)}</TableCell>
+                        <TableCell className="text-sm tabular-nums">{seatsDisplay(booking.type, booking.quantity)}</TableCell>
                         <TableCell>{getStatusBadge(booking.status)}</TableCell>
                         <TableCell>{booking.amountPaise ? formatPrice(booking.amountPaise) : "-"}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{formatDate(booking.createdAt)}</TableCell>
@@ -247,6 +255,12 @@ export default function AdminBookingsPage() {
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
                         {getTypeBadge(booking.type)}
+                        {booking.type !== "SPACE" && (
+                          <span className="flex items-center gap-1 tabular-nums">
+                            <Users className="h-3 w-3" />
+                            {booking.quantity ?? 1}
+                          </span>
+                        )}
                         <span className="font-mono">{booking.id.slice(0, 8).toUpperCase()}</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -330,6 +344,14 @@ export default function AdminBookingsPage() {
                     <p>
                       <span className="text-muted-foreground">Event:</span>{" "}
                       {selectedBooking.event.title}
+                    </p>
+                  )}
+                  {selectedBooking.type !== "SPACE" && (
+                    <p>
+                      <span className="text-muted-foreground">
+                        {selectedBooking.type === "EVENT" ? "Passes:" : "Seats:"}
+                      </span>{" "}
+                      <span className="font-medium">{selectedBooking.quantity ?? 1}</span>
                     </p>
                   )}
                   {selectedBooking.amountPaise && (

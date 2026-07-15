@@ -2,6 +2,7 @@ import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
 import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS } from "./helpers/security";
+import { occupiesSeatWhere } from "./helpers/bookingHold";
 
 export const handler: Handler = async (event) => {
   const headers = getAdminHeaders(event);
@@ -69,19 +70,34 @@ export const handler: Handler = async (event) => {
         capacity: true,
         active: true,
         createdAt: true,
-        _count: {
-          select: { 
-            bookings: true,
-          },
-        },
       },
     });
 
+    // Derived occupancy: SUM(quantity) of seat-occupying bookings (CONFIRMED +
+    // unexpired PENDING holds), multi-seat aware. Mirrors getEvents so the true
+    // pass count is reported — not an unfiltered booking row count.
+    const grouped = await prisma.booking.groupBy({
+      by: ["eventId"],
+      where: {
+        eventId: { in: events.map((e) => e.id) },
+        ...occupiesSeatWhere(),
+      },
+      _sum: { quantity: true },
+    });
+    const bookedByEvent = new Map(
+      grouped.map((g) => [g.eventId, g._sum.quantity ?? 0])
+    );
+
     const eventsWithStats = events.map((event) => {
       const endTime = event.endsAt || event.startsAt;
+      const bookedCount = bookedByEvent.get(event.id) ?? 0;
+      const availableSpots =
+        event.capacity !== null ? Math.max(0, event.capacity - bookedCount) : null;
 
       return {
         ...event,
+        bookedCount,
+        availableSpots,
         isExpired: endTime < now,
       };
     });

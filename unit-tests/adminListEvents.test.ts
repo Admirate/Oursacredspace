@@ -73,7 +73,53 @@ describe("adminListEvents handler", () => {
     expect(body.data[0].title).toBe("Open Mic");
   });
 
-  // ── Stats computation ──
+  // ── Derived occupancy (P5 fix) ──
+  // Occupancy must be the true seat count: SUM(quantity) of seat-occupying
+  // bookings (multi-seat aware), NOT an unfiltered booking row count.
+
+  it("returns a derived bookedCount summed from seat-occupying bookings", async () => {
+    (prisma.event.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (prisma.event.findMany as jest.Mock).mockResolvedValue([
+      makeEventRecord({ id: "evt-1", capacity: 50, _count: { bookings: 99 } }),
+    ]);
+    // e.g. one booking of 8 passes + one of 4 = 12 seats occupied
+    (prisma.booking.groupBy as jest.Mock).mockResolvedValue([
+      { eventId: "evt-1", _sum: { quantity: 12 } },
+    ]);
+
+    const res = await handler(makeEvent(), {} as any);
+    const body = JSON.parse(res!.body!);
+    expect(body.data[0].bookedCount).toBe(12);
+    expect(body.data[0].availableSpots).toBe(38); // 50 - 12
+  });
+
+  it("returns null availableSpots for unlimited-capacity events", async () => {
+    (prisma.event.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (prisma.event.findMany as jest.Mock).mockResolvedValue([
+      makeEventRecord({ id: "evt-1", capacity: null }),
+    ]);
+    (prisma.booking.groupBy as jest.Mock).mockResolvedValue([
+      { eventId: "evt-1", _sum: { quantity: 6 } },
+    ]);
+
+    const res = await handler(makeEvent(), {} as any);
+    const body = JSON.parse(res!.body!);
+    expect(body.data[0].bookedCount).toBe(6);
+    expect(body.data[0].availableSpots).toBeNull();
+  });
+
+  it("reports bookedCount 0 when an event has no seat-occupying bookings", async () => {
+    (prisma.event.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (prisma.event.findMany as jest.Mock).mockResolvedValue([
+      makeEventRecord({ id: "evt-1", capacity: 30 }),
+    ]);
+    (prisma.booking.groupBy as jest.Mock).mockResolvedValue([]);
+
+    const res = await handler(makeEvent(), {} as any);
+    const body = JSON.parse(res!.body!);
+    expect(body.data[0].bookedCount).toBe(0);
+    expect(body.data[0].availableSpots).toBe(30);
+  });
 
   // ── isExpired logic ──
 

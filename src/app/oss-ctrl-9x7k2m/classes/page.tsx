@@ -810,7 +810,7 @@ export default function AdminClassesPage() {
                         <TableCell>
                           {classItem.capacity === null || classItem.capacity === undefined
                             ? <span className="text-muted-foreground text-xs">Unlimited</span>
-                            : `${classItem.spotsBooked}/${classItem.capacity}`}
+                            : `${classItem.bookedCount ?? 0}/${classItem.capacity}`}
                         </TableCell>
                         <TableCell>
                           {formatPrice(classItem.pricePaise)}
@@ -912,7 +912,7 @@ export default function AdminClassesPage() {
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-muted-foreground pl-0.5">
                       <div><span className="font-medium text-foreground">Schedule:</span> {formatScheduleColumn(classItem)}</div>
                       <div><span className="font-medium text-foreground">Time:</span> {formatTimeSlotsColumn(classItem)}</div>
-                      <div><span className="font-medium text-foreground">Capacity:</span> {classItem.capacity == null ? "Unlimited" : `${classItem.spotsBooked}/${classItem.capacity}`}</div>
+                      <div><span className="font-medium text-foreground">Capacity:</span> {classItem.capacity == null ? "Unlimited" : `${classItem.bookedCount ?? 0}/${classItem.capacity}`}</div>
                       <div><span className="font-medium text-foreground">Price:</span> {formatPrice(classItem.pricePaise)}{classItem.pricingType === "PER_MONTH" ? "/mo" : "/session"}</div>
                       {classItem.endsAt && (
                         <div className="col-span-2"><span className="font-medium text-foreground">Ends:</span> {new Date(classItem.endsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>

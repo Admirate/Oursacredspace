@@ -89,6 +89,14 @@ describe("adminListBookings handler", () => {
     expect(body.data.totalPages).toBe(1);
   });
 
+  // ── Selected fields ──
+
+  it("selects the per-booking seat quantity so the dashboard can show seats", async () => {
+    await handler(makeEvent(), {} as any);
+    const args = (prisma.booking.findMany as jest.Mock).mock.calls[0][0];
+    expect(args.select.quantity).toBe(true);
+  });
+
   // ── Pagination ──
 
   it("defaults to page 1, limit 20", async () => {

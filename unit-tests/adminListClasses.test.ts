@@ -131,6 +131,69 @@ describe("adminListClasses handler", () => {
     expect(body.data[0].isExpired).toBe(true);
   });
 
+  // ── Derived occupancy (P5 fix) ──
+  // Admin occupancy must be the true seat count: SUM(quantity) of seat-occupying
+  // bookings, NOT the dead spots_booked column and NOT an unfiltered row count.
+
+  it("returns a derived bookedCount summed from seat-occupying bookings", async () => {
+    const cls = makeClass({
+      id: "cls-1",
+      capacity: 20,
+      spotsBooked: 5, // dead column — must be ignored
+      _count: { bookings: 99 }, // unfiltered row count — must be ignored
+      startsAt: new Date(Date.now() + hours(24)),
+    });
+    (prisma.classSession.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (prisma.classSession.count as jest.Mock).mockResolvedValue(1);
+    (prisma.classSession.findMany as jest.Mock).mockResolvedValue([cls]);
+    // e.g. one booking of 3 seats + one of 4 = 7 seats occupied
+    (prisma.booking.groupBy as jest.Mock).mockResolvedValue([
+      { classSessionId: "cls-1", _sum: { quantity: 7 } },
+    ]);
+
+    const response = await handler(makeEvent(), {} as any);
+    const body = JSON.parse(response!.body!);
+    expect(body.data[0].bookedCount).toBe(7);
+    expect(body.data[0].availableSpots).toBe(13); // 20 - 7
+  });
+
+  it("reports null availableSpots for unlimited-capacity classes", async () => {
+    const cls = makeClass({
+      id: "cls-1",
+      capacity: null,
+      startsAt: new Date(Date.now() + hours(24)),
+    });
+    (prisma.classSession.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (prisma.classSession.count as jest.Mock).mockResolvedValue(1);
+    (prisma.classSession.findMany as jest.Mock).mockResolvedValue([cls]);
+    (prisma.booking.groupBy as jest.Mock).mockResolvedValue([
+      { classSessionId: "cls-1", _sum: { quantity: 4 } },
+    ]);
+
+    const response = await handler(makeEvent(), {} as any);
+    const body = JSON.parse(response!.body!);
+    expect(body.data[0].bookedCount).toBe(4);
+    expect(body.data[0].availableSpots).toBeNull();
+  });
+
+  it("reports bookedCount 0 when a class has no seat-occupying bookings", async () => {
+    const cls = makeClass({
+      id: "cls-1",
+      capacity: 10,
+      spotsBooked: 3,
+      startsAt: new Date(Date.now() + hours(24)),
+    });
+    (prisma.classSession.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (prisma.classSession.count as jest.Mock).mockResolvedValue(1);
+    (prisma.classSession.findMany as jest.Mock).mockResolvedValue([cls]);
+    (prisma.booking.groupBy as jest.Mock).mockResolvedValue([]); // no seat-occupying bookings
+
+    const response = await handler(makeEvent(), {} as any);
+    const body = JSON.parse(response!.body!);
+    expect(body.data[0].bookedCount).toBe(0);
+    expect(body.data[0].availableSpots).toBe(10);
+  });
+
   // ── Auto-deactivation: non-recurring classes ──
 
   it("auto-deactivates non-recurring class with startsAt > 24h ago and no endsAt", async () => {

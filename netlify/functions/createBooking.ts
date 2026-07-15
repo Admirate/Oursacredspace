@@ -12,7 +12,11 @@ import {
 } from "./helpers/security";
 import { isDbRateLimited } from "./helpers/dbRateLimit";
 import { withSentry } from "./helpers/logger";
-import { sendResumePaymentLink, sendSpaceRequestNotification } from "./helpers/notifications";
+import {
+  sendBookingConfirmation,
+  sendResumePaymentLink,
+  sendSpaceRequestNotification,
+} from "./helpers/notifications";
 import {
   occupiesSeatWhere,
   expireStaleHolds,
@@ -448,6 +452,14 @@ const _handler: Handler = async (event) => {
       };
     }
 
+    // A zero-price CLASS/EVENT has no payment step that could ever confirm it.
+    // Parking it in PENDING_PAYMENT means the seat-hold expiry sweep silently
+    // kills it, so the customer's "successful" booking vanishes. Confirm it at
+    // creation instead. SPACE requests are admin-approved separately and are
+    // never auto-confirmed here.
+    const isFreeConfirmable =
+      validatedData.type !== BookingType.SPACE && amountPaise === 0;
+
     // Use a transaction with SELECT FOR UPDATE for atomic capacity check
     const booking = await prisma.$transaction(async (tx) => {
       // SEC (concurrency): serialize bookings for this resource BEFORE the
@@ -530,16 +542,22 @@ const _handler: Handler = async (event) => {
           status:
             validatedData.type === BookingType.SPACE
               ? BookingStatus.REQUESTED
-              : BookingStatus.PENDING_PAYMENT,
+              : isFreeConfirmable
+                ? BookingStatus.CONFIRMED
+                : BookingStatus.PENDING_PAYMENT,
           customerName: validatedData.name,
           customerPhone: validatedData.phone,
           customerEmail: validatedData.email,
           amountPaise,
           currency: "INR",
           quantity: validatedData.quantity,
-          // SPACE bookings reserve no inventory, so they hold nothing.
+          // Only an unpaid PENDING_PAYMENT booking holds seats on a deadline.
+          // SPACE reserves no inventory, and a free booking is already CONFIRMED
+          // (it occupies its seat as CONFIRMED) — neither needs a payment hold.
           holdExpiresAt:
-            validatedData.type === BookingType.SPACE ? null : newHoldExpiry(),
+            validatedData.type === BookingType.SPACE || isFreeConfirmable
+              ? null
+              : newHoldExpiry(),
           classSessionId: validatedData.classSessionId,
           eventId: validatedData.eventId,
           spaceRequestId,
@@ -553,7 +571,9 @@ const _handler: Handler = async (event) => {
           fromStatus: "NONE",
           toStatus: newBooking.status,
           changedBy: "SYSTEM",
-          reason: "Booking created",
+          reason: isFreeConfirmable
+            ? "Free booking — auto-confirmed (no payment required)"
+            : "Booking created",
         },
       });
 
@@ -577,6 +597,28 @@ const _handler: Handler = async (event) => {
         });
       } catch (notifyErr) {
         console.error("Space request notification failed:", notifyErr);
+      }
+    }
+
+    // Free CLASS/EVENT bookings are CONFIRMED at creation (no payment step), so
+    // send the confirmation email here — mirroring the paid path's post-payment
+    // send in verifyPayment/razorpayWebhook. Re-fetch with the relations
+    // sendBookingConfirmation needs (title/date/venue). Best-effort: a mail
+    // failure must never fail the booking the customer just made.
+    if (isFreeConfirmable) {
+      try {
+        const confirmed = await prisma.booking.findUnique({
+          where: { id: booking.booking.id },
+          include: {
+            classSession: { select: { title: true, startsAt: true, location: true, duration: true } },
+            event: { select: { title: true, startsAt: true, venue: true, endsAt: true } },
+          },
+        });
+        if (confirmed) {
+          await sendBookingConfirmation(confirmed);
+        }
+      } catch (notifyErr) {
+        console.error("Free booking confirmation email failed:", notifyErr);
       }
     }
 

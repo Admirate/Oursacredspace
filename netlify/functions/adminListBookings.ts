@@ -126,6 +126,9 @@ export const handler: Handler = async (event) => {
           customerEmail: true,
           amountPaise: true,
           currency: true,
+          // Seats/passes reserved by this booking (1 for legacy single-seat
+          // bookings). Surfaced in the admin Bookings table.
+          quantity: true,
           createdAt: true,
           classSession: { select: { title: true } },
           event: { select: { title: true } },

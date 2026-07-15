@@ -2,6 +2,7 @@ import { Handler } from "@netlify/functions";
 import { prisma } from "./helpers/prisma";
 import { verifyAdminSession, unauthorizedResponse, getAdminHeaders } from "./helpers/verifyAdmin";
 import { getClientIP, isRateLimited, rateLimitResponse, RATE_LIMITS } from "./helpers/security";
+import { occupiesSeatWhere } from "./helpers/bookingHold";
 
 export const handler: Handler = async (event) => {
   const headers = getAdminHeaders(event);
@@ -93,13 +94,31 @@ export const handler: Handler = async (event) => {
         pricePaise: true,
         active: true,
         createdAt: true,
-        _count: { select: { bookings: true } },
       },
     });
 
+    // Derived occupancy: SUM(quantity) of seat-occupying bookings (CONFIRMED +
+    // unexpired PENDING holds), multi-seat aware. Mirrors getClasses so admins
+    // see the SAME true figure the public pages do — not the dead spots_booked
+    // column, and not an unfiltered booking row count.
+    const grouped = await prisma.booking.groupBy({
+      by: ["classSessionId"],
+      where: {
+        classSessionId: { in: classes.map((c) => c.id) },
+        ...occupiesSeatWhere(),
+      },
+      _sum: { quantity: true },
+    });
+    const bookedByClass = new Map(
+      grouped.map((g) => [g.classSessionId, g._sum.quantity ?? 0])
+    );
+
     const classesWithExpiry = classes.map((c) => {
       const endTime = c.endsAt || new Date(c.startsAt.getTime() + c.duration * 60 * 1000);
-      return { ...c, isExpired: endTime < now };
+      const bookedCount = bookedByClass.get(c.id) ?? 0;
+      const availableSpots =
+        c.capacity !== null ? Math.max(0, c.capacity - bookedCount) : null;
+      return { ...c, bookedCount, availableSpots, isExpired: endTime < now };
     });
 
     return {

@@ -24,8 +24,10 @@ jest.mock("../netlify/functions/helpers/dbRateLimit", () => ({
 }));
 
 // SEC-004: the resume path emails a link instead of returning a token.
+// Free (zero-price) bookings confirm immediately and send a confirmation email.
 jest.mock("../netlify/functions/helpers/notifications", () => ({
   sendResumePaymentLink: jest.fn().mockResolvedValue({ ok: true }),
+  sendBookingConfirmation: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("../netlify/functions/helpers/security", () => ({
@@ -48,7 +50,7 @@ jest.mock("../netlify/functions/helpers/security", () => ({
 import { handler } from "../netlify/functions/createBooking";
 import { prisma } from "./__mocks__/prisma";
 import { isDbRateLimited } from "../netlify/functions/helpers/dbRateLimit";
-import { sendResumePaymentLink } from "../netlify/functions/helpers/notifications";
+import { sendResumePaymentLink, sendBookingConfirmation } from "../netlify/functions/helpers/notifications";
 
 const makeEvent = (overrides: Partial<HandlerEvent> = {}): HandlerEvent => ({
   rawUrl: "http://localhost:8888/.netlify/functions/createBooking",
@@ -937,5 +939,122 @@ describe("createBooking handler", () => {
       expect(created.holdExpiresAt).toBeInstanceOf(Date);
       expect(created.holdExpiresAt.getTime()).toBeGreaterThan(Date.now());
     });
+  });
+});
+
+// ── P7: free (zero-price) bookings auto-confirm ──
+// A CLASS/EVENT priced at 0 has no payment step, so parking it in
+// PENDING_PAYMENT means the expiry sweep silently kills it. Confirm it at
+// creation instead, and email the confirmation like the paid path does.
+describe("createBooking — free (zero-price) bookings", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (prisma.$transaction as jest.Mock).mockImplementation((fn: any) => fn(prisma));
+    (prisma.booking.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.booking.aggregate as jest.Mock).mockResolvedValue({ _sum: { quantity: 0 } });
+    (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
+  });
+
+  it("auto-confirms a free CLASS booking as CONFIRMED with no payment hold", async () => {
+    (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass({ pricePaise: 0 }));
+    (prisma.booking.create as jest.Mock).mockResolvedValue(
+      makeBooking({ id: "bkg-free-1", status: "CONFIRMED", amountPaise: 0 })
+    );
+    (prisma.booking.findUnique as jest.Mock).mockResolvedValue(
+      makeBooking({
+        id: "bkg-free-1", status: "CONFIRMED", amountPaise: 0,
+        classSession: { title: "Free Yoga", startsAt: new Date(), location: "Studio", duration: 60 },
+      })
+    );
+
+    const response = await handler(
+      makeEvent({ body: JSON.stringify(validClassBody) }),
+      {} as any
+    );
+
+    expect(response!.statusCode).toBe(200);
+    const created = (prisma.booking.create as jest.Mock).mock.calls[0][0].data;
+    expect(created.status).toBe("CONFIRMED");
+    expect(created.holdExpiresAt).toBeNull();
+    expect(created.amountPaise).toBe(0);
+
+    const body = JSON.parse(response!.body!);
+    expect(body.success).toBe(true);
+    expect(body.data.requiresPayment).toBe(false);
+    expect(body.data.bookingId).toBe("bkg-free-1");
+  });
+
+  it("writes a CONFIRMED audit row for a free booking", async () => {
+    (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass({ pricePaise: 0 }));
+    (prisma.booking.create as jest.Mock).mockResolvedValue(
+      makeBooking({ id: "bkg-free-2", status: "CONFIRMED", amountPaise: 0 })
+    );
+    (prisma.booking.findUnique as jest.Mock).mockResolvedValue(
+      makeBooking({
+        id: "bkg-free-2", status: "CONFIRMED",
+        classSession: { title: "Free Yoga", startsAt: new Date(), location: null, duration: 60 },
+      })
+    );
+
+    await handler(makeEvent({ body: JSON.stringify(validClassBody) }), {} as any);
+
+    // Assert on the handler-controlled `reason` (not `toStatus`, which is derived
+    // from the mocked create() return value and so would test the mock).
+    const audit = (prisma.statusHistory.create as jest.Mock).mock.calls[0][0].data;
+    expect(audit.reason).toMatch(/auto-confirm/i);
+    expect(audit.changedBy).toBe("SYSTEM");
+  });
+
+  it("sends a confirmation email for a free CLASS booking", async () => {
+    (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass({ pricePaise: 0 }));
+    (prisma.booking.create as jest.Mock).mockResolvedValue(
+      makeBooking({ id: "bkg-free-3", status: "CONFIRMED", amountPaise: 0 })
+    );
+    const confirmedBooking = makeBooking({
+      id: "bkg-free-3", status: "CONFIRMED", amountPaise: 0,
+      classSession: { title: "Free Yoga", startsAt: new Date(), location: "Studio", duration: 60 },
+    });
+    (prisma.booking.findUnique as jest.Mock).mockResolvedValue(confirmedBooking);
+
+    await handler(makeEvent({ body: JSON.stringify(validClassBody) }), {} as any);
+
+    expect(sendBookingConfirmation as jest.Mock).toHaveBeenCalledTimes(1);
+    expect(sendBookingConfirmation as jest.Mock).toHaveBeenCalledWith(confirmedBooking);
+  });
+
+  it("auto-confirms a free EVENT booking", async () => {
+    (prisma.event.findUnique as jest.Mock).mockResolvedValue(makeEvent_({ pricePaise: 0 }));
+    (prisma.booking.create as jest.Mock).mockResolvedValue(
+      makeBooking({ id: "bkg-free-4", type: "EVENT", status: "CONFIRMED", amountPaise: 0 })
+    );
+    (prisma.booking.findUnique as jest.Mock).mockResolvedValue(
+      makeBooking({
+        id: "bkg-free-4", type: "EVENT", status: "CONFIRMED",
+        event: { title: "Free Show", startsAt: new Date(), venue: "Hall", endsAt: null },
+      })
+    );
+
+    const response = await handler(makeEvent({ body: JSON.stringify(validEventBody) }), {} as any);
+
+    expect(response!.statusCode).toBe(200);
+    const created = (prisma.booking.create as jest.Mock).mock.calls[0][0].data;
+    expect(created.status).toBe("CONFIRMED");
+    expect(created.holdExpiresAt).toBeNull();
+  });
+
+  it("still creates a PAID CLASS booking as PENDING_PAYMENT with a hold and no email", async () => {
+    (prisma.classSession.findUnique as jest.Mock).mockResolvedValue(makeClass({ pricePaise: 50000 }));
+    (prisma.booking.create as jest.Mock).mockResolvedValue(makeBooking());
+
+    const response = await handler(makeEvent({ body: JSON.stringify(validClassBody) }), {} as any);
+
+    expect(response!.statusCode).toBe(200);
+    const created = (prisma.booking.create as jest.Mock).mock.calls[0][0].data;
+    expect(created.status).toBe("PENDING_PAYMENT");
+    expect(created.holdExpiresAt).toBeInstanceOf(Date);
+
+    const body = JSON.parse(response!.body!);
+    expect(body.data.requiresPayment).toBe(true);
+    expect(sendBookingConfirmation as jest.Mock).not.toHaveBeenCalled();
   });
 });
