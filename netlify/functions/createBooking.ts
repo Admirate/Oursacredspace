@@ -195,7 +195,15 @@ const _handler: Handler = async (event) => {
       const [eventRecord, eventBooked] = await Promise.all([
         prisma.event.findUnique({
           where: { id: validatedData.eventId },
-          select: { id: true, active: true, capacity: true, pricePaise: true, deletedAt: true },
+          select: {
+            id: true,
+            active: true,
+            capacity: true,
+            pricePaise: true,
+            pairPricePaise: true,
+            maxSeatsPerBooking: true,
+            deletedAt: true,
+          },
         }),
         // Sum of seats already reserved (multi-seat aware), not a row count.
         prisma.booking.aggregate({
@@ -230,6 +238,24 @@ const _handler: Handler = async (event) => {
         };
       }
 
+      // Per-event seat cap. This endpoint is public, so the cap MUST be
+      // enforced here — the stepper in the browser is UX only and a
+      // hand-crafted POST would otherwise sail past it.
+      if (
+        eventRecord.maxSeatsPerBooking !== null &&
+        validatedData.quantity > eventRecord.maxSeatsPerBooking
+      ) {
+        const cap = eventRecord.maxSeatsPerBooking;
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: `This event allows a maximum of ${cap} seat${cap === 1 ? "" : "s"} per booking`,
+          }),
+        };
+      }
+
       if (
         eventRecord.capacity !== null &&
         eventBookedSeats + validatedData.quantity > eventRecord.capacity
@@ -248,7 +274,13 @@ const _handler: Handler = async (event) => {
         };
       }
 
-      amountPaise = eventRecord.pricePaise * validatedData.quantity;
+      // Group offer: a flat total for exactly 2 seats (e.g. Rs.699/2 people)
+      // instead of 2 x the per-person price. Events without an offer keep
+      // straight multiplication at every quantity.
+      amountPaise =
+        validatedData.quantity === 2 && eventRecord.pairPricePaise !== null
+          ? eventRecord.pairPricePaise
+          : eventRecord.pricePaise * validatedData.quantity;
     }
 
     // === Handle SPACE booking ===

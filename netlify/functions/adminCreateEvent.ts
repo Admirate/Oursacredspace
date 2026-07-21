@@ -12,6 +12,10 @@ const createEventSchema = z.object({
   endsAt: z.string().optional().nullable(),
   venue: z.string().min(2).max(200),
   pricePaise: z.number().min(0),
+  // Optional group offer: flat total for exactly 2 seats.
+  pairPricePaise: z.number().min(0).optional().nullable(),
+  // Optional per-booking seat cap. Omitted means the global max of 10.
+  maxSeatsPerBooking: z.number().int().min(1).max(10).optional().nullable(),
   capacity: z.number().min(1).max(10000).optional().nullable(),
   active: z.boolean().default(true),
 });
@@ -56,6 +60,8 @@ export const handler: Handler = async (event) => {
         endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
         venue: data.venue,
         pricePaise: data.pricePaise,
+        pairPricePaise: data.pairPricePaise,
+        maxSeatsPerBooking: data.maxSeatsPerBooking,
         capacity: data.capacity,
         active: data.active,
       },

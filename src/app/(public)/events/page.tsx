@@ -334,15 +334,29 @@ const EventCard = ({
           >
             {isPast ? "Past" : isSoldOut ? "Sold Out" : passesRemaining ? `${passesRemaining} spots left` : "Available"}
           </span>
-          <span 
-            className="bg-white/95 text-gray-900 px-3 py-1 rounded-full text-lg font-bold shadow-lg transition-all duration-300"
-            style={{
-              transform: isHovered ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.9)',
-              transitionDelay: '150ms',
-            }}
-          >
-            {formatPrice(event.pricePaise)}
-          </span>
+          <div className="flex flex-col items-end gap-1.5">
+            <span
+              className="bg-white/95 text-gray-900 px-3 py-1 rounded-full text-lg font-bold shadow-lg transition-all duration-300"
+              style={{
+                transform: isHovered ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.9)',
+                transitionDelay: '150ms',
+              }}
+            >
+              {formatPrice(event.pricePaise)}
+            </span>
+            {/* Group offer, so the deal is visible without opening the dialog. */}
+            {event.pairPricePaise != null && (
+              <span
+                className="bg-green-600/95 text-white px-2.5 py-0.5 rounded-full text-xs font-semibold shadow-lg whitespace-nowrap transition-all duration-300"
+                style={{
+                  transform: isHovered ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.9)',
+                  transitionDelay: '200ms',
+                }}
+              >
+                {formatPrice(event.pairPricePaise)} for 2
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Bottom Section - Details & Book Button */}
@@ -549,8 +563,22 @@ export default function EventsPage() {
     selectedEvent && selectedEvent.capacity != null
       ? (selectedEvent.availableSpots ?? Math.max(0, selectedEvent.capacity - selectedBooked))
       : null;
-  const maxQty = Math.max(1, Math.min(10, selectedAvailable ?? 10));
-  const totalPaise = selectedEvent ? selectedEvent.pricePaise * quantity : 0;
+  // Per-event seat cap (e.g. a couples-only offer) narrows the global max of 10.
+  // Display only — createBooking enforces the same cap server-side.
+  const seatCap = selectedEvent?.maxSeatsPerBooking ?? 10;
+  const maxQty = Math.max(1, Math.min(seatCap, selectedAvailable ?? seatCap));
+
+  // Mirrors the pricing rule in netlify/functions/createBooking.ts. The server
+  // is authoritative for the charged amount; this only drives what we show.
+  const pairApplies =
+    !!selectedEvent && quantity === 2 && selectedEvent.pairPricePaise != null;
+  const totalPaise = !selectedEvent
+    ? 0
+    : pairApplies
+      ? selectedEvent.pairPricePaise!
+      : selectedEvent.pricePaise * quantity;
+  const pairSavingsPaise =
+    pairApplies && selectedEvent ? selectedEvent.pricePaise * 2 - totalPaise : 0;
 
   const handleSubmit = (formData: BookingFormData) => {
     if (!selectedEvent || isSubmitting) return;
@@ -859,7 +887,13 @@ export default function EventsPage() {
                     </span>
                     <br />
                     <span className="font-semibold text-primary">
-                      {formatPrice(selectedEvent.pricePaise)}
+                      {formatPrice(selectedEvent.pricePaise)} per person
+                      {selectedEvent.pairPricePaise != null && (
+                        <span className="text-green-600">
+                          {" · "}
+                          {formatPrice(selectedEvent.pairPricePaise)} for 2
+                        </span>
+                      )}
                     </span>
                   </>
                 ) : (
@@ -966,11 +1000,25 @@ export default function EventsPage() {
               </div>
 
               {/* Total */}
-              <div className="flex items-center justify-between border-t pt-3">
-                <span className="text-sm text-muted-foreground">
-                  {quantity} × {selectedEvent ? formatPrice(selectedEvent.pricePaise) : ""}
-                </span>
-                <span className="text-lg font-bold text-primary">{formatPrice(totalPaise)}</span>
+              <div className="border-t pt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    {pairApplies
+                      ? "2 people (group price)"
+                      : `${quantity} × ${selectedEvent ? formatPrice(selectedEvent.pricePaise) : ""}`}
+                  </span>
+                  <span className="text-lg font-bold text-primary">{formatPrice(totalPaise)}</span>
+                </div>
+                {pairSavingsPaise > 0 && (
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground line-through">
+                      {selectedEvent ? formatPrice(selectedEvent.pricePaise * 2) : ""}
+                    </span>
+                    <span className="text-sm font-medium text-green-600">
+                      You save {formatPrice(pairSavingsPaise)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 pt-2">

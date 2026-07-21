@@ -32,7 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -52,6 +52,15 @@ const eventFormSchema = z.object({
   venue: z.string().min(2, "Venue is required"),
   capacity: z.coerce.number().min(1, "Capacity must be at least 1").optional(),
   pricePaise: z.coerce.number().min(0, "Price must be 0 or more"),
+  // Optional group offer: the total for exactly 2 seats, e.g. Rs.699/2 people.
+  pairPricePaise: z.coerce.number().min(0, "Price must be 0 or more").optional(),
+  // Optional per-booking seat cap. Blank means the global max of 10.
+  maxSeatsPerBooking: z.coerce
+    .number()
+    .int()
+    .min(1, "Must be at least 1")
+    .max(10, "Cannot exceed 10")
+    .optional(),
 });
 
 type EventFormData = z.infer<typeof eventFormSchema>;
@@ -304,6 +313,9 @@ export default function AdminEventsPage() {
       venue: data.venue,
       capacity: data.capacity || null,
       pricePaise: data.pricePaise * 100,
+      // Blank clears the offer/cap rather than sending 0.
+      pairPricePaise: data.pairPricePaise ? data.pairPricePaise * 100 : null,
+      maxSeatsPerBooking: data.maxSeatsPerBooking || null,
       active: true,
     };
 
@@ -329,6 +341,8 @@ export default function AdminEventsPage() {
       venue: event.venue,
       capacity: event.capacity || undefined,
       pricePaise: event.pricePaise / 100,
+      pairPricePaise: event.pairPricePaise != null ? event.pairPricePaise / 100 : undefined,
+      maxSeatsPerBooking: event.maxSeatsPerBooking ?? undefined,
     });
     setIsDialogOpen(true);
   };
@@ -582,6 +596,55 @@ export default function AdminEventsPage() {
                         <FormControl>
                           <Input type="number" min="0" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="pairPricePaise"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price for 2 people (₹)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="Leave blank for none"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Group offer charged instead of 2 × the per-person price.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="maxSeatsPerBooking"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max seats per booking</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="10"
+                            placeholder="10"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Blank allows up to 10.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

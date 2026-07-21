@@ -491,6 +491,98 @@ describe("createBooking handler", () => {
     expect(body.data.requiresPayment).toBe(true);
   });
 
+  // ── EVENT group pricing ──
+  //
+  // Paper Dates advertises "Rs.399/person, Rs.699/2 people". Before
+  // pairPricePaise existed the handler charged a flat pricePaise * quantity,
+  // so two seats cost Rs.798 and the advertised offer was unbuyable.
+  describe("pair pricing", () => {
+    // Mirrors the live Paper Dates configuration.
+    const paperDates = (overrides: any = {}) =>
+      makeEvent_({
+        pricePaise: 39900,
+        pairPricePaise: 69900,
+        maxSeatsPerBooking: 2,
+        ...overrides,
+      });
+
+    const bookQty = async (event: any, quantity?: number) => {
+      (prisma.event.findUnique as jest.Mock).mockResolvedValue(event);
+      (prisma.booking.create as jest.Mock).mockResolvedValue(
+        makeBooking({ type: "EVENT" })
+      );
+      (prisma.statusHistory.create as jest.Mock).mockResolvedValue({});
+      return handler(
+        makeEvent({
+          body: JSON.stringify(
+            quantity === undefined
+              ? validEventBody
+              : { ...validEventBody, quantity }
+          ),
+        }),
+        {} as any
+      );
+    };
+
+    const chargedPaise = () =>
+      (prisma.booking.create as jest.Mock).mock.calls[0][0].data.amountPaise;
+
+    it("charges the flat pair price for exactly 2 seats", async () => {
+      const response = await bookQty(paperDates(), 2);
+
+      expect(response!.statusCode).toBe(200);
+      // The whole point: Rs.699, not 2 x Rs.399 = Rs.798.
+      expect(chargedPaise()).toBe(69900);
+    });
+
+    it("charges the per-person price for a single seat", async () => {
+      const response = await bookQty(paperDates(), 1);
+
+      expect(response!.statusCode).toBe(200);
+      expect(chargedPaise()).toBe(39900);
+    });
+
+    it("rejects a quantity above the event's seat cap", async () => {
+      const response = await bookQty(paperDates(), 3);
+
+      expect(response!.statusCode).toBe(400);
+      const body = JSON.parse(response!.body!);
+      expect(body.error).toBe(
+        "This event allows a maximum of 2 seats per booking"
+      );
+      expect(prisma.booking.create).not.toHaveBeenCalled();
+    });
+
+    // The seat stepper in the browser caps quantity, but createBooking is a
+    // public endpoint — the cap has to hold against a hand-crafted POST.
+    it("rejects a capped event even when the request bypasses the UI", async () => {
+      const response = await bookQty(paperDates(), 10);
+
+      expect(response!.statusCode).toBe(400);
+      expect(prisma.booking.create).not.toHaveBeenCalled();
+    });
+
+    it("leaves events without a pair price on straight multiplication", async () => {
+      const response = await bookQty(
+        makeEvent_({ pricePaise: 20000, pairPricePaise: null, maxSeatsPerBooking: null }),
+        2
+      );
+
+      expect(response!.statusCode).toBe(200);
+      expect(chargedPaise()).toBe(40000);
+    });
+
+    it("allows up to 10 seats when the event sets no cap", async () => {
+      const response = await bookQty(
+        makeEvent_({ pricePaise: 20000, pairPricePaise: null, maxSeatsPerBooking: null }),
+        10
+      );
+
+      expect(response!.statusCode).toBe(200);
+      expect(chargedPaise()).toBe(200000);
+    });
+  });
+
   // ── SPACE booking ──
 
   it("returns 400 when preferredSlots is missing for SPACE booking", async () => {

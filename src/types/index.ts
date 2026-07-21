@@ -118,6 +118,10 @@ export interface Event {
   endsAt?: string | null;
   venue: string;
   pricePaise: number;
+  /** Flat total charged when exactly 2 seats are booked. Null = no group offer. */
+  pairPricePaise?: number | null;
+  /** Per-booking seat cap. Null falls back to the global max of 10. */
+  maxSeatsPerBooking?: number | null;
   capacity?: number | null;
   passesIssued?: number;
   bookedCount?: number;

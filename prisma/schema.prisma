@@ -213,6 +213,16 @@ model Event {
   endsAt      DateTime?   @map("ends_at") @db.Timestamptz(3)
   venue       String
   pricePaise  Int         @map("price_paise")
+
+  // Optional group offer: the TOTAL charged when exactly 2 seats are booked,
+  // e.g. "Rs.399/person, Rs.699/2 people" on the Paper Dates poster. NULL means
+  // the event has no group offer and every seat costs pricePaise.
+  pairPricePaise Int?     @map("pair_price_paise")
+
+  // Optional per-booking seat cap. NULL falls back to the global max of 10.
+  // Set to 2 on events whose group offer only makes sense for a pair.
+  maxSeatsPerBooking Int? @map("max_seats_per_booking")
+
   capacity    Int?
   active      Boolean     @default(true)
 

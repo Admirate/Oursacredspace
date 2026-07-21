@@ -13,6 +13,10 @@ const updateEventSchema = z.object({
   endsAt: z.string().optional().nullable(),
   venue: z.string().min(2).max(200).optional(),
   pricePaise: z.number().min(0).optional(),
+  // Optional group offer: flat total for exactly 2 seats. null clears it.
+  pairPricePaise: z.number().min(0).optional().nullable(),
+  // Optional per-booking seat cap. null falls back to the global max of 10.
+  maxSeatsPerBooking: z.number().int().min(1).max(10).optional().nullable(),
   capacity: z.number().min(1).max(10000).optional().nullable(),
   active: z.boolean().optional(),
 });
