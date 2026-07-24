@@ -401,8 +401,8 @@ export default function AdminEventsPage() {
               Add Event
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
+          <DialogContent className="inset-0 flex h-[100dvh] max-h-[100dvh] max-w-none translate-x-0 translate-y-0 flex-col gap-0 border-0 p-0 [&>button]:top-[max(1rem,env(safe-area-inset-top))] sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border">
+            <DialogHeader className="shrink-0 border-b px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] pr-12 text-left sm:border-b-0 sm:px-6 sm:pb-0 sm:pt-6">
               <DialogTitle>{editingEvent ? "Edit Event" : "Add New Event"}</DialogTitle>
               <DialogDescription>
                 {editingEvent ? "Update event details" : "Create a new event"}
@@ -410,7 +410,14 @@ export default function AdminEventsPage() {
             </DialogHeader>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(handleSubmit)}
+                className="flex min-h-0 flex-1 flex-col"
+              >
+                <div
+                  data-testid="event-dialog-scroll-region"
+                  className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6"
+                >
                 <FormField
                   control={form.control}
                   name="title"
@@ -469,7 +476,7 @@ export default function AdminEventsPage() {
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="startsAt"
@@ -521,7 +528,7 @@ export default function AdminEventsPage() {
                 </div>
 
                 {/* End Date / Time */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="endsAt"
@@ -572,7 +579,7 @@ export default function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="capacity"
@@ -602,7 +609,7 @@ export default function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="pairPricePaise"
@@ -651,7 +658,9 @@ export default function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4">
+                </div>
+
+                <div className="flex shrink-0 gap-3 border-t bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-6">
                   <Button type="button" variant="outline" className="flex-1" onClick={handleDialogClose}>
                     Cancel
                   </Button>
